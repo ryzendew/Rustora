@@ -60,6 +60,19 @@ enum Commands {
         /// Package names to remove
         packages: Vec<String>,
     },
+    /// Show Flatpak installation dialog (internal use)
+    FlatpakInstallDialog {
+        /// Application ID to install
+        application_id: String,
+        /// Optional remote name
+        #[arg(long)]
+        remote: Option<String>,
+    },
+    /// Show Flatpak removal dialog (internal use)
+    FlatpakRemoveDialog {
+        /// Application IDs to remove
+        application_ids: Vec<String>,
+    },
 }
 
 #[tokio::main]
@@ -130,6 +143,24 @@ async fn main() -> Result<()> {
             PackageDialog::run_separate_window(packages)?;
             Ok(())
         }
+        Some(Commands::FlatpakInstallDialog { application_id, remote }) => {
+            // Ensure fonts are installed
+            if let Err(e) = gui::fonts::ensure_fonts().await {
+                eprintln!("Warning: Failed to install fonts: {}", e);
+            }
+            use crate::gui::flatpak_dialog::FlatpakDialog;
+            FlatpakDialog::run_separate_window(application_id, remote)?;
+            Ok(())
+        }
+        Some(Commands::FlatpakRemoveDialog { application_ids }) => {
+            // Ensure fonts are installed
+            if let Err(e) = gui::fonts::ensure_fonts().await {
+                eprintln!("Warning: Failed to install fonts: {}", e);
+            }
+            use crate::gui::flatpak_remove_dialog::FlatpakRemoveDialog;
+            FlatpakRemoveDialog::run_separate_window(application_ids)?;
+            Ok(())
+        }
         Some(cmd) => {
             if let Err(e) = match cmd {
                 Commands::Search { query, details } => search_packages(&query, details),
@@ -139,6 +170,8 @@ async fn main() -> Result<()> {
                 Commands::Update { all } => update_packages(all),
                 Commands::Gui { .. } => unreachable!(),
                 Commands::RemoveDialog { .. } => unreachable!(),
+                Commands::FlatpakInstallDialog { .. } => unreachable!(),
+                Commands::FlatpakRemoveDialog { .. } => unreachable!(),
             } {
                 eprintln!("{}: {}", "Error".red().bold(), e);
                 std::process::exit(1);

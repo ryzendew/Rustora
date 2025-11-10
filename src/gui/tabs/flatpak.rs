@@ -200,14 +200,35 @@ impl FlatpakTab {
                 if self.selected_packages.is_empty() {
                     return iced::Command::none();
                 }
-                self.is_installing = true;
+                // Spawn separate window for Flatpak installation
+                // Install packages one by one (open dialog for first, others can be queued)
                 let packages: Vec<String> = self.selected_packages.iter().cloned().collect();
-                iced::Command::perform(install_flatpaks(packages), |result| {
-                    match result {
-                        Ok(_) => Message::InstallComplete,
-                        Err(e) => Message::Error(e.to_string()),
-                    }
-                })
+                if let Some(first_pkg) = packages.first() {
+                    // Find the remote for this package from search results
+                    let remote = self.search_results
+                        .iter()
+                        .find(|p| &p.application_id == first_pkg)
+                        .and_then(|p| p.remote.clone());
+                    
+                    let app_id = first_pkg.clone();
+                    let remote_clone = remote.clone();
+                    iced::Command::perform(
+                        async move {
+                            use tokio::process::Command as TokioCommand;
+                            let exe_path = std::env::current_exe()
+                                .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            let mut cmd = TokioCommand::new(&exe_path);
+                            cmd.arg("flatpak-install-dialog").arg(&app_id);
+                            if let Some(ref r) = remote_clone {
+                                cmd.arg("--remote").arg(r);
+                            }
+                            let _ = cmd.spawn();
+                        },
+                        |_| Message::InstallComplete,
+                    )
+                } else {
+                    iced::Command::none()
+                }
             }
             Message::InstallComplete => {
                 self.is_installing = false;
@@ -239,14 +260,21 @@ impl FlatpakTab {
                 if self.selected_packages.is_empty() {
                     return iced::Command::none();
                 }
-                self.is_removing = true;
+                // Spawn separate window for Flatpak removal
                 let packages: Vec<String> = self.selected_packages.iter().cloned().collect();
-                iced::Command::perform(remove_flatpaks(packages), |result| {
-                    match result {
-                        Ok(_) => Message::RemoveComplete,
-                        Err(e) => Message::Error(e.to_string()),
-                    }
-                })
+                iced::Command::perform(
+                    async move {
+                        use tokio::process::Command as TokioCommand;
+                        let exe_path = std::env::current_exe()
+                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                        let _ = TokioCommand::new(&exe_path)
+                            .arg("flatpak-remove-dialog")
+                            .args(packages)
+                            .spawn()
+                            .ok();
+                    },
+                    |_| Message::RemoveComplete,
+                )
             }
             Message::RemoveComplete => {
                 self.is_removing = false;
@@ -948,6 +976,7 @@ async fn search_flatpaks(query: String) -> Result<Vec<FlatpakInfo>, String> {
     Ok(results)
 }
 
+#[allow(dead_code)]
 async fn install_flatpaks(packages: Vec<String>) -> Result<(), String> {
     // Use --assumeyes (-y) for non-interactive installation
     // Use --app flag to ensure we're installing applications
@@ -1008,6 +1037,7 @@ async fn load_installed_flatpaks() -> Result<Vec<FlatpakInfo>, String> {
     Ok(packages)
 }
 
+#[allow(dead_code)]
 async fn remove_flatpaks(packages: Vec<String>) -> Result<(), String> {
     // Use --assumeyes (-y) for non-interactive uninstallation
     // Use --app flag to ensure we're uninstalling applications
