@@ -1,0 +1,37 @@
+# Rust
+/target/
+**/*.rs.bk
+# Cargo.lock should be committed for applications
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Temporary files
+/tmp/
+*.tmp
+*.log
+
+# User-specific
+*.orig
+*.rej
+
+# Font cache (fonts are auto-downloaded on first run)
+# Don't commit downloaded fonts
+
+# Generated files
+fedoraforge.desktop
