@@ -3,11 +3,12 @@ use iced::{Alignment, Application, Command, Element, Length, Padding, Theme as I
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
-use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab};
+use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab};
 use crate::gui::Theme as AppTheme;
 use crate::gui::tabs::search;
 use crate::gui::tabs::installed;
 use crate::gui::tabs::update;
+use crate::gui::tabs::flatpak;
 use crate::gui::rpm_dialog::RpmDialog;
 use std::path::PathBuf;
 
@@ -53,6 +54,7 @@ pub enum Message {
     SearchTabMessage(search::Message),
     InstalledTabMessage(installed::Message),
     UpdateTabMessage(update::Message),
+    FlatpakTabMessage(flatpak::Message),
     ThemeToggled,
     OpenRpmFilePicker,
     RpmFileSelected(Option<PathBuf>),
@@ -63,6 +65,7 @@ pub enum Tab {
     Search,
     Installed,
     Update,
+    Flatpak,
 }
 
 #[derive(Debug)]
@@ -71,6 +74,7 @@ pub struct FedoraForgeApp {
     search_tab: SearchTab,
     installed_tab: InstalledTab,
     update_tab: UpdateTab,
+    flatpak_tab: FlatpakTab,
     theme: AppTheme,
     #[allow(dead_code)]
     rpm_dialog: Option<RpmDialog>,
@@ -94,6 +98,7 @@ impl Application for FedoraForgeApp {
                 search_tab: SearchTab::new(),
                 installed_tab,
                 update_tab: UpdateTab::new(),
+                flatpak_tab: FlatpakTab::new(),
                 theme: AppTheme::Dark,
                 rpm_dialog: None,
             },
@@ -124,6 +129,9 @@ impl Application for FedoraForgeApp {
             }
             Message::UpdateTabMessage(msg) => {
                 self.update_tab.update(msg).map(Message::UpdateTabMessage)
+            }
+            Message::FlatpakTabMessage(msg) => {
+                self.flatpak_tab.update(msg).map(Message::FlatpakTabMessage)
             }
             Message::ThemeToggled => {
                 self.theme = match self.theme {
@@ -240,6 +248,21 @@ impl Application for FedoraForgeApp {
             })))
             .padding(Padding::new(14.0));
 
+        let flatpak_icon = text(glyphs::INSTALLED_SYMBOL).font(material_font);
+        let flatpak_button = button(
+            row![
+                flatpak_icon,
+                text(" Flatpak")
+            ]
+            .spacing(4)
+            .align_items(Alignment::Center)
+        )
+            .on_press(Message::TabSelected(Tab::Flatpak))
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: self.current_tab == Tab::Flatpak,
+            })))
+            .padding(Padding::new(14.0));
+
         let tab_bar = container(
             row![
                 text("FedoraForge").size(20).style(iced::theme::Text::Color(self.theme.primary())),
@@ -247,6 +270,7 @@ impl Application for FedoraForgeApp {
                 search_button,
                 installed_button,
                 update_button,
+                flatpak_button,
                 Space::with_width(Length::Fill),
                 install_rpm_button,
                 theme_button,
@@ -262,6 +286,7 @@ impl Application for FedoraForgeApp {
             Tab::Search => self.search_tab.view(&self.theme).map(Message::SearchTabMessage),
             Tab::Installed => self.installed_tab.view(&self.theme).map(Message::InstalledTabMessage),
             Tab::Update => self.update_tab.view(&self.theme).map(Message::UpdateTabMessage),
+            Tab::Flatpak => self.flatpak_tab.view(&self.theme).map(Message::FlatpakTabMessage),
         };
 
         container(column![tab_bar, content].spacing(0))
