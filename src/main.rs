@@ -10,6 +10,10 @@ use iced::Application;
 #[derive(Parser)]
 #[command(name = "fedoraforge", about = "FedoraForge - A modern package manager for Fedora", version)]
 struct Cli {
+    /// RPM file to open (when opened from file manager)
+    #[arg(value_name = "RPM_FILE")]
+    rpm_file: Option<String>,
+    
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -60,6 +64,11 @@ enum Commands {
         /// Package names to remove
         packages: Vec<String>,
     },
+    /// Show package installation dialog (internal use)
+    InstallDialog {
+        /// Package names to install
+        packages: Vec<String>,
+    },
     /// Show Flatpak installation dialog (internal use)
     FlatpakInstallDialog {
         /// Application ID to install
@@ -78,6 +87,30 @@ enum Commands {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+    
+    // Check if an RPM file was passed as a positional argument (from file manager)
+    if let Some(rpm_file) = cli.rpm_file {
+        let rpm_path = Path::new(&rpm_file).to_path_buf();
+        if !rpm_path.exists() {
+            return Err(anyhow::anyhow!("RPM file not found: {}", rpm_file));
+        }
+        // Verify it's actually an RPM file
+        if let Some(ext) = rpm_path.extension() {
+            if ext.to_string_lossy().to_lowercase() != "rpm" {
+                return Err(anyhow::anyhow!("File is not an RPM file: {}", rpm_file));
+            }
+        } else {
+            return Err(anyhow::anyhow!("File does not have an extension: {}", rpm_file));
+        }
+        // Ensure fonts are installed
+        if let Err(e) = gui::fonts::ensure_fonts().await {
+            eprintln!("Warning: Failed to install fonts: {}", e);
+        }
+        use crate::gui::rpm_dialog::RpmDialog;
+        RpmDialog::run_separate_window(rpm_path)?;
+        return Ok(());
+    }
+    
     match cli.command {
         None => {
             // Default to GUI when no command is provided
@@ -143,6 +176,15 @@ async fn main() -> Result<()> {
             PackageDialog::run_separate_window(packages)?;
             Ok(())
         }
+        Some(Commands::InstallDialog { packages }) => {
+            // Ensure InterVariable font is installed
+            if let Err(e) = gui::fonts::ensure_fonts().await {
+                eprintln!("Warning: Failed to install InterVariable font: {}", e);
+            }
+            use crate::gui::install_dialog::InstallDialog;
+            InstallDialog::run_separate_window(packages)?;
+            Ok(())
+        }
         Some(Commands::FlatpakInstallDialog { application_id, remote }) => {
             // Ensure fonts are installed
             if let Err(e) = gui::fonts::ensure_fonts().await {
@@ -170,6 +212,7 @@ async fn main() -> Result<()> {
                 Commands::Update { all } => update_packages(all),
                 Commands::Gui { .. } => unreachable!(),
                 Commands::RemoveDialog { .. } => unreachable!(),
+                Commands::InstallDialog { .. } => unreachable!(),
                 Commands::FlatpakInstallDialog { .. } => unreachable!(),
                 Commands::FlatpakRemoveDialog { .. } => unreachable!(),
             } {

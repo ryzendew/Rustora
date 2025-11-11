@@ -1,6 +1,7 @@
-use iced::widget::{button, checkbox, column, container, row, scrollable, text, text_input};
+use iced::widget::{button, checkbox, column, container, row, scrollable, text, text_input, Space};
 use iced::{Alignment, Element, Length, Padding, Border};
 use iced::widget::container::Appearance;
+use futures::future;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
 use iced::widget::checkbox::Appearance as CheckboxAppearance;
@@ -24,6 +25,10 @@ pub struct PackageInfo {
     pub name: String,
     pub description: String,
     pub version: String,
+    pub release: String,
+    pub arch: String,
+    pub summary: String,
+    pub size: String,
 }
 
 #[derive(Debug)]
@@ -93,19 +98,38 @@ impl SearchTab {
                 if self.selected_packages.is_empty() {
                     return iced::Command::none();
                 }
-                self.is_installing = true;
+                // Spawn a separate window for package installation
                 let packages: Vec<String> = self.selected_packages.iter().cloned().collect();
-                iced::Command::perform(install_packages(packages), |result| {
-                    match result {
-                        Ok(_) => Message::InstallComplete,
-                        Err(e) => Message::Error(e.to_string()),
-                    }
-                })
+                iced::Command::perform(
+                    async move {
+                        use tokio::process::Command as TokioCommand;
+                        let exe_path = std::env::current_exe()
+                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                        TokioCommand::new(&exe_path)
+                            .arg("install-dialog")
+                            .args(packages)
+                            .spawn()
+                            .ok();
+                    },
+                    |_| Message::InstallComplete, // Dummy message
+                )
             }
             Message::InstallComplete => {
                 self.is_installing = false;
                 self.selected_packages.clear();
-                iced::Command::none()
+                // Refresh search results after installation
+                if !self.search_query.trim().is_empty() {
+                    let query = self.search_query.clone();
+                    self.is_searching = true;
+                    iced::Command::perform(search_packages(query), |result| {
+                        match result {
+                            Ok(packages) => Message::SearchResult(packages),
+                            Err(e) => Message::Error(e),
+                        }
+                    })
+                } else {
+                    iced::Command::none()
+                }
             }
             Message::Error(_msg) => {
                 // Error occurred, just reset state
@@ -115,7 +139,7 @@ impl SearchTab {
         }
     }
 
-    pub fn view(&self, _theme: &crate::gui::Theme) -> Element<'_, Message> {
+    pub fn view(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
         let search_input = text_input("Search packages...", &self.search_query)
             .on_input(Message::SearchQueryChanged)
             .on_submit(Message::Search)
@@ -204,31 +228,140 @@ impl SearchTab {
                         self.packages
                             .iter()
                             .map(|pkg| {
-                                let pkg_name = pkg.name.clone();
                                 let pkg_name_for_toggle = pkg.name.clone();
                                 let is_selected = self.selected_packages.contains(&pkg.name);
+                                
+                                // Professional card layout
                                 let checkbox_widget = checkbox("", is_selected)
                                     .on_toggle(move |_| Message::TogglePackage(pkg_name_for_toggle.clone()))
                                     .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle)));
-                                container(
+                                
+                                // Package header with name and version
+                                let version_info: Element<Message> = if !pkg.version.is_empty() || !pkg.release.is_empty() {
+                                    let version_text = if !pkg.version.is_empty() && !pkg.release.is_empty() {
+                                        format!("{} {}", pkg.version, pkg.release)
+                                    } else if !pkg.version.is_empty() {
+                                        pkg.version.clone()
+                                    } else {
+                                        pkg.release.clone()
+                                    };
                                     row![
-                                        checkbox_widget,
-                                        text(&pkg_name).size(16).width(Length::FillPortion(2)),
-                                        text(&pkg.version).size(14).width(Length::FillPortion(1)),
-                                        text(&pkg.description).size(14).width(Length::FillPortion(4)),
+                                        text("Version:")
+                                            .size(12)
+                                            .style(iced::theme::Text::Color(iced::Color::from_rgba(0.6, 0.6, 0.6, 1.0))),
+                                        text(&version_text)
+                                            .size(12),
                                     ]
-                                    .spacing(12)
-                                    .align_items(Alignment::Center)
-                                    .padding(12)
+                                    .spacing(6)
+                                    .into()
+                                } else {
+                                    Space::with_height(Length::Shrink).into()
+                                };
+                                
+                                let header = row![
+                                    checkbox_widget,
+                                    column![
+                                        row![
+                                            text(&pkg.name)
+                                                .size(17)
+                                                .style(iced::theme::Text::Color(theme.primary()))
+                                                .width(Length::Fill),
+                                        ]
+                                        .width(Length::Fill)
+                                        .spacing(8),
+                                        version_info,
+                                    ]
+                                    .spacing(4)
+                                    .width(Length::Fill),
+                                ]
+                                .spacing(12)
+                                .align_items(Alignment::Start)
+                                .width(Length::Fill);
+                                
+                                // Package details section
+                                let details = if !pkg.summary.is_empty() || !pkg.description.is_empty() {
+                                    let summary_text = if !pkg.summary.is_empty() {
+                                        &pkg.summary
+                                    } else {
+                                        &pkg.description
+                                    };
+                                    // Truncate long descriptions
+                                    let display_text = if summary_text.len() > 120 {
+                                        format!("{}...", &summary_text[..120])
+                                    } else {
+                                        summary_text.clone()
+                                    };
+                                    
+                                    column![
+                                        text(&display_text)
+                                            .size(13)
+                                            .shaping(iced::widget::text::Shaping::Advanced)
+                                            .width(Length::Fill),
+                                    ]
+                                    .spacing(4)
+                                    .width(Length::Fill)
+                                } else {
+                                    column![].spacing(0).width(Length::Fill)
+                                };
+                                
+                                // Package metadata (arch, size)
+                                let arch_info: Element<Message> = if !pkg.arch.is_empty() {
+                                    row![
+                                        text("Arch:")
+                                            .size(11)
+                                            .style(iced::theme::Text::Color(iced::Color::from_rgba(0.6, 0.6, 0.6, 1.0))),
+                                        text(&pkg.arch)
+                                            .size(11),
+                                    ]
+                                    .spacing(4)
+                                    .into()
+                                } else {
+                                    Space::with_width(Length::Shrink).into()
+                                };
+                                
+                                let size_info: Element<Message> = if !pkg.size.is_empty() {
+                                    row![
+                                        text("Size:")
+                                            .size(11)
+                                            .style(iced::theme::Text::Color(iced::Color::from_rgba(0.6, 0.6, 0.6, 1.0))),
+                                        text(&pkg.size)
+                                            .size(11),
+                                    ]
+                                    .spacing(4)
+                                    .into()
+                                } else {
+                                    Space::with_width(Length::Shrink).into()
+                                };
+                                
+                                let metadata = row![
+                                    arch_info,
+                                    Space::with_width(Length::Fill),
+                                    size_info,
+                                ]
+                                .width(Length::Fill)
+                                .spacing(8);
+                                
+                                container(
+                                    column![
+                                        header,
+                                        Space::with_height(Length::Fixed(8.0)),
+                                        details,
+                                        Space::with_height(Length::Fixed(6.0)),
+                                        metadata,
+                                    ]
+                                    .spacing(0)
+                                    .padding(Padding::new(16.0))
+                                    .width(Length::Fill)
                                 )
-                                .style(iced::theme::Container::Custom(Box::new(PackageItemStyle {
+                                .style(iced::theme::Container::Custom(Box::new(PackageCardStyle {
                                     is_selected,
                                 })))
+                                .width(Length::Fill)
                                 .into()
                             })
                             .collect::<Vec<_>>(),
                     )
-                    .spacing(6)
+                    .spacing(10)
                     .padding(10),
                 )
                 .into()
@@ -255,7 +388,7 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut results = Vec::new();
+    let mut package_names = Vec::new();
 
     for line in stdout.lines() {
         let line = line.trim();
@@ -272,59 +405,211 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
         };
         if parts.len() == 2 {
             let name = parts[0].trim();
-            let desc = parts[1].trim();
             let pkg_name = name.split('.').next().unwrap_or(name);
-            results.push(PackageInfo {
-                name: pkg_name.to_string(),
-                description: desc.to_string(),
-                version: String::new(),
-            });
+            package_names.push(pkg_name.to_string());
         }
     }
 
-    results.sort_by(|a, b| a.name.cmp(&b.name));
-    results.dedup_by(|a, b| a.name == b.name);
-    Ok(results)
-}
-
-async fn install_packages(packages: Vec<String>) -> Result<(), String> {
-    let status = tokio::process::Command::new("sudo")
-        .arg("dnf")
-        .arg("install")
-        .arg("-y")
-        .args(&packages)
-        .status()
-        .await
-        .map_err(|e| format!("Failed to execute dnf install: {}", e))?;
-
-    if !status.success() {
-        return Err("Package installation failed".to_string());
+    // Remove duplicates
+    package_names.sort();
+    package_names.dedup();
+    
+    // Limit to first 50 packages for performance
+    if package_names.len() > 50 {
+        package_names.truncate(50);
     }
-    Ok(())
+
+    // Fetch detailed info for each package in parallel
+    let mut futures = Vec::new();
+    for package_name in package_names {
+        let name = package_name.clone();
+        futures.push(async move {
+            load_package_details(name).await
+        });
+    }
+    
+    // Wait for all to complete
+    let results: Vec<Result<PackageInfo, String>> = future::join_all(futures).await;
+    
+    // Collect successful results
+    let mut packages = Vec::new();
+    for result in results {
+        match result {
+            Ok(info) => packages.push(info),
+            Err(_) => {
+                // Skip packages that fail to load details
+            }
+        }
+    }
+    
+    packages.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(packages)
 }
 
-struct PackageItemStyle {
+async fn load_package_details(package_name: String) -> Result<PackageInfo, String> {
+    // Use dnf info to get detailed package information
+    let output = tokio::process::Command::new("dnf")
+        .args(["info", &package_name])
+        .output()
+        .await
+        .map_err(|e| format!("Failed to execute dnf: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!("Failed to read package info: {}", String::from_utf8_lossy(&output.stderr)));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut info = PackageInfo {
+        name: package_name.clone(),
+        description: String::new(),
+        version: String::new(),
+        release: String::new(),
+        arch: String::new(),
+        summary: String::new(),
+        size: String::new(),
+    };
+
+    let mut description_lines = Vec::new();
+    let mut in_description = false;
+
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.starts_with("Name") && line.contains(':') {
+            let name = line.splitn(2, ':').nth(1).unwrap_or("").trim();
+            if !name.is_empty() {
+                info.name = name.to_string();
+            }
+            in_description = false;
+        } else if line.starts_with("Version") && line.contains(':') {
+            info.version = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
+            in_description = false;
+        } else if line.starts_with("Release") && line.contains(':') {
+            info.release = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
+            in_description = false;
+        } else if line.starts_with("Architecture") && line.contains(':') {
+            info.arch = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
+            in_description = false;
+        } else if line.starts_with("Summary") && line.contains(':') {
+            info.summary = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
+            in_description = false;
+        } else if (line.starts_with("Installed size") || line.starts_with("Download size") || line.starts_with("Size")) && line.contains(':') {
+            let size_str = line.splitn(2, ':').nth(1).unwrap_or("").trim();
+            if line.starts_with("Installed size") || info.size.is_empty() {
+                if let Ok(size_bytes) = parse_size(size_str) {
+                    info.size = format_size(size_bytes);
+                } else {
+                    info.size = size_str.to_string();
+                }
+            }
+            in_description = false;
+        } else if line.starts_with("Description") && line.contains(':') {
+            in_description = true;
+            let desc = line.splitn(2, ':').nth(1).unwrap_or("").trim();
+            if !desc.is_empty() {
+                description_lines.push(desc.to_string());
+            }
+        } else if in_description {
+            if line.starts_with("               :") {
+                let desc_cont = line.trim_start_matches("               :").trim();
+                if !desc_cont.is_empty() {
+                    description_lines.push(desc_cont.to_string());
+                }
+            } else if line.contains(':') {
+                let field_name = line.split(':').next().unwrap_or("").trim();
+                let known_fields = ["URL", "License", "Vendor", "Source", "Repository", "Epoch"];
+                if known_fields.iter().any(|&f| field_name.starts_with(f)) ||
+                   (field_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) && 
+                    field_name.len() < 20 &&
+                    !field_name.eq_ignore_ascii_case("description")) {
+                    in_description = false;
+                } else {
+                    description_lines.push(line.to_string());
+                }
+            } else {
+                description_lines.push(line.to_string());
+            }
+        }
+    }
+
+    info.description = description_lines.join(" ").trim().to_string();
+    if info.description.is_empty() {
+        info.description = info.summary.clone();
+    }
+    if info.summary.is_empty() && !info.description.is_empty() {
+        // Use first part of description as summary if summary is empty
+        let summary_len = info.description.len().min(100);
+        info.summary = info.description[..summary_len].to_string();
+    }
+
+    Ok(info)
+}
+
+fn parse_size(size_str: &str) -> Result<u64, ()> {
+    let size_str = size_str.trim();
+    let parts: Vec<&str> = size_str.split_whitespace().collect();
+    if parts.is_empty() {
+        return Err(());
+    }
+    
+    let number: f64 = parts[0].parse().map_err(|_| ())?;
+    let unit = if parts.len() > 1 {
+        parts[1].to_lowercase()
+    } else {
+        "b".to_string()
+    };
+    
+    let multiplier = match unit.as_str() {
+        "k" | "kb" | "kib" => 1024.0,
+        "m" | "mb" | "mib" => 1024.0 * 1024.0,
+        "g" | "gb" | "gib" => 1024.0 * 1024.0 * 1024.0,
+        "t" | "tb" | "tib" => 1024.0 * 1024.0 * 1024.0 * 1024.0,
+        _ => 1.0,
+    };
+    
+    Ok((number * multiplier) as u64)
+}
+
+fn format_size(bytes: u64) -> String {
+    const UNITS: &[&str] = &["B", "KB", "MB", "GB"];
+    let mut size = bytes as f64;
+    let mut unit_index = 0;
+
+    while size >= 1024.0 && unit_index < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit_index += 1;
+    }
+
+    format!("{:.2} {}", size, UNITS[unit_index])
+}
+
+
+struct PackageCardStyle {
     is_selected: bool,
 }
 
-impl iced::widget::container::StyleSheet for PackageItemStyle {
+impl iced::widget::container::StyleSheet for PackageCardStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, style: &Self::Style) -> Appearance {
         let palette = style.palette();
         Appearance {
             background: Some(iced::Background::Color(if self.is_selected {
-                iced::Color::from_rgba(palette.primary.r, palette.primary.g, palette.primary.b, 0.1)
+                iced::Color::from_rgba(palette.primary.r, palette.primary.g, palette.primary.b, 0.15)
             } else {
-                palette.background
+                iced::Color::from_rgba(
+                    palette.background.r * 0.98,
+                    palette.background.g * 0.98,
+                    palette.background.b * 0.98,
+                    1.0,
+                )
             })),
             border: Border {
-                radius: 16.0.into(),
-                width: 1.0,
+                radius: 12.0.into(),
+                width: if self.is_selected { 2.0 } else { 1.0 },
                 color: if self.is_selected {
                     palette.primary
                 } else {
-                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2)
+                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
                 },
             },
             ..Default::default()
