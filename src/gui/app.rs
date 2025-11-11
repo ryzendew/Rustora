@@ -3,12 +3,13 @@ use iced::{Alignment, Application, Command, Element, Length, Padding, Theme as I
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
-use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab};
+use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab, MaintenanceTab};
 use crate::gui::Theme as AppTheme;
 use crate::gui::tabs::search;
 use crate::gui::tabs::installed;
 use crate::gui::tabs::update;
 use crate::gui::tabs::flatpak;
+use crate::gui::tabs::maintenance;
 use crate::gui::rpm_dialog::RpmDialog;
 use std::path::PathBuf;
 
@@ -55,6 +56,7 @@ pub enum Message {
     InstalledTabMessage(installed::Message),
     UpdateTabMessage(update::Message),
     FlatpakTabMessage(flatpak::Message),
+    MaintenanceTabMessage(maintenance::Message),
     ThemeToggled,
     OpenRpmFilePicker,
     RpmFileSelected(Option<PathBuf>),
@@ -66,6 +68,7 @@ pub enum Tab {
     Installed,
     Update,
     Flatpak,
+    Maintenance,
 }
 
 #[derive(Debug)]
@@ -75,6 +78,7 @@ pub struct FedoraForgeApp {
     installed_tab: InstalledTab,
     update_tab: UpdateTab,
     flatpak_tab: FlatpakTab,
+    maintenance_tab: MaintenanceTab,
     theme: AppTheme,
     #[allow(dead_code)]
     rpm_dialog: Option<RpmDialog>,
@@ -99,6 +103,7 @@ impl Application for FedoraForgeApp {
                 installed_tab,
                 update_tab: UpdateTab::new(),
                 flatpak_tab: FlatpakTab::new(),
+                maintenance_tab: MaintenanceTab::new(),
                 theme: AppTheme::Dark,
                 rpm_dialog: None,
             },
@@ -132,6 +137,9 @@ impl Application for FedoraForgeApp {
             }
             Message::FlatpakTabMessage(msg) => {
                 self.flatpak_tab.update(msg).map(Message::FlatpakTabMessage)
+            }
+            Message::MaintenanceTabMessage(msg) => {
+                self.maintenance_tab.update(msg).map(Message::MaintenanceTabMessage)
             }
             Message::ThemeToggled => {
                 self.theme = match self.theme {
@@ -263,6 +271,21 @@ impl Application for FedoraForgeApp {
             })))
             .padding(Padding::new(14.0));
 
+        let maintenance_icon = text(glyphs::SETTINGS_SYMBOL).font(material_font);
+        let maintenance_button = button(
+            row![
+                maintenance_icon,
+                text(" Maintenance")
+            ]
+            .spacing(4)
+            .align_items(Alignment::Center)
+        )
+            .on_press(Message::TabSelected(Tab::Maintenance))
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: self.current_tab == Tab::Maintenance,
+            })))
+            .padding(Padding::new(14.0));
+
         let tab_bar = container(
             row![
                 text("FedoraForge").size(20).style(iced::theme::Text::Color(self.theme.primary())),
@@ -271,6 +294,7 @@ impl Application for FedoraForgeApp {
                 installed_button,
                 update_button,
                 flatpak_button,
+                maintenance_button,
                 Space::with_width(Length::Fill),
                 install_rpm_button,
                 theme_button,
@@ -287,6 +311,7 @@ impl Application for FedoraForgeApp {
             Tab::Installed => self.installed_tab.view(&self.theme).map(Message::InstalledTabMessage),
             Tab::Update => self.update_tab.view(&self.theme).map(Message::UpdateTabMessage),
             Tab::Flatpak => self.flatpak_tab.view(&self.theme).map(Message::FlatpakTabMessage),
+            Tab::Maintenance => self.maintenance_tab.view(&self.theme).map(Message::MaintenanceTabMessage),
         };
 
         container(column![tab_bar, content].spacing(0))

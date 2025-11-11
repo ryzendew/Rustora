@@ -86,6 +86,11 @@ enum Commands {
     UpdateDialog,
     /// Show update settings dialog (internal use)
     UpdateSettingsDialog,
+    /// Show maintenance dialog (internal use)
+    MaintenanceDialog {
+        /// Maintenance task to perform
+        task: String,
+    },
 }
 
 #[tokio::main]
@@ -225,6 +230,25 @@ async fn main() -> Result<()> {
             UpdateSettingsDialog::run_separate_window()?;
             Ok(())
         }
+        Some(Commands::MaintenanceDialog { task }) => {
+            // Ensure fonts are installed
+            if let Err(e) = gui::fonts::ensure_fonts().await {
+                eprintln!("Warning: Failed to install fonts: {}", e);
+            }
+            use crate::gui::maintenance_dialog::{MaintenanceDialog, MaintenanceTask};
+            let maintenance_task = match task.as_str() {
+                "rebuild-kernel-modules" => MaintenanceTask::RebuildKernelModules,
+                "regenerate-initramfs" => MaintenanceTask::RegenerateInitramfs,
+                "remove-orphaned-packages" => MaintenanceTask::RemoveOrphanedPackages,
+                "clean-package-cache" => MaintenanceTask::CleanPackageCache,
+                _ => {
+                    eprintln!("Unknown maintenance task: {}", task);
+                    return Err(anyhow::anyhow!("Unknown maintenance task: {}", task));
+                }
+            };
+            MaintenanceDialog::run_separate_window(maintenance_task)?;
+            Ok(())
+        }
         Some(cmd) => {
             if let Err(e) = match cmd {
                 Commands::Search { query, details } => search_packages(&query, details),
@@ -239,6 +263,7 @@ async fn main() -> Result<()> {
                 Commands::FlatpakRemoveDialog { .. } => unreachable!(),
                 Commands::UpdateDialog => unreachable!(),
                 Commands::UpdateSettingsDialog => unreachable!(),
+                Commands::MaintenanceDialog { .. } => unreachable!(),
             } {
                 eprintln!("{}: {}", "Error".red().bold(), e);
                 std::process::exit(1);
