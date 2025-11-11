@@ -6,6 +6,8 @@ pub mod package_dialog;
 pub mod install_dialog;
 pub mod flatpak_dialog;
 pub mod flatpak_remove_dialog;
+pub mod update_dialog;
+pub mod update_settings_dialog;
 pub mod fonts;
 
 pub use app::FedoraForgeApp;

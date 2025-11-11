@@ -11,7 +11,7 @@ pub enum Message {
     UpdatesFound(Vec<UpdateInfo>),
     InstallUpdates,
     UpdatesInstalled,
-    Error(String),
+    OpenSettings,
 }
 
 #[derive(Debug, Clone)]
@@ -48,7 +48,7 @@ impl UpdateTab {
                 iced::Command::perform(check_for_updates(), |result| {
                     match result {
                         Ok(updates) => Message::UpdatesFound(updates),
-                        Err(e) => Message::Error(e),
+                        Err(_) => Message::UpdatesFound(Vec::new()),
                     }
                 })
             }
@@ -62,25 +62,42 @@ impl UpdateTab {
                 if self.updates.is_empty() {
                     return iced::Command::none();
                 }
-                self.is_installing = true;
-                iced::Command::perform(install_updates(), |result| {
-                    match result {
-                        Ok(_) => Message::UpdatesInstalled,
-                        Err(e) => Message::Error(e.to_string()),
-                    }
-                })
+                // Spawn a separate window for update installation
+                iced::Command::perform(
+                    async move {
+                        use tokio::process::Command as TokioCommand;
+                        let exe_path = std::env::current_exe()
+                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                        TokioCommand::new(&exe_path)
+                            .arg("update-dialog")
+                            .spawn()
+                            .ok();
+                    },
+                    move |_| {
+                        // Keep the updates list visible in the tab
+                        Message::UpdatesInstalled
+                    },
+                )
             }
             Message::UpdatesInstalled => {
-                self.is_installing = false;
-                self.updates.clear();
-                self.has_updates = false;
+                // Updates are now handled in the dialog window
+                // Optionally refresh the list after installation
                 iced::Command::none()
             }
-            Message::Error(_msg) => {
-                // Error occurred, just reset state
-                self.is_checking = false;
-                self.is_installing = false;
-                iced::Command::none()
+            Message::OpenSettings => {
+                // Spawn a separate window for update settings
+                iced::Command::perform(
+                    async move {
+                        use tokio::process::Command as TokioCommand;
+                        let exe_path = std::env::current_exe()
+                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                        TokioCommand::new(&exe_path)
+                            .arg("update-settings-dialog")
+                            .spawn()
+                            .ok();
+                    },
+                    |_| Message::UpdatesInstalled, // Dummy message
+                )
             }
         }
     }
@@ -156,9 +173,24 @@ impl UpdateTab {
                 .into()
         };
 
-        let header = row![check_button, Space::with_width(Length::Fill), install_button]
-            .spacing(10)
-            .align_items(Alignment::Center);
+        let settings_button = button(
+            text(crate::gui::fonts::glyphs::SETTINGS_SYMBOL).font(material_font)
+        )
+        .on_press(Message::OpenSettings)
+        .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+            is_primary: false,
+        })))
+        .padding(Padding::new(10.0));
+
+        let header = row![
+            check_button,
+            Space::with_width(Length::Fill),
+            settings_button,
+            Space::with_width(Length::Fixed(10.0)),
+            install_button
+        ]
+        .spacing(10)
+        .align_items(Alignment::Center);
 
         let content: Element<Message> = if self.is_checking {
             container(text("Checking for updates...").size(16))
@@ -221,59 +253,80 @@ impl UpdateTab {
 }
 
 async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
-    let output = TokioCommand::new("sudo")
-        .arg("dnf")
-        .args(["check-update", "--refresh", "--assumeyes"])
+    // dnf check-update doesn't require sudo - it just checks what's available
+    // Exit code 100 means updates are available (this is normal, not an error)
+    let output = TokioCommand::new("dnf")
+        .args(["check-update", "--quiet"])
         .output()
         .await
         .map_err(|e| format!("Failed to execute dnf check-update: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     
+    // If stdout is empty, no updates available
     if stdout.trim().is_empty() {
         return Ok(Vec::new());
     }
 
-    let mut updates = Vec::new();
-    let lines: Vec<&str> = stdout.lines().collect();
+    // Get currently installed versions to compare
+    let installed_output = TokioCommand::new("dnf")
+        .args(["list", "--installed", "--quiet"])
+        .output()
+        .await;
     
-    for i in 0..lines.len() {
-        let line = lines[i].trim();
-        if line.is_empty() || line.starts_with("Last metadata") || line.starts_with("Dependencies") {
+    let mut installed_versions = std::collections::HashMap::new();
+    if let Ok(installed) = installed_output {
+        if installed.status.success() {
+            let installed_stdout = String::from_utf8_lossy(&installed.stdout);
+            for line in installed_stdout.lines().skip(1) {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let name = parts[0].split('.').next().unwrap_or(parts[0]);
+                    installed_versions.insert(name.to_string(), parts[1].to_string());
+                }
+            }
+        }
+    }
+
+    let mut updates = Vec::new();
+    
+    // Parse check-update output: "package.arch  version  repository"
+    for line in stdout.lines() {
+        let line = line.trim();
+        // Skip header lines and empty lines
+        if line.is_empty() || 
+           line.starts_with("Last metadata") || 
+           line.starts_with("Dependencies") ||
+           line.starts_with("Upgrade") ||
+           line.starts_with("Obsoleting") ||
+           line.contains("Matched fields:") {
             continue;
         }
+        
+        // Split by whitespace - format is: package.arch  version  repository
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 3 {
-            let name = parts[0].split('.').next().unwrap_or(parts[0]);
-            let current = if i > 0 && !lines[i-1].trim().is_empty() {
-                String::new()
-            } else {
-                String::new()
-            };
+            let full_name = parts[0];
+            let name = full_name.split('.').next().unwrap_or(full_name);
+            let available_version = parts[1].to_string();
+            let repository = parts[2].to_string();
+            
+            // Get current version from installed packages
+            let current_version = installed_versions
+                .get(name)
+                .cloned()
+                .unwrap_or_else(|| "Unknown".to_string());
+            
             updates.push(UpdateInfo {
                 name: name.to_string(),
-                current_version: current,
-                available_version: parts[1].to_string(),
-                repository: parts[2].to_string(),
+                current_version,
+                available_version,
+                repository,
             });
         }
     }
 
     Ok(updates)
-}
-
-async fn install_updates() -> Result<(), String> {
-    let status = TokioCommand::new("sudo")
-        .arg("dnf")
-        .args(["upgrade", "-y"])
-        .status()
-        .await
-        .map_err(|e| format!("Failed to execute dnf upgrade: {}", e))?;
-
-    if !status.success() {
-        return Err("Update installation failed".to_string());
-    }
-    Ok(())
 }
 
 struct RoundedContainerStyle;

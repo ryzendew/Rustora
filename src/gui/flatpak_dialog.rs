@@ -642,12 +642,18 @@ async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String
 async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Result<String, String> {
     let mut cmd = TokioCommand::new("flatpak");
     // Use verbose mode to get more output for debugging
+    // --assumeyes (-y) and --noninteractive for automated installation
     cmd.args(["install", "-y", "--noninteractive", "--verbose"]);
     
+    // If remote is provided, add it before the app_id
+    // Format: flatpak install [OPTIONS] [REMOTE] [REF...]
     if let Some(ref remote_name) = remote {
-        cmd.arg(remote_name);
+        if !remote_name.is_empty() {
+            cmd.arg(remote_name);
+        }
     }
     
+    // Add the application ID (full ref like org.app.id or just the ID)
     cmd.arg(&app_id);
     
     // Log the command being executed
@@ -719,18 +725,39 @@ async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Re
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     let success = status.success();
+    let exit_code = status.code().unwrap_or(-1);
     
     // Write log file
     write_flatpak_log("install", &app_id, remote.as_ref(), &combined_output, success).await;
 
     if !success {
-        return Err(format!("Installation failed:\n{}", combined_output));
+        // Check if it's a known "no updates" or "already installed" case
+        let output_lower = combined_output.to_lowercase();
+        if output_lower.contains("already installed") || 
+           output_lower.contains("is already installed") ||
+           output_lower.contains("nothing to do") {
+            // This is actually a success case
+            return Ok(format!("Application is already installed.\n\n{}", combined_output));
+        }
+        
+        // For other failures, return error with full output
+        return Err(format!("Installation failed (exit code: {}):\n{}", exit_code, combined_output));
     }
 
+    // Success - return the output or a success message
     if combined_output.trim().is_empty() || combined_output.trim() == format!("Command: {}\n--- Output ---\n", command_str).trim() {
         Ok("Installation Complete!".to_string())
     } else {
-        Ok(combined_output)
+        // Check if output indicates success
+        let output_lower = combined_output.to_lowercase();
+        if output_lower.contains("complete") || 
+           output_lower.contains("installed") ||
+           output_lower.contains("success") {
+            Ok(combined_output)
+        } else {
+            // Even if exit code is 0, check output for success indicators
+            Ok(format!("Installation completed.\n\n{}", combined_output))
+        }
     }
 }
 

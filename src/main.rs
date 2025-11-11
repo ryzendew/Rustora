@@ -82,6 +82,10 @@ enum Commands {
         /// Application IDs to remove
         application_ids: Vec<String>,
     },
+    /// Show update dialog (internal use)
+    UpdateDialog,
+    /// Show update settings dialog (internal use)
+    UpdateSettingsDialog,
 }
 
 #[tokio::main]
@@ -203,6 +207,24 @@ async fn main() -> Result<()> {
             FlatpakRemoveDialog::run_separate_window(application_ids)?;
             Ok(())
         }
+        Some(Commands::UpdateDialog) => {
+            // Ensure fonts are installed
+            if let Err(e) = gui::fonts::ensure_fonts().await {
+                eprintln!("Warning: Failed to install fonts: {}", e);
+            }
+            use crate::gui::update_dialog::UpdateDialog;
+            UpdateDialog::run_separate_window()?;
+            Ok(())
+        }
+        Some(Commands::UpdateSettingsDialog) => {
+            // Ensure fonts are installed
+            if let Err(e) = gui::fonts::ensure_fonts().await {
+                eprintln!("Warning: Failed to install fonts: {}", e);
+            }
+            use crate::gui::update_settings_dialog::UpdateSettingsDialog;
+            UpdateSettingsDialog::run_separate_window()?;
+            Ok(())
+        }
         Some(cmd) => {
             if let Err(e) = match cmd {
                 Commands::Search { query, details } => search_packages(&query, details),
@@ -215,6 +237,8 @@ async fn main() -> Result<()> {
                 Commands::InstallDialog { .. } => unreachable!(),
                 Commands::FlatpakInstallDialog { .. } => unreachable!(),
                 Commands::FlatpakRemoveDialog { .. } => unreachable!(),
+                Commands::UpdateDialog => unreachable!(),
+                Commands::UpdateSettingsDialog => unreachable!(),
             } {
                 eprintln!("{}: {}", "Error".red().bold(), e);
                 std::process::exit(1);
