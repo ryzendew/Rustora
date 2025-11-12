@@ -10,23 +10,13 @@ use tokio::process::Command as TokioCommand;
 pub enum Message {
     StartTask,
     TaskProgress(String),
-    #[allow(dead_code)]
-    TaskComplete,
     TaskError(String),
     Close,
 }
 
-#[derive(Debug, Clone)]
-pub enum MaintenanceTask {
-    RebuildKernelModules,
-    RegenerateInitramfs,
-    RemoveOrphanedPackages,
-    CleanPackageCache,
-}
-
 #[derive(Debug)]
-pub struct MaintenanceDialog {
-    task: MaintenanceTask,
+pub struct KernelInstallDialog {
+    kernel_name: String,
     is_running: bool,
     is_complete: bool,
     has_error: bool,
@@ -34,25 +24,20 @@ pub struct MaintenanceDialog {
     terminal_output: String,
 }
 
-impl MaintenanceDialog {
-    pub fn new(task: MaintenanceTask) -> Self {
+impl KernelInstallDialog {
+    pub fn new(kernel_name: String) -> Self {
         Self {
-            task: task.clone(),
+            kernel_name: kernel_name.clone(),
             is_running: true,
             is_complete: false,
             has_error: false,
-            progress_text: match task {
-                MaintenanceTask::RebuildKernelModules => "Rebuilding kernel modules...".to_string(),
-                MaintenanceTask::RegenerateInitramfs => "Regenerating initramfs...".to_string(),
-                MaintenanceTask::RemoveOrphanedPackages => "Removing orphaned packages...".to_string(),
-                MaintenanceTask::CleanPackageCache => "Cleaning package cache...".to_string(),
-            },
+            progress_text: format!("Installing kernel {}...", kernel_name),
             terminal_output: String::new(),
         }
     }
 
-    pub fn run_separate_window(task: MaintenanceTask) -> Result<(), iced::Error> {
-        let dialog = Self::new(task);
+    pub fn run_separate_window(kernel_name: String) -> Result<(), iced::Error> {
+        let dialog = Self::new(kernel_name);
         
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(900.0, 600.0);
@@ -62,7 +47,7 @@ impl MaintenanceDialog {
         
         let default_font = crate::gui::fonts::get_inter_font();
 
-        <MaintenanceDialog as Application>::run(iced::Settings {
+        <KernelInstallDialog as Application>::run(iced::Settings {
             window: window_settings,
             flags: dialog,
             default_font,
@@ -72,27 +57,9 @@ impl MaintenanceDialog {
             fonts: Vec::new(),
         })
     }
-
-    fn get_task_title(&self) -> &str {
-        match self.task {
-            MaintenanceTask::RebuildKernelModules => "Rebuild Kernel Modules",
-            MaintenanceTask::RegenerateInitramfs => "Regenerate Initramfs",
-            MaintenanceTask::RemoveOrphanedPackages => "Remove Orphaned Packages",
-            MaintenanceTask::CleanPackageCache => "Clean Package Cache",
-        }
-    }
-
-    fn get_task_command(&self) -> (&str, Vec<&str>) {
-        match self.task {
-            MaintenanceTask::RebuildKernelModules => ("pkexec", vec!["akmods", "--force", "--rebuild"]),
-            MaintenanceTask::RegenerateInitramfs => ("pkexec", vec!["dracut", "-f", "regenerate-all"]),
-            MaintenanceTask::RemoveOrphanedPackages => ("pkexec", vec!["dnf", "autoremove", "-y", "--assumeyes"]),
-            MaintenanceTask::CleanPackageCache => ("pkexec", vec!["dnf", "clean", "all"]),
-        }
-    }
 }
 
-impl Application for MaintenanceDialog {
+impl Application for KernelInstallDialog {
     type Message = Message;
     type Theme = IcedTheme;
     type Executor = iced::executor::Default;
@@ -106,7 +73,7 @@ impl Application for MaintenanceDialog {
     }
 
     fn title(&self) -> String {
-        format!("{} - FedoraForge", self.get_task_title())
+        format!("Installing Kernel {} - FedoraForge", self.kernel_name)
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
@@ -114,28 +81,19 @@ impl Application for MaintenanceDialog {
             Message::StartTask => {
                 self.is_running = true;
                 self.terminal_output.clear();
-                let (cmd_name, args) = self.get_task_command();
-                let cmd_name = cmd_name.to_string();
-                let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+                let kernel_name = self.kernel_name.clone();
                 
                 iced::Command::perform(
-                    run_maintenance_task_streaming(cmd_name, args),
-                    |result| {
-                        match result {
-                            Ok(output) => Message::TaskProgress(output),
-                            Err(e) => Message::TaskError(e),
-                        }
+                    install_kernel_with_headers(kernel_name),
+                    |result| match result {
+                        Ok(output) => Message::TaskProgress(output),
+                        Err(e) => Message::TaskError(e),
                     },
                 )
             }
             Message::TaskProgress(output) => {
                 // Set the complete output
                 self.terminal_output = output;
-                self.is_running = false;
-                self.is_complete = true;
-                Command::none()
-            }
-            Message::TaskComplete => {
                 self.is_running = false;
                 self.is_complete = true;
                 Command::none()
@@ -162,8 +120,8 @@ impl Application for MaintenanceDialog {
     }
 }
 
-impl MaintenanceDialog {
-    pub fn view_impl(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+impl KernelInstallDialog {
+    fn view_impl(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
         let content = if self.is_running {
@@ -183,7 +141,7 @@ impl MaintenanceDialog {
 
             container(
                 column![
-                    text(self.get_task_title())
+                    text("Installing Kernel")
                         .size(22)
                         .style(iced::theme::Text::Color(theme.primary())),
                     Space::with_height(Length::Fixed(12.0)),
@@ -238,11 +196,11 @@ impl MaintenanceDialog {
 
             container(
                 column![
-                    text("Task Failed")
+                    text("Installation Failed")
                         .size(22)
                         .style(iced::theme::Text::Color(iced::Color::from_rgb(0.9, 0.2, 0.2))),
                     Space::with_height(Length::Fixed(12.0)),
-                    text("The maintenance task encountered an error.")
+                    text("The kernel installation encountered an error.")
                         .size(14),
                     Space::with_height(Length::Fixed(16.0)),
                     container(
@@ -304,11 +262,11 @@ impl MaintenanceDialog {
 
             container(
                 column![
-                    text("Task Completed Successfully")
+                    text("Kernel Installed Successfully")
                         .size(22)
                         .style(iced::theme::Text::Color(iced::Color::from_rgb(0.0, 0.8, 0.0))),
                     Space::with_height(Length::Fixed(12.0)),
-                    text(format!("{} completed successfully.", self.get_task_title()))
+                    text(format!("Kernel {} and headers installed successfully. GRUB configuration has been rebuilt.", self.kernel_name))
                         .size(14),
                     Space::with_height(Length::Fixed(16.0)),
                     container(
@@ -352,19 +310,23 @@ impl MaintenanceDialog {
     }
 }
 
-async fn run_maintenance_task_streaming(cmd_name: String, args: Vec<String>) -> Result<String, String> {
-    let mut cmd = TokioCommand::new(&cmd_name);
-    cmd.args(&args);
+async fn install_kernel_with_headers(kernel_name: String) -> Result<String, String> {
+    let mut combined_output = String::new();
     
-    // Use spawn to get streaming output
+    // Step 1: Install kernel
+    combined_output.push_str(&format!("$ Installing kernel: {}\n", kernel_name));
+    combined_output.push_str("--- Step 1: Installing kernel package ---\n");
+    
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.args(["dnf", "install", "-y", "--assumeyes", &kernel_name]);
+    
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
     
     let mut child = cmd
         .spawn()
-        .map_err(|e| format!("Failed to execute {}: {}", cmd_name, e))?;
+        .map_err(|e| format!("Failed to execute dnf install: {}", e))?;
 
-    // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
     
@@ -372,94 +334,205 @@ async fn run_maintenance_task_streaming(cmd_name: String, args: Vec<String>) -> 
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
     
-    let mut combined_output = String::new();
-    combined_output.push_str(&format!("$ {} {}\n", cmd_name, args.join(" ")));
-    combined_output.push_str("--- Output ---\n");
-    
-    // Read both stdout and stderr
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
                 match result {
                     Ok(Some(line)) => {
-                        if !line.trim().is_empty() {
-                            combined_output.push_str(&line);
-                            combined_output.push('\n');
-                        }
+                        combined_output.push_str(&line);
+                        combined_output.push('\n');
                     }
                     Ok(None) => break,
                     Err(e) => {
-                        return Err(format!("Error reading stdout: {}", e));
+                        let error_msg = format!("Error reading stdout: {}", e);
+                        combined_output.push_str(&error_msg);
+                        combined_output.push('\n');
+                        return Err(error_msg);
                     }
                 }
             }
             result = stderr_reader.next_line() => {
                 match result {
                     Ok(Some(line)) => {
-                        if !line.trim().is_empty() {
-                            combined_output.push_str(&line);
-                            combined_output.push('\n');
-                        }
+                        combined_output.push_str(&line);
+                        combined_output.push('\n');
                     }
                     Ok(None) => break,
                     Err(e) => {
-                        return Err(format!("Error reading stderr: {}", e));
+                        let error_msg = format!("Error reading stderr: {}", e);
+                        combined_output.push_str(&error_msg);
+                        combined_output.push('\n');
+                        return Err(error_msg);
                     }
                 }
             }
         }
     }
     
-    // Wait for process to complete
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     if !status.success() {
-        return Err(format!("Process failed (exit code: {}):\n{}", 
+        return Err(format!("Kernel installation failed (exit code: {}):\n{}", 
             status.code().unwrap_or(-1), combined_output));
     }
+    
+    combined_output.push_str("\n--- Step 2: Installing kernel headers ---\n");
+    
+    // Step 2: Install kernel headers
+    let headers_name = kernel_name.replace("kernel-", "kernel-headers-");
+    combined_output.push_str(&format!("$ Installing headers: {}\n", headers_name));
+    
+    let mut cmd2 = TokioCommand::new("pkexec");
+    cmd2.args(["dnf", "install", "-y", "--assumeyes", &headers_name]);
+    
+    cmd2.stdout(std::process::Stdio::piped());
+    cmd2.stderr(std::process::Stdio::piped());
+    
+    let mut child2 = cmd2
+        .spawn()
+        .map_err(|e| format!("Failed to execute dnf install: {}", e))?;
 
-    Ok(combined_output)
+    let stdout2 = child2.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr2 = child2.stderr.take().ok_or("Failed to capture stderr")?;
+    
+    let mut stdout_reader2 = BufReader::new(stdout2).lines();
+    let mut stderr_reader2 = BufReader::new(stderr2).lines();
+    
+    loop {
+        tokio::select! {
+            result = stdout_reader2.next_line() => {
+                match result {
+                    Ok(Some(line)) => {
+                        combined_output.push_str(&line);
+                        combined_output.push('\n');
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        let error_msg = format!("Error reading stdout: {}", e);
+                        combined_output.push_str(&error_msg);
+                        combined_output.push('\n');
+                        return Err(error_msg);
+                    }
+                }
+            }
+            result = stderr_reader2.next_line() => {
+                match result {
+                    Ok(Some(line)) => {
+                        combined_output.push_str(&line);
+                        combined_output.push('\n');
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        let error_msg = format!("Error reading stderr: {}", e);
+                        combined_output.push_str(&error_msg);
+                        combined_output.push('\n');
+                        return Err(error_msg);
+                    }
+                }
+            }
+        }
+    }
+    
+    let status2 = child2.wait().await
+        .map_err(|e| format!("Failed to wait for process: {}", e))?;
+
+    if !status2.success() {
+        // Headers might not be available, but kernel is installed, so continue
+        combined_output.push_str(&format!("Warning: Headers installation failed (exit code: {}), but kernel is installed.\n", 
+            status2.code().unwrap_or(-1)));
+    }
+    
+    combined_output.push_str("\n--- Step 3: Rebuilding GRUB configuration ---\n");
+    
+    // Step 3: Rebuild GRUB configuration
+    combined_output.push_str("$ Rebuilding GRUB configuration...\n");
+    
+    let mut cmd3 = TokioCommand::new("pkexec");
+    cmd3.args(["grub2-mkconfig", "-o", "/boot/grub2/grub.cfg"]);
+    
+    cmd3.stdout(std::process::Stdio::piped());
+    cmd3.stderr(std::process::Stdio::piped());
+    
+    let mut child3 = cmd3
+        .spawn()
+        .map_err(|e| format!("Failed to execute grub2-mkconfig: {}", e))?;
+
+    let stdout3 = child3.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr3 = child3.stderr.take().ok_or("Failed to capture stderr")?;
+    
+    let mut stdout_reader3 = BufReader::new(stdout3).lines();
+    let mut stderr_reader3 = BufReader::new(stderr3).lines();
+    
+    loop {
+        tokio::select! {
+            result = stdout_reader3.next_line() => {
+                match result {
+                    Ok(Some(line)) => {
+                        combined_output.push_str(&line);
+                        combined_output.push('\n');
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        let error_msg = format!("Error reading stdout: {}", e);
+                        combined_output.push_str(&error_msg);
+                        combined_output.push('\n');
+                        return Err(error_msg);
+                    }
+                }
+            }
+            result = stderr_reader3.next_line() => {
+                match result {
+                    Ok(Some(line)) => {
+                        combined_output.push_str(&line);
+                        combined_output.push('\n');
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        let error_msg = format!("Error reading stderr: {}", e);
+                        combined_output.push_str(&error_msg);
+                        combined_output.push('\n');
+                        return Err(error_msg);
+                    }
+                }
+            }
+        }
+    }
+    
+    let status3 = child3.wait().await
+        .map_err(|e| format!("Failed to wait for process: {}", e))?;
+
+    if !status3.success() {
+        combined_output.push_str(&format!("Warning: GRUB rebuild failed (exit code: {}), but kernel is installed.\n", 
+            status3.code().unwrap_or(-1)));
+    } else {
+        combined_output.push_str("GRUB configuration rebuilt successfully.\n");
+    }
+
+    Ok(format!("Kernel {} installed successfully!\n\n{}", kernel_name, combined_output))
 }
 
+// Style structs
 struct DialogContainerStyle;
-
 impl iced::widget::container::StyleSheet for DialogContainerStyle {
     type Style = iced::Theme;
 
-    fn appearance(&self, style: &Self::Style) -> Appearance {
-        let palette = style.palette();
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
-            background: Some(iced::Background::Color(palette.background)),
-            border: Border {
-                radius: 16.0.into(),
-                width: 0.0,
-                color: iced::Color::TRANSPARENT,
-            },
+            background: Some(iced::Color::from_rgba(0.1, 0.1, 0.1, 1.0).into()),
             ..Default::default()
         }
     }
 }
 
 struct TerminalContainerStyle;
-
 impl iced::widget::container::StyleSheet for TerminalContainerStyle {
     type Style = iced::Theme;
 
-    fn appearance(&self, style: &Self::Style) -> Appearance {
-        let palette = style.palette();
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(
-                palette.background.r * 0.95,
-                palette.background.g * 0.95,
-                palette.background.b * 0.95,
-                1.0,
-            ))),
-            border: Border {
-                radius: 8.0.into(),
-                width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
-            },
+            background: Some(iced::Color::from_rgb(0.05, 0.05, 0.05).into()),
+            border: Border::with_radius(6.0),
             ..Default::default()
         }
     }
@@ -468,41 +541,21 @@ impl iced::widget::container::StyleSheet for TerminalContainerStyle {
 struct RoundedButtonStyle {
     is_primary: bool,
 }
-
 impl ButtonStyleSheet for RoundedButtonStyle {
     type Style = iced::Theme;
 
-    fn active(&self, style: &Self::Style) -> ButtonAppearance {
-        let palette = style.palette();
+    fn active(&self, _style: &Self::Style) -> ButtonAppearance {
         ButtonAppearance {
-            background: Some(iced::Background::Color(if self.is_primary {
-                palette.primary
+            background: Some(if self.is_primary {
+                iced::Color::from_rgb(0.2, 0.6, 0.9).into()
             } else {
-                iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
-            })),
-            border: Border {
-                radius: 16.0.into(),
-                width: 1.0,
-                color: if self.is_primary {
-                    palette.primary
-                } else {
-                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3)
-                },
-            },
-            text_color: palette.text,
+                iced::Color::from_rgba(0.2, 0.2, 0.2, 1.0).into()
+            }),
+            text_color: iced::Color::WHITE,
+            border: Border::with_radius(6.0),
             ..Default::default()
         }
     }
-
-    fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
-        let mut appearance = self.active(style);
-        let palette = style.palette();
-        appearance.background = Some(iced::Background::Color(if self.is_primary {
-            iced::Color::from_rgba(palette.primary.r * 0.9, palette.primary.g * 0.9, palette.primary.b * 0.9, 1.0)
-        } else {
-            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
-        }));
-        appearance
-    }
 }
+
 

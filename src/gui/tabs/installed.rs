@@ -238,8 +238,8 @@ impl InstalledTab {
                         Space::with_height(Length::Fixed(20.0)),
                         // Package name
                         text(&details.name)
-                            .size(20)
-                            .style(iced::theme::Text::Color(theme.primary()))
+                            .size(22) // Larger size for emphasis
+                            .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
                             .horizontal_alignment(iced::alignment::Horizontal::Center),
                         Space::with_height(Length::Fixed(20.0)),
                         // Package details
@@ -417,7 +417,10 @@ impl InstalledTab {
                                     container(
                                         row![
                                             checkbox_widget,
-                                            text(&pkg.name).size(16).width(Length::FillPortion(3)),
+                                            text(&pkg.name)
+                                                .size(17) // Larger size for emphasis
+                                                .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
+                                                .width(Length::FillPortion(3)),
                                             text(&pkg.version).size(14).width(Length::FillPortion(2)),
                                             text(&pkg.repository).size(14).width(Length::FillPortion(2)),
                                         ]

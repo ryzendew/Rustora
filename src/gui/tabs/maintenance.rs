@@ -8,13 +8,13 @@ use tokio::process::Command as TokioCommand;
 #[derive(Debug, Clone)]
 pub enum Message {
     RebuildKernelModules,
-    RebuildKernelModulesComplete(Result<String, String>),
+    RebuildKernelModulesComplete,
     RegenerateInitramfs,
-    RegenerateInitramfsComplete(Result<String, String>),
+    RegenerateInitramfsComplete,
     RemoveOrphanedPackages,
-    RemoveOrphanedPackagesComplete(Result<String, String>),
+    RemoveOrphanedPackagesComplete,
     CleanPackageCache,
-    CleanPackageCacheComplete(Result<String, String>),
+    CleanPackageCacheComplete,
     RunAllMaintenance,
     AllMaintenanceComplete(Result<String, String>),
 }
@@ -56,10 +56,10 @@ impl MaintenanceTab {
                             .spawn()
                             .ok();
                     },
-                    |_| Message::RebuildKernelModulesComplete(Ok("Dialog opened".to_string())),
+                    |_| Message::RebuildKernelModulesComplete,
                 )
             }
-            Message::RebuildKernelModulesComplete(_) => {
+            Message::RebuildKernelModulesComplete => {
                 self.is_rebuilding_modules = false;
                 iced::Command::none()
             }
@@ -75,10 +75,10 @@ impl MaintenanceTab {
                             .spawn()
                             .ok();
                     },
-                    |_| Message::RegenerateInitramfsComplete(Ok("Dialog opened".to_string())),
+                    |_| Message::RegenerateInitramfsComplete,
                 )
             }
-            Message::RegenerateInitramfsComplete(_) => {
+            Message::RegenerateInitramfsComplete => {
                 self.is_regenerating_initramfs = false;
                 iced::Command::none()
             }
@@ -94,10 +94,10 @@ impl MaintenanceTab {
                             .spawn()
                             .ok();
                     },
-                    |_| Message::RemoveOrphanedPackagesComplete(Ok("Dialog opened".to_string())),
+                    |_| Message::RemoveOrphanedPackagesComplete,
                 )
             }
-            Message::RemoveOrphanedPackagesComplete(_) => {
+            Message::RemoveOrphanedPackagesComplete => {
                 self.is_removing_orphaned = false;
                 iced::Command::none()
             }
@@ -113,10 +113,10 @@ impl MaintenanceTab {
                             .spawn()
                             .ok();
                     },
-                    |_| Message::CleanPackageCacheComplete(Ok("Dialog opened".to_string())),
+                    |_| Message::CleanPackageCacheComplete,
                 )
             }
-            Message::CleanPackageCacheComplete(_) => {
+            Message::CleanPackageCacheComplete => {
                 self.is_cleaning_cache = false;
                 iced::Command::none()
             }
@@ -164,6 +164,7 @@ impl MaintenanceTab {
         // Helper function to create action cards
         fn create_action_card<'a>(
             material_font: iced::Font,
+            theme: &crate::gui::Theme,
             icon: &str,
             title: &str,
             description: &str,
@@ -205,7 +206,7 @@ impl MaintenanceTab {
                     Space::with_height(Length::Fixed(8.0)),
                     text(description)
                         .size(12)
-                        .style(iced::theme::Text::Color(iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0)))
+                        .style(iced::theme::Text::Color(theme.secondary_text()))
                         .width(Length::Fill),
                 ]
                 .spacing(0)
@@ -226,6 +227,7 @@ impl MaintenanceTab {
                 Space::with_height(Length::Fixed(16.0)),
                 create_action_card(
                     material_font,
+                    theme,
                     crate::gui::fonts::glyphs::REFRESH_SYMBOL,
                     "Rebuild Kernel Modules",
                     "Rebuilds all kernel modules using akmods. Use this after kernel updates.",
@@ -235,6 +237,7 @@ impl MaintenanceTab {
                 Space::with_height(Length::Fixed(12.0)),
                 create_action_card(
                     material_font,
+                    theme,
                     crate::gui::fonts::glyphs::REFRESH_SYMBOL,
                     "Regenerate Initramfs",
                     "Regenerates all initramfs images using dracut. Ensures proper boot configuration.",
@@ -258,6 +261,7 @@ impl MaintenanceTab {
                 Space::with_height(Length::Fixed(16.0)),
                 create_action_card(
                     material_font,
+                    theme,
                     crate::gui::fonts::glyphs::DELETE_SYMBOL,
                     "Remove Orphaned Packages",
                     "Removes packages that are no longer needed by any installed software.",
@@ -267,6 +271,7 @@ impl MaintenanceTab {
                 Space::with_height(Length::Fixed(12.0)),
                 create_action_card(
                     material_font,
+                    theme,
                     crate::gui::fonts::glyphs::SETTINGS_SYMBOL,
                     "Clean Package Cache",
                     "Removes cached package files to free up disk space.",
@@ -362,7 +367,7 @@ impl MaintenanceTab {
                     Space::with_height(Length::Fixed(8.0)),
                     text("Select a maintenance task to begin")
                         .size(13)
-                        .style(iced::theme::Text::Color(iced::Color::from_rgba(0.6, 0.6, 0.6, 1.0)))
+                        .style(iced::theme::Text::Color(theme.secondary_text()))
                         .horizontal_alignment(iced::alignment::Horizontal::Center),
                     Space::with_height(Length::Fill),
                 ]
@@ -383,7 +388,7 @@ impl MaintenanceTab {
                                         .size(14)
                                         .style(iced::theme::Text::Color(
                                             if line.starts_with("✓") {
-                                                iced::Color::from_rgb(0.2, 0.8, 0.2)
+                                                iced::Color::from_rgb(0.1, 0.5, 0.1) // Darker green
                                             } else if line.starts_with("✗") {
                                                 iced::Color::from_rgb(0.9, 0.2, 0.2)
                                             } else {

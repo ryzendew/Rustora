@@ -3,13 +3,15 @@ use iced::{Alignment, Application, Command, Element, Length, Padding, Theme as I
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
-use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab, MaintenanceTab};
+use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab, MaintenanceTab, RepoTab, KernelTab};
 use crate::gui::Theme as AppTheme;
 use crate::gui::tabs::search;
 use crate::gui::tabs::installed;
 use crate::gui::tabs::update;
 use crate::gui::tabs::flatpak;
 use crate::gui::tabs::maintenance;
+use crate::gui::tabs::repo;
+use crate::gui::tabs::kernel;
 use crate::gui::rpm_dialog::RpmDialog;
 use std::path::PathBuf;
 
@@ -57,6 +59,8 @@ pub enum Message {
     UpdateTabMessage(update::Message),
     FlatpakTabMessage(flatpak::Message),
     MaintenanceTabMessage(maintenance::Message),
+    RepoTabMessage(repo::Message),
+    KernelTabMessage(kernel::Message),
     ThemeToggled,
     OpenRpmFilePicker,
     RpmFileSelected(Option<PathBuf>),
@@ -69,6 +73,8 @@ pub enum Tab {
     Update,
     Flatpak,
     Maintenance,
+    Repo,
+    Kernel,
 }
 
 #[derive(Debug)]
@@ -79,6 +85,8 @@ pub struct FedoraForgeApp {
     update_tab: UpdateTab,
     flatpak_tab: FlatpakTab,
     maintenance_tab: MaintenanceTab,
+    repo_tab: RepoTab,
+    kernel_tab: KernelTab,
     theme: AppTheme,
     #[allow(dead_code)]
     rpm_dialog: Option<RpmDialog>,
@@ -104,6 +112,8 @@ impl Application for FedoraForgeApp {
                 update_tab: UpdateTab::new(),
                 flatpak_tab: FlatpakTab::new(),
                 maintenance_tab: MaintenanceTab::new(),
+                repo_tab: RepoTab::new(),
+                kernel_tab: KernelTab::new(),
                 theme: AppTheme::Dark,
                 rpm_dialog: None,
             },
@@ -123,6 +133,14 @@ impl Application for FedoraForgeApp {
                     return Command::perform(async {}, |_| {
                         Message::InstalledTabMessage(installed::Message::LoadPackages)
                     });
+                } else if tab == Tab::Repo {
+                    return Command::perform(async {}, |_| {
+                        Message::RepoTabMessage(repo::Message::LoadRepositories)
+                    });
+                } else if tab == Tab::Kernel {
+                    return Command::perform(async {}, |_| {
+                        Message::KernelTabMessage(kernel::Message::LoadBranches)
+                    });
                 }
                 Command::none()
             }
@@ -140,6 +158,12 @@ impl Application for FedoraForgeApp {
             }
             Message::MaintenanceTabMessage(msg) => {
                 self.maintenance_tab.update(msg).map(Message::MaintenanceTabMessage)
+            }
+            Message::RepoTabMessage(msg) => {
+                self.repo_tab.update(msg).map(Message::RepoTabMessage)
+            }
+            Message::KernelTabMessage(msg) => {
+                self.kernel_tab.update(msg).map(Message::KernelTabMessage)
             }
             Message::ThemeToggled => {
                 self.theme = match self.theme {
@@ -188,8 +212,8 @@ impl Application for FedoraForgeApp {
         
         let install_rpm_button = button(
             row![
-                download_icon,
-                text(" Install RPM")
+                download_icon.size(16),
+                text(" Install RPM").size(13)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -198,12 +222,12 @@ impl Application for FedoraForgeApp {
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: false,
             })))
-            .padding(Padding::new(12.0));
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
 
         let theme_button = button(
             row![
-                theme_icon,
-                text(if self.theme == AppTheme::Dark { " Light" } else { " Dark" })
+                theme_icon.size(16),
+                text(if self.theme == AppTheme::Dark { " Light" } else { " Dark" }).size(13)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -212,12 +236,12 @@ impl Application for FedoraForgeApp {
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: false,
             })))
-            .padding(Padding::new(12.0));
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
 
         let search_button = button(
             row![
-                search_icon,
-                text(" Search")
+                search_icon.size(16),
+                text(" Search").size(13)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -226,12 +250,12 @@ impl Application for FedoraForgeApp {
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: self.current_tab == Tab::Search,
             })))
-            .padding(Padding::new(14.0));
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
 
         let installed_button = button(
             row![
-                installed_icon,
-                text(" Installed")
+                installed_icon.size(16),
+                text(" Installed").size(13)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -240,12 +264,12 @@ impl Application for FedoraForgeApp {
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: self.current_tab == Tab::Installed,
             })))
-            .padding(Padding::new(14.0));
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
 
         let update_button = button(
             row![
-                refresh_icon,
-                text(" Updates")
+                refresh_icon.size(16),
+                text(" Updates").size(13)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -254,13 +278,13 @@ impl Application for FedoraForgeApp {
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: self.current_tab == Tab::Update,
             })))
-            .padding(Padding::new(14.0));
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
 
         let flatpak_icon = text(glyphs::INSTALLED_SYMBOL).font(material_font);
         let flatpak_button = button(
             row![
-                flatpak_icon,
-                text(" Flatpak")
+                flatpak_icon.size(16),
+                text(" Flatpak").size(13)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -269,13 +293,13 @@ impl Application for FedoraForgeApp {
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: self.current_tab == Tab::Flatpak,
             })))
-            .padding(Padding::new(14.0));
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
 
         let maintenance_icon = text(glyphs::SETTINGS_SYMBOL).font(material_font);
         let maintenance_button = button(
             row![
-                maintenance_icon,
-                text(" Maintenance")
+                maintenance_icon.size(16),
+                text(" Maintenance").size(13)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -284,24 +308,62 @@ impl Application for FedoraForgeApp {
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: self.current_tab == Tab::Maintenance,
             })))
-            .padding(Padding::new(14.0));
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
 
-        let tab_bar = container(
+        let repo_icon = text(glyphs::INSTALLED_SYMBOL).font(material_font);
+        let repo_button = button(
             row![
-                text("FedoraForge").size(20).style(iced::theme::Text::Color(self.theme.primary())),
-                Space::with_width(Length::Fill),
-                search_button,
-                installed_button,
-                update_button,
-                flatpak_button,
-                maintenance_button,
-                Space::with_width(Length::Fill),
-                install_rpm_button,
-                theme_button,
+                repo_icon.size(16),
+                text(" Repositories").size(13)
             ]
-            .spacing(10)
+            .spacing(4)
             .align_items(Alignment::Center)
-            .padding(Padding::new(15.0))
+        )
+            .on_press(Message::TabSelected(Tab::Repo))
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: self.current_tab == Tab::Repo,
+            })))
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
+
+        let kernel_icon = text(glyphs::SETTINGS_SYMBOL).font(material_font);
+        let kernel_button = button(
+            row![
+                kernel_icon.size(16),
+                text(" Kernels").size(13)
+            ]
+            .spacing(4)
+            .align_items(Alignment::Center)
+        )
+            .on_press(Message::TabSelected(Tab::Kernel))
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: self.current_tab == Tab::Kernel,
+            })))
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
+
+        use iced::widget::scrollable;
+        
+        let tab_bar = container(
+            scrollable(
+                row![
+                    text("FedoraForge").size(18).style(iced::theme::Text::Color(self.theme.primary())),
+                    Space::with_width(Length::Fixed(12.0)),
+                    search_button,
+                    installed_button,
+                    update_button,
+                    flatpak_button,
+                    maintenance_button,
+                    repo_button,
+                    kernel_button,
+                    Space::with_width(Length::Fill),
+                    install_rpm_button,
+                    theme_button,
+                ]
+                .spacing(8)
+                .align_items(Alignment::Center)
+                .padding(Padding::from([10.0, 12.0, 10.0, 12.0]))
+            )
+            .width(Length::Fill)
+            .height(Length::Shrink)
         )
         .style(iced::theme::Container::Custom(Box::new(TabBarStyle)))
         .width(Length::Fill);
@@ -312,6 +374,8 @@ impl Application for FedoraForgeApp {
             Tab::Update => self.update_tab.view(&self.theme).map(Message::UpdateTabMessage),
             Tab::Flatpak => self.flatpak_tab.view(&self.theme).map(Message::FlatpakTabMessage),
             Tab::Maintenance => self.maintenance_tab.view(&self.theme).map(Message::MaintenanceTabMessage),
+            Tab::Repo => self.repo_tab.view(&self.theme).map(Message::RepoTabMessage),
+            Tab::Kernel => self.kernel_tab.view(&self.theme).map(Message::KernelTabMessage),
         };
 
         container(column![tab_bar, content].spacing(0))
@@ -341,7 +405,12 @@ impl ButtonStyleSheet for RoundedButtonStyle {
             background: Some(iced::Background::Color(if self.is_primary {
                 palette.primary
             } else {
-                iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
+                let is_dark = palette.background.r < 0.5;
+                if is_dark {
+                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
+                } else {
+                    iced::Color::from_rgba(0.85, 0.85, 0.87, 0.3) // Softer light mode button
+                }
             })),
             border: Border {
                 radius: 16.0.into(),
@@ -349,7 +418,12 @@ impl ButtonStyleSheet for RoundedButtonStyle {
                 color: if self.is_primary {
                     palette.primary
                 } else {
-                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3)
+                    let is_dark = palette.background.r < 0.5;
+                    if is_dark {
+                        iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3)
+                    } else {
+                        iced::Color::from_rgba(0.7, 0.7, 0.72, 0.4) // Softer light mode border
+                    }
                 },
             },
             text_color: palette.text,
@@ -360,10 +434,15 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
         let palette = style.palette();
+        let is_dark = palette.background.r < 0.5;
         appearance.background = Some(iced::Background::Color(if self.is_primary {
             iced::Color::from_rgba(palette.primary.r * 0.9, palette.primary.g * 0.9, palette.primary.b * 0.9, 1.0)
         } else {
-            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
+            if is_dark {
+                iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
+            } else {
+                iced::Color::from_rgba(0.8, 0.8, 0.82, 0.4) // Softer light mode hover
+            }
         }));
         appearance
     }

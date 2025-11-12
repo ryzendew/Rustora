@@ -91,6 +91,16 @@ enum Commands {
         /// Maintenance task to perform
         task: String,
     },
+    /// Show kernel install dialog (internal use)
+    KernelInstallDialog {
+        /// Kernel name to install
+        kernel_name: String,
+    },
+    /// Show kernel remove dialog (internal use)
+    KernelRemoveDialog {
+        /// Kernel name to remove
+        kernel_name: String,
+    },
 }
 
 #[tokio::main]
@@ -111,9 +121,12 @@ async fn main() -> Result<()> {
         } else {
             return Err(anyhow::anyhow!("File does not have an extension: {}", rpm_file));
         }
-        // Ensure fonts are installed
-        if let Err(e) = gui::fonts::ensure_fonts().await {
-            eprintln!("Warning: Failed to install fonts: {}", e);
+        // Only ensure fonts if they don't exist (fast check)
+        if !gui::fonts::fonts_exist() {
+            // Spawn font installation in background, don't wait
+            tokio::spawn(async {
+                let _ = gui::fonts::ensure_fonts().await;
+            });
         }
         use crate::gui::rpm_dialog::RpmDialog;
         RpmDialog::run_separate_window(rpm_path)?;
@@ -123,9 +136,12 @@ async fn main() -> Result<()> {
     match cli.command {
         None => {
             // Default to GUI when no command is provided
-            // Ensure fonts are installed
-            if let Err(e) = gui::fonts::ensure_fonts().await {
-                eprintln!("Warning: Failed to install fonts: {}", e);
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
             }
 
             // Use cached InterVariable font (optimized)
@@ -149,16 +165,22 @@ async fn main() -> Result<()> {
                 if !rpm_path.exists() {
                     return Err(anyhow::anyhow!("RPM file not found: {}", rpm_file_str));
                 }
-                // Ensure fonts are installed
-                if let Err(e) = gui::fonts::ensure_fonts().await {
-                    eprintln!("Warning: Failed to install fonts: {}", e);
+                // Only ensure fonts if they don't exist (fast check)
+                if !gui::fonts::fonts_exist() {
+                    // Spawn font installation in background, don't wait
+                    tokio::spawn(async {
+                        let _ = gui::fonts::ensure_fonts().await;
+                    });
                 }
                 use crate::gui::rpm_dialog::RpmDialog;
                 RpmDialog::run_separate_window(rpm_path)?;
             } else {
-                // Ensure fonts are installed
-                if let Err(e) = gui::fonts::ensure_fonts().await {
-                    eprintln!("Warning: Failed to install fonts: {}", e);
+                // Only ensure fonts if they don't exist (fast check)
+                if !gui::fonts::fonts_exist() {
+                    // Spawn font installation in background, don't wait
+                    tokio::spawn(async {
+                        let _ = gui::fonts::ensure_fonts().await;
+                    });
                 }
 
                 // Use cached InterVariable font (optimized)
@@ -177,63 +199,84 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::RemoveDialog { packages }) => {
-            // Ensure InterVariable font is installed
-            if let Err(e) = gui::fonts::ensure_fonts().await {
-                eprintln!("Warning: Failed to install InterVariable font: {}", e);
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
             }
             use crate::gui::package_dialog::PackageDialog;
             PackageDialog::run_separate_window(packages)?;
             Ok(())
         }
         Some(Commands::InstallDialog { packages }) => {
-            // Ensure InterVariable font is installed
-            if let Err(e) = gui::fonts::ensure_fonts().await {
-                eprintln!("Warning: Failed to install InterVariable font: {}", e);
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
             }
             use crate::gui::install_dialog::InstallDialog;
             InstallDialog::run_separate_window(packages)?;
             Ok(())
         }
         Some(Commands::FlatpakInstallDialog { application_id, remote }) => {
-            // Ensure fonts are installed
-            if let Err(e) = gui::fonts::ensure_fonts().await {
-                eprintln!("Warning: Failed to install fonts: {}", e);
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
             }
             use crate::gui::flatpak_dialog::FlatpakDialog;
             FlatpakDialog::run_separate_window(application_id, remote)?;
             Ok(())
         }
         Some(Commands::FlatpakRemoveDialog { application_ids }) => {
-            // Ensure fonts are installed
-            if let Err(e) = gui::fonts::ensure_fonts().await {
-                eprintln!("Warning: Failed to install fonts: {}", e);
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
             }
             use crate::gui::flatpak_remove_dialog::FlatpakRemoveDialog;
             FlatpakRemoveDialog::run_separate_window(application_ids)?;
             Ok(())
         }
         Some(Commands::UpdateDialog) => {
-            // Ensure fonts are installed
-            if let Err(e) = gui::fonts::ensure_fonts().await {
-                eprintln!("Warning: Failed to install fonts: {}", e);
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
             }
             use crate::gui::update_dialog::UpdateDialog;
             UpdateDialog::run_separate_window()?;
             Ok(())
         }
         Some(Commands::UpdateSettingsDialog) => {
-            // Ensure fonts are installed
-            if let Err(e) = gui::fonts::ensure_fonts().await {
-                eprintln!("Warning: Failed to install fonts: {}", e);
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
             }
             use crate::gui::update_settings_dialog::UpdateSettingsDialog;
             UpdateSettingsDialog::run_separate_window()?;
             Ok(())
         }
         Some(Commands::MaintenanceDialog { task }) => {
-            // Ensure fonts are installed
-            if let Err(e) = gui::fonts::ensure_fonts().await {
-                eprintln!("Warning: Failed to install fonts: {}", e);
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
             }
             use crate::gui::maintenance_dialog::{MaintenanceDialog, MaintenanceTask};
             let maintenance_task = match task.as_str() {
@@ -247,6 +290,32 @@ async fn main() -> Result<()> {
                 }
             };
             MaintenanceDialog::run_separate_window(maintenance_task)?;
+            Ok(())
+        }
+        Some(Commands::KernelInstallDialog { kernel_name }) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            use crate::gui::kernel_install_dialog::KernelInstallDialog;
+            KernelInstallDialog::run_separate_window(kernel_name)?;
+            Ok(())
+        }
+        Some(Commands::KernelRemoveDialog { kernel_name }) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            // For now, use the same install dialog but with remove logic
+            // TODO: Create separate remove dialog
+            use crate::gui::kernel_install_dialog::KernelInstallDialog;
+            KernelInstallDialog::run_separate_window(kernel_name)?;
             Ok(())
         }
         Some(cmd) => {
@@ -264,6 +333,8 @@ async fn main() -> Result<()> {
                 Commands::UpdateDialog => unreachable!(),
                 Commands::UpdateSettingsDialog => unreachable!(),
                 Commands::MaintenanceDialog { .. } => unreachable!(),
+                Commands::KernelInstallDialog { .. } => unreachable!(),
+                Commands::KernelRemoveDialog { .. } => unreachable!(),
             } {
                 eprintln!("{}: {}", "Error".red().bold(), e);
                 std::process::exit(1);

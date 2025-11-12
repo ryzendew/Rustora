@@ -248,7 +248,7 @@ impl SearchTab {
                                     row![
                                         text("Version:")
                                             .size(12)
-                                            .style(iced::theme::Text::Color(iced::Color::from_rgba(0.6, 0.6, 0.6, 1.0))),
+                                            .style(iced::theme::Text::Color(theme.secondary_text())),
                                         text(&version_text)
                                             .size(12),
                                     ]
@@ -263,6 +263,8 @@ impl SearchTab {
                                     column![
                                         row![
                                             text(&pkg.name)
+                                            .size(18) // Larger size for emphasis
+                                            .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
                                                 .size(17)
                                                 .style(iced::theme::Text::Color(theme.primary()))
                                                 .width(Length::Fill),
@@ -309,7 +311,7 @@ impl SearchTab {
                                     row![
                                         text("Arch:")
                                             .size(11)
-                                            .style(iced::theme::Text::Color(iced::Color::from_rgba(0.6, 0.6, 0.6, 1.0))),
+                                            .style(iced::theme::Text::Color(theme.secondary_text())),
                                         text(&pkg.arch)
                                             .size(11),
                                     ]
@@ -323,7 +325,7 @@ impl SearchTab {
                                     row![
                                         text("Size:")
                                             .size(11)
-                                            .style(iced::theme::Text::Color(iced::Color::from_rgba(0.6, 0.6, 0.6, 1.0))),
+                                            .style(iced::theme::Text::Color(theme.secondary_text())),
                                         text(&pkg.size)
                                             .size(11),
                                     ]
