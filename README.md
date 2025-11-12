@@ -2,7 +2,7 @@
 
 A modern, GUI-based package manager for Fedora and Nobara.
 
-![FedoraForge Icon](src/assets/fedoraforge.svg)
+![FedoraForge Icon](https://raw.githubusercontent.com/ryzendew/Fedora-Forge/main/src/assets/fedoraforge.svg)
 
 ## Features
 
