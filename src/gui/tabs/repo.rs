@@ -7,6 +7,7 @@ use iced::widget::text_input::Appearance as TextInputAppearance;
 use iced::widget::text_input::StyleSheet as TextInputStyleSheet;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tokio::process::Command as TokioCommand;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -19,6 +20,12 @@ pub enum Message {
     ToggleRepository(String),
     ToggleRepositoryComplete(Result<String, String>),
     Error(String),
+    // Terminal messages
+    OpenAddRepoTerminal,
+    CloseAddRepoTerminal,
+    TerminalCommandChanged(String),
+    ExecuteTerminalCommand,
+    TerminalCommandOutput(String, String, bool), // stdout, stderr, success
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +72,11 @@ pub struct RepoTab {
     selected_repository: Option<String>,
     repository_details: Option<RepositoryDetails>,
     panel_open: bool,
+    // Terminal state
+    terminal_open: bool,
+    terminal_command: String,
+    terminal_output: Vec<String>,
+    terminal_is_executing: bool,
 }
 
 impl RepoTab {
@@ -77,6 +89,10 @@ impl RepoTab {
             selected_repository: None,
             repository_details: None,
             panel_open: false,
+            terminal_open: false,
+            terminal_command: String::new(),
+            terminal_output: Vec::new(),
+            terminal_is_executing: false,
         }
     }
 
@@ -182,6 +198,66 @@ impl RepoTab {
             }
             Message::Error(_msg) => {
                 self.is_loading = false;
+                iced::Command::none()
+            }
+            Message::OpenAddRepoTerminal => {
+                self.terminal_open = true;
+                self.terminal_command = String::new();
+                self.terminal_output = vec!["# Add Repository Terminal".to_string(), 
+                                             "# Enter a command to add a repository, e.g.:".to_string(),
+                                             "# dnf config-manager --add-repo https://example.com/repo.repo".to_string(),
+                                             "# or".to_string(),
+                                             "# dnf config-manager --add-repo 'https://example.com/repo.repo'".to_string(),
+                                             "".to_string()];
+                iced::Command::none()
+            }
+            Message::CloseAddRepoTerminal => {
+                self.terminal_open = false;
+                self.terminal_command = String::new();
+                self.terminal_output = Vec::new();
+                iced::Command::none()
+            }
+            Message::TerminalCommandChanged(cmd) => {
+                self.terminal_command = cmd;
+                iced::Command::none()
+            }
+            Message::ExecuteTerminalCommand => {
+                if self.terminal_is_executing || self.terminal_command.trim().is_empty() {
+                    return iced::Command::none();
+                }
+                let command = self.terminal_command.clone();
+                self.terminal_is_executing = true;
+                self.terminal_output.push(format!("$ {}", command));
+                iced::Command::perform(execute_terminal_command(command), |result| {
+                    match result {
+                        Ok((stdout, stderr, success)) => Message::TerminalCommandOutput(stdout, stderr, success),
+                        Err(e) => Message::TerminalCommandOutput(String::new(), e, false),
+                    }
+                })
+            }
+            Message::TerminalCommandOutput(stdout, stderr, success) => {
+                self.terminal_is_executing = false;
+                if !stdout.is_empty() {
+                    for line in stdout.lines() {
+                        self.terminal_output.push(line.to_string());
+                    }
+                }
+                if !stderr.is_empty() {
+                    for line in stderr.lines() {
+                        self.terminal_output.push(format!("[stderr] {}", line));
+                    }
+                }
+                if success {
+                    self.terminal_output.push("✓ Command completed successfully".to_string());
+                    // Auto-refresh repositories if command was successful
+                    self.terminal_command = String::new();
+                    return iced::Command::batch(vec![
+                        iced::Command::perform(async {}, |_| Message::LoadRepositories),
+                    ]);
+                } else {
+                    self.terminal_output.push("✗ Command failed".to_string());
+                }
+                self.terminal_output.push("".to_string());
                 iced::Command::none()
             }
         }
@@ -487,6 +563,21 @@ impl RepoTab {
             .padding(14)
             .style(iced::theme::TextInput::Custom(Box::new(RoundedTextInputStyle)));
 
+        // Add Repository button
+        let add_repo_button = button(
+            row![
+                text(crate::gui::fonts::glyphs::ADD_SYMBOL).font(material_font),
+                text(" Add Repository")
+            ]
+            .spacing(4)
+            .align_items(Alignment::Center)
+        )
+        .on_press(Message::OpenAddRepoTerminal)
+        .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+            is_primary: true,
+        })))
+        .padding(Padding::new(14.0));
+
         // Refresh button
         let refresh_button = button(
             row![
@@ -504,6 +595,8 @@ impl RepoTab {
 
         let header_row = row![
             search_input,
+            Space::with_width(Length::Fixed(12.0)),
+            add_repo_button,
             Space::with_width(Length::Fixed(12.0)),
             refresh_button,
         ]
@@ -630,20 +723,133 @@ impl RepoTab {
             .into()
         };
 
-        let main_content = container(
-            column![
-                header_row,
-                Space::with_height(Length::Fixed(16.0)),
-                content,
-            ]
-            .spacing(0)
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .padding(Padding::new(20.0));
+        // Terminal UI
+        let terminal_ui: Element<Message> = if self.terminal_open {
+            let terminal_output = scrollable(
+                column(
+                    self.terminal_output
+                        .iter()
+                        .map(|line| {
+                            let line_color = if line.starts_with('#') {
+                                theme.secondary_text()
+                            } else if line.starts_with('$') {
+                                theme.primary()
+                            } else if line.starts_with("✓") {
+                                iced::Color::from_rgb(0.1, 0.5, 0.1)
+                            } else if line.starts_with("✗") || line.starts_with("[stderr]") {
+                                iced::Color::from_rgb(0.9, 0.2, 0.2)
+                            } else {
+                                theme.text()
+                            };
+                            text(line)
+                                .size(13)
+                                .style(iced::theme::Text::Color(line_color))
+                                .font(iced::Font::MONOSPACE)
+                                .into()
+                        })
+                        .collect::<Vec<_>>(),
+                )
+                .spacing(2)
+                .padding(12)
+            )
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+            let command_input = text_input("Enter command...", &self.terminal_command)
+                .on_input(Message::TerminalCommandChanged)
+                .on_submit(Message::ExecuteTerminalCommand)
+                .size(14)
+                .width(Length::Fill)
+                .padding(12)
+                .style(iced::theme::TextInput::Custom(Box::new(TerminalInputStyle)))
+                .font(iced::Font::MONOSPACE);
+
+            let execute_button = button(
+                row![
+                    text("Execute")
+                        .size(14)
+                ]
+                .spacing(4)
+                .align_items(Alignment::Center)
+            )
+            .on_press(Message::ExecuteTerminalCommand)
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: true,
+            })))
+            .padding(Padding::new(12.0));
+
+            let close_button = button(
+                row![
+                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(18),
+                    text(" Close")
+                ]
+                .spacing(4)
+                .align_items(Alignment::Center)
+            )
+            .on_press(Message::CloseAddRepoTerminal)
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: false,
+            })))
+            .padding(Padding::new(12.0));
+
+            container(
+                column![
+                    row![
+                        text("Add Repository Terminal")
+                            .size(20)
+                            .style(iced::theme::Text::Color(theme.primary())),
+                        Space::with_width(Length::Fill),
+                        close_button,
+                    ]
+                    .align_items(Alignment::Center)
+                    .width(Length::Fill),
+                    Space::with_height(Length::Fixed(16.0)),
+                    terminal_output,
+                    Space::with_height(Length::Fixed(12.0)),
+                    row![
+                        command_input,
+                        Space::with_width(Length::Fixed(12.0)),
+                        execute_button,
+                    ]
+                    .align_items(Alignment::Center)
+                    .width(Length::Fill),
+                ]
+                .spacing(0)
+            )
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(Padding::new(20.0))
+            .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle)))
+            .into()
+        } else {
+            container(Space::with_width(Length::Fixed(0.0)))
+                .width(Length::Fixed(0.0))
+                .height(Length::Fill)
+                .into()
+        };
+
+        let main_content: Element<Message> = if self.terminal_open {
+            container(Space::with_width(Length::Fixed(0.0)))
+                .width(Length::Fixed(0.0))
+                .height(Length::Fill)
+                .into()
+        } else {
+            container(
+                column![
+                    header_row,
+                    Space::with_height(Length::Fixed(16.0)),
+                    content,
+                ]
+                .spacing(0)
+            )
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(Padding::new(20.0))
+            .into()
+        };
 
         // Create the slide-out panel
-        let panel = if self.panel_open {
+        let panel = if self.panel_open && !self.terminal_open {
             self.view_panel(theme)
         } else {
             container(Space::with_width(Length::Fixed(0.0)))
@@ -656,10 +862,15 @@ impl RepoTab {
             column![
                 header,
                 Space::with_height(Length::Fixed(24.0)),
-                row![main_content, panel]
-                    .spacing(15)
-                    .width(Length::Fill)
-                    .height(Length::Fill),
+                if self.terminal_open {
+                    terminal_ui
+                } else {
+                    row![main_content, panel]
+                        .spacing(15)
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .into()
+                },
             ]
             .spacing(0)
         )
@@ -1123,6 +1334,147 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
             },
             icon_color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.5),
+        }
+    }
+}
+
+async fn execute_terminal_command(command: String) -> Result<(String, String, bool), String> {
+    // Parse the command - support simple commands like "dnf config-manager --add-repo ..."
+    let parts: Vec<&str> = command.trim().split_whitespace().collect();
+    if parts.is_empty() {
+        return Err("Empty command".to_string());
+    }
+
+    let program = parts[0];
+    let args = &parts[1..];
+
+    // Use pkexec for commands that need root privileges (like dnf config-manager)
+    let needs_root = program == "dnf" || program == "yum" || program == "rpm";
+    
+    let output = if needs_root {
+        let mut cmd = TokioCommand::new("pkexec");
+        cmd.arg(program);
+        cmd.args(args);
+        cmd.output().await
+    } else {
+        let mut cmd = TokioCommand::new(program);
+        cmd.args(args);
+        cmd.output().await
+    };
+
+    match output {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let success = output.status.success();
+            Ok((stdout, stderr, success))
+        }
+        Err(e) => Err(format!("Failed to execute command: {}", e)),
+    }
+}
+
+struct TerminalContainerStyle;
+
+impl iced::widget::container::StyleSheet for TerminalContainerStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, style: &Self::Style) -> Appearance {
+        let palette = style.palette();
+        let is_dark = palette.background.r < 0.5;
+        Appearance {
+            background: Some(if is_dark {
+                iced::Color::from_rgba(0.08, 0.08, 0.08, 1.0).into()
+            } else {
+                iced::Color::from_rgba(0.95, 0.95, 0.96, 1.0).into()
+            }),
+            border: Border {
+                radius: 12.0.into(),
+                width: 1.0,
+                color: if is_dark {
+                    iced::Color::from_rgba(0.3, 0.3, 0.3, 1.0)
+                } else {
+                    iced::Color::from_rgba(0.7, 0.7, 0.72, 0.4)
+                },
+            },
+            ..Default::default()
+        }
+    }
+}
+
+struct TerminalInputStyle;
+
+impl TextInputStyleSheet for TerminalInputStyle {
+    type Style = iced::Theme;
+
+    fn active(&self, style: &Self::Style) -> TextInputAppearance {
+        let palette = style.palette();
+        let is_dark = palette.background.r < 0.5;
+        TextInputAppearance {
+            background: if is_dark {
+                iced::Color::from_rgba(0.1, 0.1, 0.1, 1.0).into()
+            } else {
+                iced::Color::from_rgba(0.98, 0.98, 0.99, 1.0).into()
+            },
+            border: Border::with_radius(8.0),
+            icon_color: palette.text,
+        }
+    }
+
+    fn focused(&self, style: &Self::Style) -> TextInputAppearance {
+        let palette = style.palette();
+        let is_dark = palette.background.r < 0.5;
+        TextInputAppearance {
+            background: if is_dark {
+                iced::Color::from_rgba(0.1, 0.1, 0.1, 1.0).into()
+            } else {
+                iced::Color::from_rgba(0.98, 0.98, 0.99, 1.0).into()
+            },
+            border: Border {
+                radius: 8.0.into(),
+                width: 2.0,
+                color: palette.primary,
+            },
+            icon_color: palette.primary,
+        }
+    }
+
+    fn placeholder_color(&self, style: &Self::Style) -> iced::Color {
+        let palette = style.palette();
+        iced::Color::from_rgba(palette.text.r, palette.text.g, palette.text.b, 0.5)
+    }
+
+    fn value_color(&self, style: &Self::Style) -> iced::Color {
+        style.palette().text
+    }
+
+    fn disabled_color(&self, style: &Self::Style) -> iced::Color {
+        let palette = style.palette();
+        iced::Color::from_rgba(palette.text.r, palette.text.g, palette.text.b, 0.5)
+    }
+
+    fn selection_color(&self, style: &Self::Style) -> iced::Color {
+        style.palette().primary
+    }
+
+    fn disabled(&self, style: &Self::Style) -> TextInputAppearance {
+        let palette = style.palette();
+        let is_dark = palette.background.r < 0.5;
+        TextInputAppearance {
+            background: if is_dark {
+                iced::Color::from_rgba(0.05, 0.05, 0.05, 1.0).into()
+            } else {
+                iced::Color::from_rgba(0.95, 0.95, 0.95, 1.0).into()
+            },
+            border: Border {
+                radius: 8.0.into(),
+                width: 1.0,
+                color: if is_dark {
+                    iced::Color::from_rgba(0.3, 0.3, 0.3, 1.0)
+                } else {
+                    iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0)
+                },
+            },
+            icon_color: iced::Color::from_rgba(palette.text.r, palette.text.g, palette.text.b, 0.5),
         }
     }
 }

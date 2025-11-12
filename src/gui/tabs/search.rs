@@ -1,7 +1,6 @@
 use iced::widget::{button, checkbox, column, container, row, scrollable, text, text_input, Space};
 use iced::{Alignment, Element, Length, Padding, Border};
 use iced::widget::container::Appearance;
-use futures::future;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
 use iced::widget::checkbox::Appearance as CheckboxAppearance;
@@ -55,16 +54,27 @@ impl SearchTab {
         match message {
             Message::SearchQueryChanged(query) => {
                 self.search_query = query.clone();
+                // Debounce: only search if query is at least 2 characters and not empty
                 if !query.trim().is_empty() && query.len() >= 2 {
                     self.is_searching = true;
-                    iced::Command::perform(search_packages(query), |result| {
-                        match result {
-                            Ok(packages) => Message::SearchResult(packages),
-                            Err(e) => Message::Error(e),
+                    // Use a small delay to debounce rapid typing
+                    let query_clone = query.clone();
+                    iced::Command::perform(
+                        async move {
+                            // Small delay to debounce rapid typing
+                            tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+                            search_packages(query_clone).await
+                        },
+                        |result| {
+                            match result {
+                                Ok(packages) => Message::SearchResult(packages),
+                                Err(e) => Message::Error(e),
+                            }
                         }
-                    })
+                    )
                 } else {
                     self.packages.clear();
+                    self.is_searching = false;
                     iced::Command::none()
                 }
             }
@@ -379,68 +389,108 @@ impl SearchTab {
 }
 
 async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
+    // Use repoquery which is much faster than dnf search
+    // Get all info in one query using --qf (queryformat) to avoid multiple dnf info calls
+    let queryformat = "%{name}|%{version}|%{release}|%{arch}|%{summary}|%{description}|%{size}";
+    
     let output = tokio::process::Command::new("dnf")
-        .args(["search", "--quiet", "--assumeyes", &query])
+        .args([
+            "repoquery",
+            "--quiet",
+            "--cacheonly", // Use cached metadata only - much faster
+            "--qf", queryformat,
+            &format!("*{}*", query.trim()), // Search pattern
+        ])
         .output()
         .await
         .map_err(|e| format!("Failed to execute dnf: {}", e))?;
 
+    // If cacheonly fails, try without it (metadata might not be cached)
+    let output = if !output.status.success() {
+        tokio::process::Command::new("dnf")
+            .args([
+                "repoquery",
+                "--quiet",
+                "--qf", queryformat,
+                &format!("*{}*", query.trim()),
+            ])
+            .output()
+            .await
+            .map_err(|e| format!("Failed to execute dnf: {}", e))?
+    } else {
+        output
+    };
+
     if !output.status.success() {
-        return Err(format!("DNF search failed: {}", String::from_utf8_lossy(&output.stderr)));
+        return Err(format!("DNF repoquery failed: {}", String::from_utf8_lossy(&output.stderr)));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut package_names = Vec::new();
+    let mut packages = Vec::new();
+    let mut seen_names = std::collections::HashSet::new();
 
     for line in stdout.lines() {
         let line = line.trim();
-        if line.is_empty() || line.starts_with("Matched fields:") || line.starts_with("Importing") || line.starts_with("Is this ok") {
+        if line.is_empty() {
             continue;
         }
-        // DNF search output format: "package.arch<TAB>description" or "package.arch : description"
-        let parts: Vec<&str> = if line.contains('\t') {
-            line.splitn(2, '\t').collect()
-        } else if line.contains(" : ") {
-            line.splitn(2, " : ").collect()
-        } else {
+
+        // Parse pipe-separated values: name|version|release|arch|summary|description|size
+        let parts: Vec<&str> = line.split('|').collect();
+        if parts.len() < 4 {
             continue;
-        };
-        if parts.len() == 2 {
-            let name = parts[0].trim();
-            let pkg_name = name.split('.').next().unwrap_or(name);
-            package_names.push(pkg_name.to_string());
         }
-    }
 
-    // Remove duplicates
-    package_names.sort();
-    package_names.dedup();
-    
-    // Limit to first 50 packages for performance
-    if package_names.len() > 50 {
-        package_names.truncate(50);
-    }
+        let name = parts[0].trim();
+        // Skip duplicates (same package from different repos)
+        if seen_names.contains(name) {
+            continue;
+        }
+        seen_names.insert(name.to_string());
 
-    // Fetch detailed info for each package in parallel
-    let mut futures = Vec::new();
-    for package_name in package_names {
-        let name = package_name.clone();
-        futures.push(async move {
-            load_package_details(name).await
-        });
-    }
-    
-    // Wait for all to complete
-    let results: Vec<Result<PackageInfo, String>> = future::join_all(futures).await;
-    
-    // Collect successful results
-    let mut packages = Vec::new();
-    for result in results {
-        match result {
-            Ok(info) => packages.push(info),
-            Err(_) => {
-                // Skip packages that fail to load details
+        let version = parts.get(1).unwrap_or(&"").trim();
+        let release = parts.get(2).unwrap_or(&"").trim();
+        let arch = parts.get(3).unwrap_or(&"").trim();
+        let summary = parts.get(4).unwrap_or(&"").trim();
+        let description = parts.get(5).unwrap_or(&"").trim();
+        let size_str = parts.get(6).unwrap_or(&"").trim();
+
+        // Parse size
+        let size = if !size_str.is_empty() {
+            if let Ok(size_bytes) = parse_size(size_str) {
+                format_size(size_bytes)
+            } else {
+                size_str.to_string()
             }
+        } else {
+            String::new()
+        };
+
+        packages.push(PackageInfo {
+            name: name.to_string(),
+            description: if !description.is_empty() {
+                description.to_string()
+            } else {
+                summary.to_string()
+            },
+            version: version.to_string(),
+            release: release.to_string(),
+            arch: arch.to_string(),
+            summary: if !summary.is_empty() {
+                summary.to_string()
+            } else if !description.is_empty() {
+                // Use first part of description as summary
+                let summary_len = description.len().min(100);
+                description[..summary_len].to_string()
+            } else {
+                String::new()
+            },
+            size,
+        });
+
+        // Limit to first 50 packages for performance
+        if packages.len() >= 50 {
+            break;
         }
     }
     
@@ -448,6 +498,7 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
     Ok(packages)
 }
 
+#[allow(dead_code)]
 async fn load_package_details(package_name: String) -> Result<PackageInfo, String> {
     // Use dnf info to get detailed package information
     let output = tokio::process::Command::new("dnf")

@@ -130,6 +130,8 @@ impl Application for FedoraForgeApp {
             Message::TabSelected(tab) => {
                 self.current_tab = tab;
                 if tab == Tab::Installed {
+                    // LoadPackages handler will check if packages are already loaded
+                    // This prevents flickering when switching back to the tab
                     return Command::perform(async {}, |_| {
                         Message::InstalledTabMessage(installed::Message::LoadPackages)
                     });

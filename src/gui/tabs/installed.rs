@@ -90,13 +90,21 @@ impl InstalledTab {
     pub fn update(&mut self, message: Message) -> iced::Command<Message> {
         match message {
             Message::LoadPackages => {
-                self.is_loading = true;
-                iced::Command::perform(load_installed_packages(), |result| {
-                    match result {
-                        Ok(packages) => Message::PackagesLoaded(packages),
-                        Err(e) => Message::Error(e),
-                    }
-                })
+                // Only show loading if we don't already have packages loaded
+                // This prevents flickering when switching to the tab
+                if self.packages.is_empty() {
+                    self.is_loading = true;
+                    iced::Command::perform(load_installed_packages(), |result| {
+                        match result {
+                            Ok(packages) => Message::PackagesLoaded(packages),
+                            Err(e) => Message::Error(e),
+                        }
+                    })
+                } else {
+                    // Packages already loaded, just refresh the filter
+                    self.filter_packages();
+                    iced::Command::none()
+                }
             }
             Message::PackagesLoaded(packages) => {
                 self.is_loading = false;

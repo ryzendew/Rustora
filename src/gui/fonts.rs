@@ -267,5 +267,6 @@ pub mod glyphs {
     pub const EXIT_SYMBOL: &str = "\u{E879}";
     pub const DELETE_SYMBOL: &str = "\u{E872}";
     pub const CHECK_SYMBOL: &str = "\u{E5CA}";
+    pub const ADD_SYMBOL: &str = "\u{E145}";
 }
 
