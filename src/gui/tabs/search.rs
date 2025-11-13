@@ -273,8 +273,6 @@ impl SearchTab {
                                     column![
                                         row![
                                             text(&pkg.name)
-                                            .size(18) // Larger size for emphasis
-                                            .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
                                                 .size(17)
                                                 .style(iced::theme::Text::Color(theme.primary()))
                                                 .width(Length::Fill),

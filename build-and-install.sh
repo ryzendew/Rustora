@@ -15,9 +15,50 @@ echo "======================================"
 echo ""
 
 # ============================================================================
+# STEP 0: INSTALL BUILD DEPENDENCIES
+# ============================================================================
+echo -e "${BLUE}Step 0/3: Installing build dependencies...${NC}"
+
+# Check if dnf is available
+if ! command -v dnf &> /dev/null; then
+    echo -e "${YELLOW}⚠️  Warning: dnf not found. Skipping dependency installation.${NC}"
+    echo "   Please manually install: pciutils-devel libusb1-devel glibc-devel gcc clang"
+else
+    # Required build dependencies
+    DEPS="pciutils-devel libusb1-devel glibc-devel gcc clang"
+    
+    # Check which packages are missing
+    MISSING_DEPS=""
+    for dep in $DEPS; do
+        if ! rpm -q "$dep" &> /dev/null; then
+            MISSING_DEPS="$MISSING_DEPS $dep"
+        fi
+    done
+    
+    if [ -z "$MISSING_DEPS" ]; then
+        echo -e "${GREEN}✅ Build dependencies already installed${NC}"
+    else
+        echo "📦 Installing build dependencies:$MISSING_DEPS"
+        if [ "$EUID" -eq 0 ]; then
+            dnf install -y $MISSING_DEPS
+        elif command -v sudo &> /dev/null; then
+            echo "   (Using sudo to install dependencies...)"
+            sudo dnf install -y $MISSING_DEPS
+        else
+            echo -e "${YELLOW}⚠️  Need sudo to install dependencies. Please run:${NC}"
+            echo "   sudo dnf install -y$MISSING_DEPS"
+            echo ""
+            read -p "Press Enter to continue (build may fail if dependencies are missing)..." || true
+        fi
+    fi
+fi
+
+echo ""
+
+# ============================================================================
 # STEP 1: BUILD
 # ============================================================================
-echo -e "${BLUE}Step 1/2: Building...${NC}"
+echo -e "${BLUE}Step 1/3: Building...${NC}"
 
 # Check if Rust is installed
 if ! command -v cargo &> /dev/null; then
@@ -34,9 +75,22 @@ if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$RUST_VERSION" | sort -V | head -n1)"
     echo -e "${YELLOW}⚠️  Warning: Rust version $RUST_VERSION may be too old. Recommended: $REQUIRED_VERSION or later${NC}"
 fi
 
-# Build in release mode
-echo "📦 Compiling in release mode..."
-cargo build --release
+# Always do a clean build
+echo "🧹 Cleaning previous build artifacts..."
+cargo clean
+
+# Check if debug build is requested
+BUILD_MODE="release"
+BINARY_PATH="target/release/fedoraforge"
+if [ "$1" = "debug" ]; then
+    BUILD_MODE="debug"
+    BINARY_PATH="target/debug/fedoraforge"
+    echo "📦 Compiling in debug mode..."
+    cargo build
+else
+    echo "📦 Compiling in release mode..."
+    cargo build --release
+fi
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Build failed!${NC}"
@@ -49,10 +103,10 @@ echo ""
 # ============================================================================
 # STEP 2: INSTALL
 # ============================================================================
-echo -e "${BLUE}Step 2/2: Installing...${NC}"
+echo -e "${BLUE}Step 2/3: Installing...${NC}"
 
 # Check if binary exists
-if [ ! -f "target/release/fedoraforge" ]; then
+if [ ! -f "$BINARY_PATH" ]; then
     echo -e "${RED}❌ Error: Binary not found after build${NC}"
     exit 1
 fi
@@ -76,7 +130,7 @@ mkdir -p "$DESKTOP_DIR"
 
 # Install binary
 echo "📦 Installing binary to $BIN_DIR..."
-cp target/release/fedoraforge "$BIN_DIR/fedoraforge"
+cp "$BINARY_PATH" "$BIN_DIR/fedoraforge"
 chmod +x "$BIN_DIR/fedoraforge"
 
 # Install icon if it exists

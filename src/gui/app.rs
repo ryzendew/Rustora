@@ -3,7 +3,7 @@ use iced::{Alignment, Application, Command, Element, Length, Padding, Theme as I
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
-use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab, MaintenanceTab, RepoTab, KernelTab};
+use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab, MaintenanceTab, RepoTab, KernelTab, DeviceTab};
 use crate::gui::Theme as AppTheme;
 use crate::gui::tabs::search;
 use crate::gui::tabs::installed;
@@ -12,6 +12,7 @@ use crate::gui::tabs::flatpak;
 use crate::gui::tabs::maintenance;
 use crate::gui::tabs::repo;
 use crate::gui::tabs::kernel;
+use crate::gui::tabs::device;
 use crate::gui::rpm_dialog::RpmDialog;
 use std::path::PathBuf;
 
@@ -61,6 +62,7 @@ pub enum Message {
     MaintenanceTabMessage(maintenance::Message),
     RepoTabMessage(repo::Message),
     KernelTabMessage(kernel::Message),
+    DeviceTabMessage(device::Message),
     ThemeToggled,
     OpenRpmFilePicker,
     RpmFileSelected(Option<PathBuf>),
@@ -75,6 +77,7 @@ pub enum Tab {
     Maintenance,
     Repo,
     Kernel,
+    Device,
 }
 
 #[derive(Debug)]
@@ -87,6 +90,7 @@ pub struct FedoraForgeApp {
     maintenance_tab: MaintenanceTab,
     repo_tab: RepoTab,
     kernel_tab: KernelTab,
+    device_tab: DeviceTab,
     theme: AppTheme,
     #[allow(dead_code)]
     rpm_dialog: Option<RpmDialog>,
@@ -114,6 +118,7 @@ impl Application for FedoraForgeApp {
                 maintenance_tab: MaintenanceTab::new(),
                 repo_tab: RepoTab::new(),
                 kernel_tab: KernelTab::new(),
+                device_tab: DeviceTab::new(),
                 theme: AppTheme::Dark,
                 rpm_dialog: None,
             },
@@ -143,6 +148,10 @@ impl Application for FedoraForgeApp {
                     return Command::perform(async {}, |_| {
                         Message::KernelTabMessage(kernel::Message::LoadBranches)
                     });
+                } else if tab == Tab::Device {
+                    return Command::perform(async {}, |_| {
+                        Message::DeviceTabMessage(device::Message::RequestPermissions)
+                    });
                 }
                 Command::none()
             }
@@ -166,6 +175,9 @@ impl Application for FedoraForgeApp {
             }
             Message::KernelTabMessage(msg) => {
                 self.kernel_tab.update(msg).map(Message::KernelTabMessage)
+            }
+            Message::DeviceTabMessage(msg) => {
+                self.device_tab.update(msg).map(Message::DeviceTabMessage)
             }
             Message::ThemeToggled => {
                 self.theme = match self.theme {
@@ -342,6 +354,21 @@ impl Application for FedoraForgeApp {
             })))
             .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
 
+        let device_icon = text(glyphs::SETTINGS_SYMBOL).font(material_font);
+        let device_button = button(
+            row![
+                device_icon.size(16),
+                text(" Devices").size(13)
+            ]
+            .spacing(4)
+            .align_items(Alignment::Center)
+        )
+            .on_press(Message::TabSelected(Tab::Device))
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: self.current_tab == Tab::Device,
+            })))
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]));
+
         use iced::widget::scrollable;
         
         let tab_bar = container(
@@ -356,6 +383,7 @@ impl Application for FedoraForgeApp {
                     maintenance_button,
                     repo_button,
                     kernel_button,
+                    device_button,
                     Space::with_width(Length::Fill),
                     install_rpm_button,
                     theme_button,
@@ -378,6 +406,7 @@ impl Application for FedoraForgeApp {
             Tab::Maintenance => self.maintenance_tab.view(&self.theme).map(Message::MaintenanceTabMessage),
             Tab::Repo => self.repo_tab.view(&self.theme).map(Message::RepoTabMessage),
             Tab::Kernel => self.kernel_tab.view(&self.theme).map(Message::KernelTabMessage),
+            Tab::Device => self.device_tab.view(&self.theme).map(Message::DeviceTabMessage),
         };
 
         container(column![tab_bar, content].spacing(0))

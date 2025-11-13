@@ -9,6 +9,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::process::Command as TokioCommand;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RepoView {
+    All,
+    Nvidia,
+    RpmFusion,
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
     LoadRepositories,
@@ -26,6 +33,12 @@ pub enum Message {
     TerminalCommandChanged(String),
     ExecuteTerminalCommand,
     TerminalCommandOutput(String, String, bool), // stdout, stderr, success
+    // Sub-tab messages
+    SwitchView(RepoView),
+    InstallNvidiaRepo,
+    InstallNvidiaRepoComplete(Result<(), String>),
+    InstallRpmFusionRepos,
+    InstallRpmFusionReposComplete(Result<(), String>),
 }
 
 #[derive(Debug, Clone)]
@@ -77,6 +90,8 @@ pub struct RepoTab {
     terminal_command: String,
     terminal_output: Vec<String>,
     terminal_is_executing: bool,
+    // Sub-tab state
+    current_view: RepoView,
 }
 
 impl RepoTab {
@@ -93,15 +108,16 @@ impl RepoTab {
             terminal_command: String::new(),
             terminal_output: Vec::new(),
             terminal_is_executing: false,
+            current_view: RepoView::All,
         }
     }
 
     fn filter_repositories(&mut self) {
-        if self.search_query.trim().is_empty() {
-            self.filtered_repositories = self.repositories.clone();
+        let mut filtered = if self.search_query.trim().is_empty() {
+            self.repositories.clone()
         } else {
             let query_lower = self.search_query.to_lowercase();
-            self.filtered_repositories = self.repositories
+            self.repositories
                 .iter()
                 .filter(|repo| {
                     repo.id.to_lowercase().contains(&query_lower) ||
@@ -111,8 +127,34 @@ impl RepoTab {
                     repo.metalink.as_ref().map(|u| u.to_lowercase().contains(&query_lower)).unwrap_or(false)
                 })
                 .cloned()
+                .collect()
+        };
+        
+        // Filter by view (NVIDIA sub-tab shows only NVIDIA-related repos, RPM Fusion shows RPM Fusion repos)
+        if self.current_view == RepoView::Nvidia {
+            filtered = filtered
+                .into_iter()
+                .filter(|repo| {
+                    repo.id.to_lowercase().contains("nvidia") ||
+                    repo.name.to_lowercase().contains("nvidia") ||
+                    repo.baseurl.as_ref().map(|u| u.to_lowercase().contains("nvidia")).unwrap_or(false) ||
+                    repo.metalink.as_ref().map(|u| u.to_lowercase().contains("nvidia")).unwrap_or(false)
+                })
+                .collect();
+        } else if self.current_view == RepoView::RpmFusion {
+            filtered = filtered
+                .into_iter()
+                .filter(|repo| {
+                    repo.id.to_lowercase().contains("rpmfusion") ||
+                    repo.name.to_lowercase().contains("rpmfusion") ||
+                    repo.name.to_lowercase().contains("rpm fusion") ||
+                    repo.baseurl.as_ref().map(|u| u.to_lowercase().contains("rpmfusion")).unwrap_or(false) ||
+                    repo.metalink.as_ref().map(|u| u.to_lowercase().contains("rpmfusion")).unwrap_or(false)
+                })
                 .collect();
         }
+        
+        self.filtered_repositories = filtered;
     }
 
     pub fn update(&mut self, message: Message) -> iced::Command<Message> {
@@ -259,6 +301,67 @@ impl RepoTab {
                 }
                 self.terminal_output.push("".to_string());
                 iced::Command::none()
+            }
+            Message::SwitchView(view) => {
+                self.current_view = view;
+                self.filter_repositories();
+                iced::Command::none()
+            }
+            Message::InstallNvidiaRepo => {
+                self.is_loading = true;
+                iced::Command::perform(install_nvidia_repo(), |result| {
+                    match result {
+                        Ok(_) => Message::InstallNvidiaRepoComplete(Ok(())),
+                        Err(e) => Message::InstallNvidiaRepoComplete(Err(e)),
+                    }
+                })
+            }
+            Message::InstallNvidiaRepoComplete(result) => {
+                self.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        // Refresh repository list after installation
+                        iced::Command::perform(load_repositories(), |result| {
+                            match result {
+                                Ok(repos) => Message::RepositoriesLoaded(repos),
+                                Err(e) => Message::Error(e),
+                            }
+                        })
+                    }
+                    Err(e) => {
+                        iced::Command::perform(async {}, move |_| {
+                            Message::Error(format!("Failed to install NVIDIA repository: {}", e))
+                        })
+                    }
+                }
+            }
+            Message::InstallRpmFusionRepos => {
+                self.is_loading = true;
+                iced::Command::perform(install_rpmfusion_repos(), |result| {
+                    match result {
+                        Ok(_) => Message::InstallRpmFusionReposComplete(Ok(())),
+                        Err(e) => Message::InstallRpmFusionReposComplete(Err(e)),
+                    }
+                })
+            }
+            Message::InstallRpmFusionReposComplete(result) => {
+                self.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        // Refresh repository list after installation
+                        iced::Command::perform(load_repositories(), |result| {
+                            match result {
+                                Ok(repos) => Message::RepositoriesLoaded(repos),
+                                Err(e) => Message::Error(e),
+                            }
+                        })
+                    }
+                    Err(e) => {
+                        iced::Command::perform(async {}, move |_| {
+                            Message::Error(format!("Failed to install RPM Fusion repositories: {}", e))
+                        })
+                    }
+                }
             }
         }
     }
@@ -593,6 +696,57 @@ impl RepoTab {
         })))
         .padding(Padding::new(14.0));
 
+        // Sub-tabs for All, NVIDIA, and RPM Fusion
+        let sub_tabs = container(
+            row![
+                button(
+                    text("All")
+                        .size(16)
+                        .style(iced::theme::Text::Color(if self.current_view == RepoView::All {
+                            iced::Color::WHITE
+                        } else {
+                            theme.text()
+                        }))
+                )
+                .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
+                    is_active: self.current_view == RepoView::All,
+                })))
+                .on_press(Message::SwitchView(RepoView::All))
+                .padding(Padding::from([12.0, 24.0, 12.0, 24.0])),
+                button(
+                    text("NVIDIA")
+                        .size(16)
+                        .style(iced::theme::Text::Color(if self.current_view == RepoView::Nvidia {
+                            iced::Color::WHITE
+                        } else {
+                            theme.text()
+                        }))
+                )
+                .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
+                    is_active: self.current_view == RepoView::Nvidia,
+                })))
+                .on_press(Message::SwitchView(RepoView::Nvidia))
+                .padding(Padding::from([12.0, 24.0, 12.0, 24.0])),
+                button(
+                    text("RPM Fusion")
+                        .size(16)
+                        .style(iced::theme::Text::Color(if self.current_view == RepoView::RpmFusion {
+                            iced::Color::WHITE
+                        } else {
+                            theme.text()
+                        }))
+                )
+                .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
+                    is_active: self.current_view == RepoView::RpmFusion,
+                })))
+                .on_press(Message::SwitchView(RepoView::RpmFusion))
+                .padding(Padding::from([12.0, 24.0, 12.0, 24.0])),
+            ]
+            .spacing(12)
+        )
+        .width(Length::Fill)
+        .padding(Padding::from([0.0, 0.0, 20.0, 0.0]));
+
         let header_row = row![
             search_input,
             Space::with_width(Length::Fixed(12.0)),
@@ -603,8 +757,293 @@ impl RepoTab {
         .spacing(0)
         .align_items(Alignment::Center);
 
-        // Content
-        let content: Element<Message> = if self.is_loading {
+        // Content - show install buttons based on current view
+        let content: Element<Message> = if self.current_view == RepoView::Nvidia && !self.is_loading {
+            // NVIDIA sub-tab content
+            let nvidia_install_button = button(
+                row![
+                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(18),
+                    text(" Install NVIDIA Driver Repository")
+                        .size(16)
+                ]
+                .spacing(8)
+                .align_items(Alignment::Center)
+            )
+            .on_press(Message::InstallNvidiaRepo)
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: true,
+            })))
+            .padding(Padding::new(16.0));
+
+            let nvidia_info = container(
+                column![
+                    text("NVIDIA Driver Repository")
+                        .size(20)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_height(Length::Fixed(12.0)),
+                    text("This will install the NVIDIA driver repository from negativo17.org")
+                        .size(14)
+                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                    Space::with_height(Length::Fixed(8.0)),
+                    text("Repository URL: https://negativo17.org/repos/fedora-nvidia.repo")
+                        .size(12)
+                        .style(iced::theme::Text::Color(theme.secondary_text()))
+                        .font(iced::Font::MONOSPACE),
+                    Space::with_height(Length::Fixed(24.0)),
+                    nvidia_install_button,
+                ]
+                .spacing(8)
+                .padding(Padding::new(24.0))
+            )
+            .width(Length::Fill)
+            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)));
+
+            let repo_list: Element<Message> = if self.filtered_repositories.is_empty() {
+                container(
+                    text("No NVIDIA repositories found. Click 'Install NVIDIA Driver Repository' to add one.")
+                        .size(14)
+                        .horizontal_alignment(iced::alignment::Horizontal::Center)
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x()
+                .center_y()
+                .padding(20)
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .into()
+            } else {
+                scrollable(
+                    column(
+                        self.filtered_repositories
+                            .iter()
+                            .map(|repo| {
+                                let repo_id = repo.id.clone();
+                                let enabled_color = if repo.enabled {
+                                    iced::Color::from_rgb(0.0, 0.8, 0.0)
+                                } else {
+                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
+                                };
+                                
+                                let url_display = repo.baseurl.as_ref()
+                                    .or(repo.metalink.as_ref())
+                                    .map(|u| {
+                                        if u.len() > 60 {
+                                            format!("{}...", &u[..60])
+                                        } else {
+                                            u.clone()
+                                        }
+                                    })
+                                    .unwrap_or_else(|| "No URL".to_string());
+
+                                button(
+                                    container(
+                                        row![
+                                            column![
+                                                row![
+                                                    text(&repo.id)
+                                                        .size(16)
+                                                        .style(iced::theme::Text::Color(theme.primary()))
+                                                        .width(Length::Fill),
+                                                    Space::with_width(Length::Fixed(12.0)),
+                                                    container(
+                                                        text(if repo.enabled { "Enabled" } else { "Disabled" })
+                                                            .size(11)
+                                                            .style(iced::theme::Text::Color(enabled_color))
+                                                    )
+                                                    .padding(Padding::new(6.0))
+                                                    .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
+                                                        enabled: repo.enabled,
+                                                    }))),
+                                                ]
+                                                .spacing(0)
+                                                .align_items(Alignment::Center)
+                                                .width(Length::Fill),
+                                                Space::with_height(Length::Fixed(6.0)),
+                                                text(&repo.name)
+                                                    .size(14)
+                                                    .style(iced::theme::Text::Color(theme.text()))
+                                                    .width(Length::Fill),
+                                                Space::with_height(Length::Fixed(4.0)),
+                                                text(&url_display)
+                                                    .size(12)
+                                                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                                                    .width(Length::Fill),
+                                            ]
+                                            .spacing(0)
+                                            .width(Length::Fill),
+                                        ]
+                                        .spacing(0)
+                                        .align_items(Alignment::Start)
+                                        .padding(16)
+                                    )
+                                    .style(iced::theme::Container::Custom(Box::new(RepoItemStyle)))
+                                )
+                                .on_press(Message::RepositorySelected(repo_id))
+                                .style(iced::theme::Button::Text)
+                                .padding(0)
+                                .into()
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                    .spacing(8)
+                    .padding(10),
+                )
+                .into()
+            };
+
+            column![
+                nvidia_info,
+                Space::with_height(Length::Fixed(16.0)),
+                repo_list,
+            ]
+            .spacing(0)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+        } else if self.current_view == RepoView::RpmFusion && !self.is_loading {
+            // RPM Fusion sub-tab content
+            let rpmfusion_install_button: Element<Message> = button(
+                row![
+                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(18),
+                    text(" Install RPM Fusion Repositories")
+                        .size(16)
+                ]
+                .spacing(8)
+                .align_items(Alignment::Center)
+            )
+            .on_press(Message::InstallRpmFusionRepos)
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: true,
+            })))
+            .padding(Padding::new(16.0))
+            .into();
+
+            let rpmfusion_info = container(
+                column![
+                    text("RPM Fusion Repositories")
+                        .size(20)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_height(Length::Fixed(12.0)),
+                    text("This will install both RPM Fusion Free and Nonfree repositories")
+                        .size(14)
+                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                    Space::with_height(Length::Fixed(8.0)),
+                    text("These repositories provide additional software including NVIDIA drivers, multimedia codecs, and other packages not available in the official Fedora repositories")
+                        .size(12)
+                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                    Space::with_height(Length::Fixed(24.0)),
+                    rpmfusion_install_button,
+                ]
+                .spacing(8)
+                .padding(Padding::new(24.0))
+            )
+            .width(Length::Fill)
+            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)));
+
+            let repo_list: Element<Message> = if self.filtered_repositories.is_empty() {
+                container(
+                    text("No RPM Fusion repositories found. Click 'Install RPM Fusion Repositories' to add them.")
+                        .size(14)
+                        .horizontal_alignment(iced::alignment::Horizontal::Center)
+                        .style(iced::theme::Text::Color(theme.secondary_text()))
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x()
+                .center_y()
+                .padding(20)
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .into()
+            } else {
+                scrollable(
+                    column(
+                        self.filtered_repositories
+                            .iter()
+                            .map(|repo| {
+                                let repo_id = repo.id.clone();
+                                let enabled_color = if repo.enabled {
+                                    iced::Color::from_rgb(0.0, 0.8, 0.0)
+                                } else {
+                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
+                                };
+                                
+                                let url_display = repo.baseurl.as_ref()
+                                    .or(repo.metalink.as_ref())
+                                    .map(|u| {
+                                        if u.len() > 60 {
+                                            format!("{}...", &u[..60])
+                                        } else {
+                                            u.clone()
+                                        }
+                                    })
+                                    .unwrap_or_else(|| "No URL".to_string());
+
+                                button(
+                                    container(
+                                        row![
+                                            column![
+                                                row![
+                                                    text(&repo.id)
+                                                        .size(16)
+                                                        .style(iced::theme::Text::Color(theme.primary()))
+                                                        .width(Length::Fill),
+                                                    Space::with_width(Length::Fixed(12.0)),
+                                                    container(
+                                                        text(if repo.enabled { "Enabled" } else { "Disabled" })
+                                                            .size(11)
+                                                            .style(iced::theme::Text::Color(enabled_color))
+                                                    )
+                                                    .padding(Padding::new(6.0))
+                                                    .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
+                                                        enabled: repo.enabled,
+                                                    }))),
+                                                ]
+                                                .spacing(0)
+                                                .align_items(Alignment::Center)
+                                                .width(Length::Fill),
+                                                Space::with_height(Length::Fixed(6.0)),
+                                                text(&repo.name)
+                                                    .size(14)
+                                                    .style(iced::theme::Text::Color(theme.text()))
+                                                    .width(Length::Fill),
+                                                Space::with_height(Length::Fixed(4.0)),
+                                                text(&url_display)
+                                                    .size(12)
+                                                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                                                    .width(Length::Fill),
+                                            ]
+                                            .spacing(0)
+                                            .width(Length::Fill),
+                                        ]
+                                        .spacing(0)
+                                        .align_items(Alignment::Start)
+                                        .padding(16)
+                                    )
+                                    .style(iced::theme::Container::Custom(Box::new(RepoItemStyle)))
+                                )
+                                .on_press(Message::RepositorySelected(repo_id))
+                                .style(iced::theme::Button::Text)
+                                .padding(0)
+                                .into()
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                    .spacing(8)
+                    .padding(10),
+                )
+                .into()
+            };
+
+            column![
+                rpmfusion_info,
+                Space::with_height(Length::Fixed(16.0)),
+                repo_list,
+            ]
+            .spacing(0)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+        } else if self.is_loading {
             container(
                 text("Loading repositories...").size(16)
             )
@@ -862,6 +1301,8 @@ impl RepoTab {
             column![
                 header,
                 Space::with_height(Length::Fixed(24.0)),
+                sub_tabs,
+                Space::with_height(Length::Fixed(16.0)),
                 if self.terminal_open {
                     terminal_ui
                 } else {
@@ -1134,6 +1575,48 @@ impl iced::widget::container::StyleSheet for RepoItemStyle {
     }
 }
 
+struct SubTabButtonStyle {
+    is_active: bool,
+}
+
+impl ButtonStyleSheet for SubTabButtonStyle {
+    type Style = iced::Theme;
+
+    fn active(&self, style: &Self::Style) -> ButtonAppearance {
+        let palette = style.palette();
+        let is_dark = palette.background.r < 0.5;
+        ButtonAppearance {
+            background: Some(if self.is_active {
+                palette.primary.into()
+            } else {
+                if is_dark {
+                    iced::Color::from_rgba(0.2, 0.2, 0.2, 1.0).into()
+                } else {
+                    iced::Color::from_rgba(0.9, 0.9, 0.91, 1.0).into()
+                }
+            }),
+            text_color: if self.is_active { iced::Color::WHITE } else { palette.text },
+            border: Border::with_radius(6.0),
+            shadow: Default::default(),
+            shadow_offset: iced::Vector::default(),
+        }
+    }
+
+    fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
+        let mut appearance = self.active(style);
+        if !self.is_active {
+            let palette = style.palette();
+            appearance.background = Some(palette.primary.into());
+            appearance.text_color = iced::Color::WHITE;
+        }
+        appearance
+    }
+
+    fn pressed(&self, style: &Self::Style) -> ButtonAppearance {
+        self.active(style)
+    }
+}
+
 struct StatusBadgeStyle {
     enabled: bool,
 }
@@ -1335,6 +1818,123 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
             },
             icon_color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.5),
         }
+    }
+}
+
+// Install NVIDIA repository
+async fn install_nvidia_repo() -> Result<(), String> {
+    use tokio::process::Command as TokioCommand;
+    
+    // Check if repository already exists
+    let check_cmd = TokioCommand::new("dnf")
+        .arg("repoinfo")
+        .arg("fedora-nvidia")
+        .output()
+        .await;
+    
+    // If repo exists, return success without adding
+    if let Ok(output) = check_cmd {
+        if output.status.success() {
+            return Ok(()); // Repository already exists
+        }
+    }
+    
+    // Use pkexec to run with elevated privileges
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("dnf");
+    cmd.arg("config-manager");
+    cmd.arg("addrepo");
+    cmd.arg("--from-repofile");
+    cmd.arg("https://negativo17.org/repos/fedora-nvidia.repo");
+    
+    // Ensure DISPLAY is set for GUI dialog
+    if let Ok(display) = std::env::var("DISPLAY") {
+        cmd.env("DISPLAY", display);
+    }
+    
+    let output = cmd.output().await
+        .map_err(|e| format!("Failed to execute command: {}", e))?;
+    
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to install repository: {}", stderr))
+    }
+}
+
+async fn install_rpmfusion_repos() -> Result<(), String> {
+    use tokio::process::Command as TokioCommand;
+    use std::process::Command as StdCommand;
+    
+    // First, get the Fedora version
+    let fedora_version_output = StdCommand::new("rpm")
+        .args(&["-E", "%fedora"])
+        .output()
+        .map_err(|e| format!("Failed to get Fedora version: {}", e))?;
+    
+    if !fedora_version_output.status.success() {
+        return Err("Failed to determine Fedora version".to_string());
+    }
+    
+    let fedora_version = String::from_utf8_lossy(&fedora_version_output.stdout)
+        .trim()
+        .to_string();
+    
+    if fedora_version.is_empty() {
+        return Err("Fedora version is empty".to_string());
+    }
+    
+    // Build URLs for RPM Fusion repos
+    let free_repo_url = format!(
+        "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-{}.noarch.rpm",
+        fedora_version
+    );
+    let nonfree_repo_url = format!(
+        "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{}.noarch.rpm",
+        fedora_version
+    );
+    
+    // Install free repo first
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("dnf");
+    cmd.arg("install");
+    cmd.arg("-y");
+    cmd.arg(&free_repo_url);
+    
+    // Ensure DISPLAY is set for GUI dialog
+    if let Ok(display) = std::env::var("DISPLAY") {
+        cmd.env("DISPLAY", display);
+    }
+    
+    let output = cmd.output().await
+        .map_err(|e| format!("Failed to execute command: {}", e))?;
+    
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Failed to install RPM Fusion Free repository: {}", stderr));
+    }
+    
+    // Install nonfree repo
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("dnf");
+    cmd.arg("install");
+    cmd.arg("-y");
+    cmd.arg(&nonfree_repo_url);
+    
+    // Ensure DISPLAY is set for GUI dialog
+    if let Ok(display) = std::env::var("DISPLAY") {
+        cmd.env("DISPLAY", display);
+    }
+    
+    let output = cmd.output().await
+        .map_err(|e| format!("Failed to execute command: {}", e))?;
+    
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("Failed to install RPM Fusion Nonfree repository: {}", stderr))
     }
 }
 

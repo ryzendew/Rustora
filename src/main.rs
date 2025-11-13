@@ -83,7 +83,11 @@ enum Commands {
         application_ids: Vec<String>,
     },
     /// Show update dialog (internal use)
-    UpdateDialog,
+    UpdateDialog {
+        /// Base64 encoded JSON array of package names to install (empty = all)
+        #[arg(value_name = "PACKAGES_B64")]
+        packages_b64: Option<String>,
+    },
     /// Show update settings dialog (internal use)
     UpdateSettingsDialog,
     /// Show maintenance dialog (internal use)
@@ -95,6 +99,39 @@ enum Commands {
     KernelInstallDialog {
         /// Kernel name to install
         kernel_name: String,
+    },
+    /// Show device driver install dialog (internal use)
+    DeviceInstallDialog {
+        /// Profile name
+        #[arg(long)]
+        profile_name: String,
+        /// Install script to execute (base64 encoded)
+        #[arg(long)]
+        install_script: String,
+        /// Vendor name (base64 encoded)
+        #[arg(long)]
+        vendor_name: String,
+        /// Device name (base64 encoded)
+        #[arg(long)]
+        device_name: String,
+        /// Driver name (base64 encoded)
+        #[arg(long)]
+        driver: String,
+        /// Driver version (base64 encoded)
+        #[arg(long)]
+        driver_version: String,
+        /// Bus ID (base64 encoded)
+        #[arg(long)]
+        bus_id: String,
+        /// Vendor ID (base64 encoded)
+        #[arg(long)]
+        vendor_id: String,
+        /// Device ID (base64 encoded)
+        #[arg(long)]
+        device_id: String,
+        /// Repositories (base64 encoded JSON array)
+        #[arg(long)]
+        repositories: String,
     },
     /// Show kernel remove dialog (internal use)
     KernelRemoveDialog {
@@ -246,7 +283,7 @@ async fn main() -> Result<()> {
             FlatpakRemoveDialog::run_separate_window(application_ids)?;
             Ok(())
         }
-        Some(Commands::UpdateDialog) => {
+        Some(Commands::UpdateDialog { packages_b64 }) => {
             // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
                 // Spawn font installation in background, don't wait
@@ -255,7 +292,7 @@ async fn main() -> Result<()> {
                 });
             }
             use crate::gui::update_dialog::UpdateDialog;
-            UpdateDialog::run_separate_window()?;
+            UpdateDialog::run_separate_window(packages_b64)?;
             Ok(())
         }
         Some(Commands::UpdateSettingsDialog) => {
@@ -304,6 +341,67 @@ async fn main() -> Result<()> {
             KernelInstallDialog::run_separate_window(kernel_name)?;
             Ok(())
         }
+        Some(Commands::DeviceInstallDialog { 
+            profile_name, 
+            install_script,
+            vendor_name,
+            device_name,
+            driver,
+            driver_version,
+            bus_id,
+            vendor_id,
+            device_id,
+            repositories,
+        }) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            // Decode base64 encoded strings
+            use base64::{Engine as _, engine::general_purpose};
+            let decoded_script = general_purpose::STANDARD
+                .decode(&install_script)
+                .map_err(|e| anyhow::anyhow!("Failed to decode install script: {}", e))?;
+            let script = String::from_utf8(decoded_script)
+                .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in install script: {}", e))?;
+            
+            let vendor = String::from_utf8(general_purpose::STANDARD.decode(&vendor_name).unwrap_or_default())
+                .unwrap_or_default();
+            let device = String::from_utf8(general_purpose::STANDARD.decode(&device_name).unwrap_or_default())
+                .unwrap_or_default();
+            let drv = String::from_utf8(general_purpose::STANDARD.decode(&driver).unwrap_or_default())
+                .unwrap_or_default();
+            let drv_ver = String::from_utf8(general_purpose::STANDARD.decode(&driver_version).unwrap_or_default())
+                .unwrap_or_default();
+            let bus = String::from_utf8(general_purpose::STANDARD.decode(&bus_id).unwrap_or_default())
+                .unwrap_or_default();
+            let vid = String::from_utf8(general_purpose::STANDARD.decode(&vendor_id).unwrap_or_default())
+                .unwrap_or_default();
+            let did = String::from_utf8(general_purpose::STANDARD.decode(&device_id).unwrap_or_default())
+                .unwrap_or_default();
+            
+            // Decode repositories (JSON array)
+            let repos_json = String::from_utf8(general_purpose::STANDARD.decode(&repositories).unwrap_or_default())
+                .unwrap_or_default();
+            let repos: Vec<String> = serde_json::from_str(&repos_json).unwrap_or_default();
+            
+            use crate::gui::device_install_dialog::{DeviceInstallDialog, DeviceInfo};
+            let device_info = DeviceInfo {
+                vendor_name: vendor,
+                device_name: device,
+                driver: drv,
+                driver_version: drv_ver,
+                bus_id: bus,
+                vendor_id: vid,
+                device_id: did,
+                repositories: repos,
+            };
+            DeviceInstallDialog::run_separate_window(profile_name, script, device_info)?;
+            Ok(())
+        }
         Some(Commands::KernelRemoveDialog { kernel_name }) => {
             // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
@@ -330,11 +428,12 @@ async fn main() -> Result<()> {
                 Commands::InstallDialog { .. } => unreachable!(),
                 Commands::FlatpakInstallDialog { .. } => unreachable!(),
                 Commands::FlatpakRemoveDialog { .. } => unreachable!(),
-                Commands::UpdateDialog => unreachable!(),
+                Commands::UpdateDialog { .. } => unreachable!(),
                 Commands::UpdateSettingsDialog => unreachable!(),
                 Commands::MaintenanceDialog { .. } => unreachable!(),
                 Commands::KernelInstallDialog { .. } => unreachable!(),
                 Commands::KernelRemoveDialog { .. } => unreachable!(),
+                Commands::DeviceInstallDialog { .. } => unreachable!(),
             } {
                 eprintln!("{}: {}", "Error".red().bold(), e);
                 std::process::exit(1);

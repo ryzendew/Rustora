@@ -1,14 +1,16 @@
-use iced::widget::{button, column, container, row, scrollable, text, Space};
+use iced::widget::{button, column, container, row, scrollable, text, Space, checkbox};
 use iced::{Alignment, Element, Length, Padding, Border};
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
 use tokio::process::Command as TokioCommand;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub enum Message {
     CheckUpdates,
     UpdatesFound(Vec<UpdateInfo>),
+    TogglePackage(usize),
     InstallUpdates,
     UpdatesInstalled,
     OpenSettings,
@@ -25,6 +27,7 @@ pub struct UpdateInfo {
 #[derive(Debug)]
 pub struct UpdateTab {
     updates: Vec<UpdateInfo>,
+    selected_packages: HashSet<usize>,
     is_checking: bool,
     is_installing: bool,
     has_updates: bool,
@@ -34,6 +37,7 @@ impl UpdateTab {
     pub fn new() -> Self {
         Self {
             updates: Vec::new(),
+            selected_packages: HashSet::new(),
             is_checking: false,
             is_installing: false,
             has_updates: false,
@@ -56,12 +60,40 @@ impl UpdateTab {
                 self.is_checking = false;
                 self.updates = updates.clone();
                 self.has_updates = !updates.is_empty();
+                // Reset selection when new updates are found
+                self.selected_packages.clear();
+                iced::Command::none()
+            }
+            Message::TogglePackage(index) => {
+                if self.selected_packages.contains(&index) {
+                    self.selected_packages.remove(&index);
+                } else {
+                    self.selected_packages.insert(index);
+                }
                 iced::Command::none()
             }
             Message::InstallUpdates => {
                 if self.updates.is_empty() {
                     return iced::Command::none();
                 }
+                // Get selected packages, or all if none selected
+                let packages_to_install: Vec<String> = if self.selected_packages.is_empty() {
+                    // If no packages selected, install all
+                    self.updates.iter().map(|u| u.name.clone()).collect()
+                } else {
+                    // Install only selected packages
+                    self.selected_packages
+                        .iter()
+                        .filter_map(|&idx| self.updates.get(idx).map(|u| u.name.clone()))
+                        .collect()
+                };
+                
+                // Base64 encode the package list to pass as argument
+                use base64::{Engine as _, engine::general_purpose};
+                let packages_json = serde_json::to_string(&packages_to_install)
+                    .unwrap_or_else(|_| "[]".to_string());
+                let packages_b64 = general_purpose::STANDARD.encode(packages_json.as_bytes());
+                
                 // Spawn a separate window for update installation
                 iced::Command::perform(
                     async move {
@@ -70,6 +102,7 @@ impl UpdateTab {
                             .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
                         TokioCommand::new(&exe_path)
                             .arg("update-dialog")
+                            .arg(&packages_b64)
                             .spawn()
                             .ok();
                     },
@@ -157,10 +190,15 @@ impl UpdateTab {
                     .into()
             }
         } else {
+            let selected_count = if self.selected_packages.is_empty() {
+                self.updates.len()
+            } else {
+                self.selected_packages.len()
+            };
             button(
                 row![
                     text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                    text(format!(" Install {} Update(s)", self.updates.len()))
+                    text(format!(" Install {} Update(s)", selected_count))
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -221,9 +259,15 @@ impl UpdateTab {
                 column(
                     self.updates
                         .iter()
-                        .map(|update| {
+                        .enumerate()
+                        .map(|(index, update)| {
+                            let is_selected = self.selected_packages.contains(&index);
+                            let index_for_toggle = index;
                             container(
                                 row![
+                                    checkbox("", is_selected)
+                                        .on_toggle(move |_| Message::TogglePackage(index_for_toggle))
+                                        .width(Length::Shrink),
                                     text(&update.name).size(16).width(Length::FillPortion(3)),
                                     text(&update.current_version).size(14).width(Length::FillPortion(2)),
                                     text("→").size(14),
