@@ -25,68 +25,70 @@ pub struct PreCheckedPciDevice {
 #[derive(Debug, Clone)]
 pub struct PreCheckedPciProfile {
     profile: CfhdbPciProfile,
-    installed: Arc<std::sync::Mutex<bool>>,
-    driver_version: Arc<std::sync::Mutex<Option<String>>>,
-    repository: Arc<std::sync::Mutex<Option<String>>>,
-    package_size: Arc<std::sync::Mutex<Option<String>>>,
-    dependencies: Arc<std::sync::Mutex<Option<Vec<String>>>>,
+    // Use RwLock for read-heavy operations (most accesses are reads)
+    installed: Arc<std::sync::RwLock<bool>>,
+    driver_version: Arc<std::sync::RwLock<Option<String>>>,
+    repository: Arc<std::sync::RwLock<Option<String>>>,
+    package_size: Arc<std::sync::RwLock<Option<String>>>,
+    dependencies: Arc<std::sync::RwLock<Option<Vec<String>>>>,
 }
 
 impl PreCheckedPciProfile {
     pub fn new(profile: CfhdbPciProfile) -> Self {
         Self {
             profile,
-            installed: Arc::new(std::sync::Mutex::new(false)),
-            driver_version: Arc::new(std::sync::Mutex::new(None)),
-            repository: Arc::new(std::sync::Mutex::new(None)),
-            package_size: Arc::new(std::sync::Mutex::new(None)),
-            dependencies: Arc::new(std::sync::Mutex::new(None)),
+            installed: Arc::new(std::sync::RwLock::new(false)),
+            driver_version: Arc::new(std::sync::RwLock::new(None)),
+            repository: Arc::new(std::sync::RwLock::new(None)),
+            package_size: Arc::new(std::sync::RwLock::new(None)),
+            dependencies: Arc::new(std::sync::RwLock::new(None)),
         }
     }
     
-    pub fn profile(&self) -> CfhdbPciProfile {
-        self.profile.clone()
+    // Return reference to avoid cloning
+    pub fn profile(&self) -> &CfhdbPciProfile {
+        &self.profile
     }
     
     #[allow(dead_code)]
     pub fn installed(&self) -> bool {
-        *self.installed.lock().unwrap()
+        *self.installed.read().unwrap()
     }
     
     pub fn update_installed(&self) {
-        *self.installed.lock().unwrap() = self.profile.get_status();
+        *self.installed.write().unwrap() = self.profile.get_status();
     }
     
     pub fn driver_version(&self) -> Option<String> {
-        self.driver_version.lock().unwrap().clone()
+        self.driver_version.read().unwrap().clone()
     }
     
     pub fn set_driver_version(&self, version: Option<String>) {
-        *self.driver_version.lock().unwrap() = version;
+        *self.driver_version.write().unwrap() = version;
     }
     
     pub fn repository(&self) -> Option<String> {
-        self.repository.lock().unwrap().clone()
+        self.repository.read().unwrap().clone()
     }
     
     pub fn set_repository(&self, repo: Option<String>) {
-        *self.repository.lock().unwrap() = repo;
+        *self.repository.write().unwrap() = repo;
     }
     
     pub fn package_size(&self) -> Option<String> {
-        self.package_size.lock().unwrap().clone()
+        self.package_size.read().unwrap().clone()
     }
     
     pub fn set_package_size(&self, size: Option<String>) {
-        *self.package_size.lock().unwrap() = size;
+        *self.package_size.write().unwrap() = size;
     }
     
     pub fn dependencies(&self) -> Option<Vec<String>> {
-        self.dependencies.lock().unwrap().clone()
+        self.dependencies.read().unwrap().clone()
     }
     
     pub fn set_dependencies(&self, deps: Option<Vec<String>>) {
-        *self.dependencies.lock().unwrap() = deps;
+        *self.dependencies.write().unwrap() = deps;
     }
 }
 
@@ -99,77 +101,79 @@ pub struct PreCheckedUsbDevice {
 #[derive(Debug, Clone)]
 pub struct PreCheckedUsbProfile {
     profile: CfhdbUsbProfile,
-    installed: Arc<std::sync::Mutex<bool>>,
-    driver_version: Arc<std::sync::Mutex<Option<String>>>,
+    // Use RwLock for read-heavy operations
+    installed: Arc<std::sync::RwLock<bool>>,
+    driver_version: Arc<std::sync::RwLock<Option<String>>>,
     #[allow(dead_code)]
-    repository: Arc<std::sync::Mutex<Option<String>>>,
+    repository: Arc<std::sync::RwLock<Option<String>>>,
     #[allow(dead_code)]
-    package_size: Arc<std::sync::Mutex<Option<String>>>,
+    package_size: Arc<std::sync::RwLock<Option<String>>>,
     #[allow(dead_code)]
-    dependencies: Arc<std::sync::Mutex<Option<Vec<String>>>>,
+    dependencies: Arc<std::sync::RwLock<Option<Vec<String>>>>,
 }
 
 impl PreCheckedUsbProfile {
     pub fn new(profile: CfhdbUsbProfile) -> Self {
         Self {
             profile,
-            installed: Arc::new(std::sync::Mutex::new(false)),
-            driver_version: Arc::new(std::sync::Mutex::new(None)),
-            repository: Arc::new(std::sync::Mutex::new(None)),
-            package_size: Arc::new(std::sync::Mutex::new(None)),
-            dependencies: Arc::new(std::sync::Mutex::new(None)),
+            installed: Arc::new(std::sync::RwLock::new(false)),
+            driver_version: Arc::new(std::sync::RwLock::new(None)),
+            repository: Arc::new(std::sync::RwLock::new(None)),
+            package_size: Arc::new(std::sync::RwLock::new(None)),
+            dependencies: Arc::new(std::sync::RwLock::new(None)),
         }
     }
     
-    pub fn profile(&self) -> CfhdbUsbProfile {
-        self.profile.clone()
+    // Return reference to avoid cloning
+    pub fn profile(&self) -> &CfhdbUsbProfile {
+        &self.profile
     }
     
     #[allow(dead_code)]
     pub fn installed(&self) -> bool {
-        *self.installed.lock().unwrap()
+        *self.installed.read().unwrap()
     }
     
     pub fn update_installed(&self) {
-        *self.installed.lock().unwrap() = self.profile.get_status();
+        *self.installed.write().unwrap() = self.profile.get_status();
     }
     
     pub fn driver_version(&self) -> Option<String> {
-        self.driver_version.lock().unwrap().clone()
+        self.driver_version.read().unwrap().clone()
     }
     
     pub fn set_driver_version(&self, version: Option<String>) {
-        *self.driver_version.lock().unwrap() = version;
+        *self.driver_version.write().unwrap() = version;
     }
     
     #[allow(dead_code)]
     pub fn repository(&self) -> Option<String> {
-        self.repository.lock().unwrap().clone()
+        self.repository.read().unwrap().clone()
     }
     
     #[allow(dead_code)]
     pub fn set_repository(&self, repo: Option<String>) {
-        *self.repository.lock().unwrap() = repo;
+        *self.repository.write().unwrap() = repo;
     }
     
     #[allow(dead_code)]
     pub fn package_size(&self) -> Option<String> {
-        self.package_size.lock().unwrap().clone()
+        self.package_size.read().unwrap().clone()
     }
     
     #[allow(dead_code)]
     pub fn set_package_size(&self, size: Option<String>) {
-        *self.package_size.lock().unwrap() = size;
+        *self.package_size.write().unwrap() = size;
     }
     
     #[allow(dead_code)]
     pub fn dependencies(&self) -> Option<Vec<String>> {
-        self.dependencies.lock().unwrap().clone()
+        self.dependencies.read().unwrap().clone()
     }
     
     #[allow(dead_code)]
     pub fn set_dependencies(&self, deps: Option<Vec<String>>) {
-        *self.dependencies.lock().unwrap() = deps;
+        *self.dependencies.write().unwrap() = deps;
     }
 }
 
@@ -199,7 +203,7 @@ pub enum Message {
     DisableDevice(DeviceType, String, usize),
     DeviceControlComplete,
     InstallProfile(DeviceType, String, usize, String), // type, class, device_index, profile_codename
-    RemoveProfile(DeviceType, String, usize, usize),
+    RemoveProfile(DeviceType, String, usize, String), // type, class, device_index, profile_codename
     ProfileOperationComplete,
     Error(String),
     ClearError,
@@ -694,16 +698,155 @@ impl DeviceTab {
                     iced::Command::none()
                 }
             }
-            Message::RemoveProfile(_dev_type, _class, _device_idx, _profile_idx) => {
-                // TODO: Implement profile removal
-                iced::Command::none()
+            Message::RemoveProfile(dev_type, class, device_idx, profile_codename) => {
+                // Similar to InstallProfile, but use remove_script instead
+                let profile_data = match dev_type {
+                    DeviceType::Pci => {
+                        if let Some((_, devices)) = self.pci_devices.iter().find(|(c, _)| c == &class) {
+                            if let Some(device) = devices.get(device_idx) {
+                                // Find profile by codename
+                                if let Some(profile) = device.profiles.iter().find(|p| p.profile().codename == profile_codename) {
+                                    let p = profile.profile();
+                                    let d = &device.device;
+                                    let driver_version = profile.driver_version().unwrap_or_default();
+                                    let driver_name = if !driver_version.is_empty() {
+                                        driver_version.clone()
+                                    } else {
+                                        p.i18n_desc.split(" (").next()
+                                            .unwrap_or_else(|| p.i18n_desc.split(" for ").next().unwrap_or(&p.i18n_desc))
+                                            .trim()
+                                            .to_string()
+                                    };
+                                    let repositories = extract_repositories_from_script(&p.remove_script);
+                                    Some((
+                                        p.i18n_desc.clone(),
+                                        p.remove_script.clone(),
+                                        d.vendor_name.clone(),
+                                        d.device_name.clone(),
+                                        driver_name,
+                                        driver_version,
+                                        d.sysfs_busid.clone(),
+                                        d.vendor_id.clone(),
+                                        d.device_id.clone(),
+                                        repositories,
+                                    ))
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                    DeviceType::Usb => {
+                        if let Some((_, devices)) = self.usb_devices.iter().find(|(c, _)| c == &class) {
+                            if let Some(device) = devices.get(device_idx) {
+                                // Find profile by codename
+                                if let Some(profile) = device.profiles.iter().find(|p| p.profile().codename == profile_codename) {
+                                    let p = profile.profile();
+                                    let d = &device.device;
+                                    let driver_version = profile.driver_version().unwrap_or_default();
+                                    let driver_name = if !driver_version.is_empty() {
+                                        driver_version.clone()
+                                    } else {
+                                        p.i18n_desc.split(" (").next()
+                                            .unwrap_or_else(|| p.i18n_desc.split(" for ").next().unwrap_or(&p.i18n_desc))
+                                            .trim()
+                                            .to_string()
+                                    };
+                                    let repositories = extract_repositories_from_script(&p.remove_script);
+                                    Some((
+                                        p.i18n_desc.clone(),
+                                        p.remove_script.clone(),
+                                        d.manufacturer_string_index.clone(),
+                                        d.product_string_index.clone(),
+                                        driver_name,
+                                        driver_version,
+                                        d.sysfs_busid.clone(),
+                                        d.vendor_id.clone(),
+                                        d.product_id.clone(),
+                                        repositories,
+                                    ))
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                };
+                
+                if let Some((profile_name, remove_script, vendor_name, device_name, driver, driver_version, bus_id, vendor_id, device_id, repositories)) = profile_data {
+                    if let Some(script) = remove_script {
+                        // Spawn separate window for driver removal
+                        let exe_path = std::env::current_exe()
+                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                        let exe_str = exe_path.to_string_lossy().to_string();
+                        let profile_name_clone = profile_name.clone();
+                        let script_clone = script.clone();
+                        
+                        iced::Command::perform(
+                            async move {
+                                use tokio::process::Command as TokioCommand;
+                                // Base64 encode all strings to pass as arguments (to avoid shell escaping issues)
+                                use base64::{Engine as _, engine::general_purpose};
+                                let encoded_script = general_purpose::STANDARD.encode(script_clone.as_bytes());
+                                let encoded_vendor = general_purpose::STANDARD.encode(vendor_name.as_bytes());
+                                let encoded_device = general_purpose::STANDARD.encode(device_name.as_bytes());
+                                let encoded_driver = general_purpose::STANDARD.encode(driver.as_bytes());
+                                let encoded_drv_ver = general_purpose::STANDARD.encode(driver_version.as_bytes());
+                                let encoded_bus = general_purpose::STANDARD.encode(bus_id.as_bytes());
+                                let encoded_vid = general_purpose::STANDARD.encode(vendor_id.as_bytes());
+                                let encoded_did = general_purpose::STANDARD.encode(device_id.as_bytes());
+                                let encoded_repos = general_purpose::STANDARD.encode(serde_json::to_string(&repositories).unwrap_or_default().as_bytes());
+                                
+                                TokioCommand::new(&exe_str)
+                                    .arg("device-remove-dialog")
+                                    .arg("--profile-name")
+                                    .arg(&profile_name_clone)
+                                    .arg("--remove-script")
+                                    .arg(&encoded_script)
+                                    .arg("--vendor-name")
+                                    .arg(&encoded_vendor)
+                                    .arg("--device-name")
+                                    .arg(&encoded_device)
+                                    .arg("--driver")
+                                    .arg(&encoded_driver)
+                                    .arg("--driver-version")
+                                    .arg(&encoded_drv_ver)
+                                    .arg("--bus-id")
+                                    .arg(&encoded_bus)
+                                    .arg("--vendor-id")
+                                    .arg(&encoded_vid)
+                                    .arg("--device-id")
+                                    .arg(&encoded_did)
+                                    .arg("--repositories")
+                                    .arg(&encoded_repos)
+                                    .spawn()
+                                    .ok();
+                            },
+                            |_| Message::ProfileOperationComplete,
+                        )
+                    } else {
+                        self.error = Some("This profile does not have a remove script.".to_string());
+                        iced::Command::none()
+                    }
+                } else {
+                    self.error = Some("Profile not found.".to_string());
+                    iced::Command::none()
+                }
             }
             Message::ProfileOperationComplete => {
                 // Refresh device status
                 iced::Command::perform(async {}, |_| Message::UpdateStatus)
             }
             Message::UpdateStatus => {
-                // Update device status and profile installation statuses
+                // Only update the selected device's profiles (not all devices) for better performance
                 if let Some((dev_type, class, device_idx)) = &self.selected_device {
                     // Refresh the specific device
                     match dev_type {
@@ -714,7 +857,7 @@ impl DeviceTab {
                                     if let Ok(updated) = libcfhdb::pci::CfhdbPciDevice::get_device_from_busid(&device.device.sysfs_busid) {
                                         device.device = updated;
                                     }
-                                    // Update all profiles
+                                    // Update all profiles for this device only
                                     for profile in &device.profiles {
                                         profile.update_installed();
                                     }
@@ -728,7 +871,7 @@ impl DeviceTab {
                                     if let Ok(updated) = libcfhdb::usb::CfhdbUsbDevice::get_device_from_busid(&device.device.sysfs_busid) {
                                         device.device = updated;
                                     }
-                                    // Update all profiles
+                                    // Update all profiles for this device only
                                     for profile in &device.profiles {
                                         profile.update_installed();
                                     }
@@ -737,21 +880,7 @@ impl DeviceTab {
                         }
                     }
                 }
-                // Also update all other devices' profiles
-                for (_, devices) in &mut self.pci_devices {
-                    for device in devices {
-                        for profile in &device.profiles {
-                            profile.update_installed();
-                        }
-                    }
-                }
-                for (_, devices) in &mut self.usb_devices {
-                    for device in devices {
-                        for profile in &device.profiles {
-                            profile.update_installed();
-                        }
-                    }
-                }
+                // Don't update all devices - only update when explicitly needed
                 iced::Command::none()
             }
             Message::Error(msg) => {
@@ -1267,10 +1396,10 @@ impl DeviceTab {
         // Control buttons
         let control_buttons = self.view_control_buttons(theme, material_font, dev_type, class, device_idx, &device_info);
 
-        // Profiles section
+        // Profiles section - use references to avoid cloning
         let profiles_section = match (profiles_pci, profiles_usb) {
-            (Some(p), None) => self.view_profiles_section_pci(theme, material_font, dev_type, class, device_idx, p),
-            (None, Some(p)) => self.view_profiles_section_usb(theme, material_font, dev_type, class, device_idx, p),
+            (Some(p), None) => self.view_profiles_section_pci(theme, material_font, dev_type, class, device_idx, &p),
+            (None, Some(p)) => self.view_profiles_section_usb(theme, material_font, dev_type, class, device_idx, &p),
             _ => self.view_error("No profiles available"),
         };
 
@@ -1467,7 +1596,7 @@ impl DeviceTab {
         .into()
     }
 
-    fn view_profiles_section_pci(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: Vec<Arc<PreCheckedPciProfile>>) -> Element<'_, Message> {
+    fn view_profiles_section_pci(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedPciProfile>]) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
         
         if profiles.is_empty() {
@@ -1484,12 +1613,16 @@ impl DeviceTab {
         let mut profile_cards = column![].spacing(10);
 
         // Sort profiles - NVIDIA profiles first (always), then by priority
-        let mut sorted_profiles = profiles;
+        // Create a Vec from the slice for sorting (Arc cloning is cheap)
+        // Cache NVIDIA vendor ID check to avoid repeated string allocations
+        let nvidia_vendor_id = "10de".to_string();
+        let mut sorted_profiles: Vec<_> = profiles.iter().cloned().collect();
         sorted_profiles.sort_by(|a, b| {
             let a_profile = a.profile();
             let b_profile = b.profile();
-            let a_is_nvidia = a_profile.vendor_ids.contains(&"10de".to_string());
-            let b_is_nvidia = b_profile.vendor_ids.contains(&"10de".to_string());
+            // Use cached string reference to avoid repeated allocations
+            let a_is_nvidia = a_profile.vendor_ids.contains(&nvidia_vendor_id);
+            let b_is_nvidia = b_profile.vendor_ids.contains(&nvidia_vendor_id);
             
             // NVIDIA profiles always first, regardless of device type
             match (a_is_nvidia, b_is_nvidia) {
@@ -1506,7 +1639,7 @@ impl DeviceTab {
             }
         });
 
-        for (profile_idx, profile) in sorted_profiles.iter().enumerate() {
+        for (_profile_idx, profile) in sorted_profiles.iter().enumerate() {
             let profile_data = profile.profile();
             let is_installed = profile.installed();
             
@@ -1548,7 +1681,7 @@ impl DeviceTab {
                     .spacing(4)
                     .align_items(Alignment::Center)
                 )
-                .on_press(Message::RemoveProfile(dev_type, class.to_string(), device_idx, profile_idx))
+                .on_press(Message::RemoveProfile(dev_type, class.to_string(), device_idx, profile_data.codename.clone()))
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
                 })))
@@ -1843,7 +1976,7 @@ impl DeviceTab {
         .into()
     }
 
-    fn view_profiles_section_usb(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: Vec<Arc<PreCheckedUsbProfile>>) -> Element<'_, Message> {
+    fn view_profiles_section_usb(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedUsbProfile>]) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
         
         if profiles.is_empty() {
@@ -1860,10 +1993,11 @@ impl DeviceTab {
         let mut profile_cards = column![].spacing(10);
 
         // Sort profiles by priority
-        let mut sorted_profiles = profiles;
+        // Create a Vec from the slice for sorting (Arc cloning is cheap)
+        let mut sorted_profiles: Vec<_> = profiles.iter().cloned().collect();
         sorted_profiles.sort_by_key(|p| p.profile().priority);
 
-        for (profile_idx, profile) in sorted_profiles.iter().enumerate() {
+        for (_profile_idx, profile) in sorted_profiles.iter().enumerate() {
             let profile_data = profile.profile();
             let is_installed = profile.installed();
             
@@ -1905,7 +2039,7 @@ impl DeviceTab {
                     .spacing(4)
                     .align_items(Alignment::Center)
                 )
-                .on_press(Message::RemoveProfile(dev_type, class.to_string(), device_idx, profile_idx))
+                .on_press(Message::RemoveProfile(dev_type, class.to_string(), device_idx, profile_data.codename.clone()))
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
                 })))
@@ -2903,7 +3037,7 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
             i18n_desc: desc.clone(),
             icon_name: "mesa".to_string(),
             license: "open-source".to_string(),
-            class_ids: vec!["0300".to_string(), "*".to_string()], // VGA controller or any class
+            class_ids: vec!["0300".to_string()], // VGA controller only
             vendor_ids: vec!["*".to_string()], // Mesa works with AMD, Intel, and some NVIDIA
             device_ids: vec!["*".to_string()], // All devices
             blacklisted_class_ids: Vec::new(),
@@ -3058,8 +3192,8 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             i18n_desc: desc.clone(),
             icon_name: "nvidia".to_string(),
             license: "proprietary".to_string(),
-            class_ids: vec!["0300".to_string(), "*".to_string()], // VGA controller or any class
-            vendor_ids: vec!["10de".to_string(), "*".to_string()], // NVIDIA vendor ID or any vendor
+            class_ids: vec!["0300".to_string()], // VGA controller only
+            vendor_ids: vec!["10de".to_string()], // NVIDIA vendor ID only
             device_ids: vec!["*".to_string()], // All NVIDIA devices
             blacklisted_class_ids: Vec::new(),
             blacklisted_vendor_ids: Vec::new(),
@@ -3091,20 +3225,24 @@ async fn load_all_devices() -> Result<(
     // Load PCI profiles
     let mut pci_profiles = load_pci_profiles().await?;
     
-    // Filter out Nobara profiles for NVIDIA devices (vendor_id "10de")
+    // Combine all filtering operations into a single pass for better performance
     pci_profiles.retain(|p| {
-        // Keep non-NVIDIA profiles
-        !p.vendor_ids.contains(&"10de".to_string()) ||
-        // Keep NVIDIA profiles that don't come from Nobara (check install script)
-        !p.install_script.as_ref().map(|s| s.contains("nobara") || s.contains("Nobara")).unwrap_or(false)
-    });
-    
-    // Filter out Mesa profiles from downloaded profiles (we'll use repository versions instead)
-    pci_profiles.retain(|p| {
-        // Remove profiles that are clearly Mesa-related from downloaded profiles
-        !p.codename.to_lowercase().contains("mesa") &&
-        !p.i18n_desc.to_lowercase().contains("mesa") &&
-        !p.install_script.as_ref().map(|s| s.to_lowercase().contains("mesa")).unwrap_or(false)
+        // Filter out Nobara profiles for NVIDIA devices (vendor_id "10de")
+        let is_nvidia_nobara = p.vendor_ids.contains(&"10de".to_string()) &&
+            p.install_script.as_ref().map(|s| s.contains("nobara") || s.contains("Nobara")).unwrap_or(false);
+        
+        // Filter out Mesa profiles from downloaded profiles (we'll use repository versions instead)
+        let is_mesa = p.codename.to_lowercase().contains("mesa") ||
+            p.i18n_desc.to_lowercase().contains("mesa") ||
+            p.install_script.as_ref().map(|s| s.to_lowercase().contains("mesa")).unwrap_or(false);
+        
+        // Filter out separate CUDA profiles (CUDA is included in the main driver installation)
+        let is_cuda_profile = p.codename.to_lowercase().contains("cuda") ||
+            (p.i18n_desc.to_lowercase().contains("cuda") && 
+             !p.i18n_desc.to_lowercase().contains("nvidia graphics driver"));
+        
+        // Keep profile if it's not a Nobara NVIDIA profile, not a Mesa profile, and not a separate CUDA profile
+        !is_nvidia_nobara && !is_mesa && !is_cuda_profile
     });
     
     // Query repositories for NVIDIA and Mesa drivers in parallel
@@ -3197,15 +3335,9 @@ async fn load_all_devices() -> Result<(
                 // Check if this is a repository profile (high priority and has packages)
                 if p.priority == 100 && p.packages.is_some() {
                     // This is a repository profile - get repo info from the map
-                    if let Some((repo_name, package_names)) = repo_info_map.get(&p.codename) {
+                    if let Some((repo_name, _package_names)) = repo_info_map.get(&p.codename) {
                         profile.set_repository(Some(repo_name.clone()));
-                        
-                        // Query package size and dependencies asynchronously
-                        let profile_clone = profile.clone();
-                        let pkgs_clone = package_names.clone();
-                        std::thread::spawn(move || {
-                            query_package_info(&profile_clone, &pkgs_clone);
-                        });
+                        // Package info will be queried in batch later
                     } else {
                         // Fallback: determine repository from install script
                         if let Some(pkgs) = &p.packages {
@@ -3222,13 +3354,7 @@ async fn load_all_devices() -> Result<(
                                     None
                                 };
                                 profile.set_repository(repo);
-                                
-                                // Query package size and dependencies asynchronously
-                                let profile_clone = profile.clone();
-                                let pkgs_clone = pkgs.clone();
-                                std::thread::spawn(move || {
-                                    query_package_info(&profile_clone, &pkgs_clone);
-                                });
+                                // Package info will be queried in batch later
                             }
                         }
                     }
@@ -3268,15 +3394,9 @@ async fn load_all_devices() -> Result<(
                 // Check if this is a repository profile (priority 90 and has packages)
                 if p.priority == 90 && p.packages.is_some() {
                     // This is a repository profile - get repo info from the map
-                    if let Some((repo_name, package_names)) = repo_info_map.get(&p.codename) {
+                    if let Some((repo_name, _package_names)) = repo_info_map.get(&p.codename) {
                         profile.set_repository(Some(repo_name.clone()));
-                        
-                        // Query package size and dependencies asynchronously
-                        let profile_clone = profile.clone();
-                        let pkgs_clone = package_names.clone();
-                        std::thread::spawn(move || {
-                            query_package_info(&profile_clone, &pkgs_clone);
-                        });
+                        // Package info will be queried in batch later
                     } else {
                         // Fallback: determine repository from install script
                         if let Some(pkgs) = &p.packages {
@@ -3289,13 +3409,7 @@ async fn load_all_devices() -> Result<(
                                     None
                                 };
                                 profile.set_repository(repo);
-                                
-                                // Query package size and dependencies asynchronously
-                                let profile_clone = profile.clone();
-                                let pkgs_clone = pkgs.clone();
-                                std::thread::spawn(move || {
-                                    query_package_info(&profile_clone, &pkgs_clone);
-                                });
+                                // Package info will be queried in batch later
                             }
                         }
                     }
@@ -3305,6 +3419,31 @@ async fn load_all_devices() -> Result<(
             Arc::new(profile)
         })
         .collect();
+
+    // Batch query package info for all profiles that need it (instead of spawning individual threads)
+    let profiles_to_query: Vec<_> = pci_profiles_arc.iter()
+        .filter_map(|profile_arc| {
+            let p = profile_arc.profile();
+            // Only query for repository profiles with packages
+            if (p.priority == 100 || p.priority == 90) && p.packages.is_some() {
+                if let Some(pkgs) = &p.packages {
+                    if !pkgs.is_empty() {
+                        return Some((profile_arc.clone(), pkgs.clone()));
+                    }
+                }
+            }
+            None
+        })
+        .collect();
+    
+    // Process package info queries in a single background thread to avoid spawning many threads
+    if !profiles_to_query.is_empty() {
+        std::thread::spawn(move || {
+            for (profile, package_names) in profiles_to_query {
+                query_package_info(&profile, &package_names);
+            }
+        });
+    }
 
     // Load USB profiles
     let usb_profiles = load_usb_profiles().await?;

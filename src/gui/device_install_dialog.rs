@@ -24,6 +24,7 @@ pub struct DeviceInstallDialog {
     profile_name: String,
     install_script: String,
     device_info: DeviceInfo,
+    is_removal: bool, // true for removal, false for installation
     is_running: bool,
     is_complete: bool,
     has_error: bool,
@@ -47,24 +48,26 @@ pub struct DeviceInfo {
 }
 
 impl DeviceInstallDialog {
-    pub fn new(profile_name: String, install_script: String, device_info: DeviceInfo) -> Self {
+    pub fn new(profile_name: String, install_script: String, device_info: DeviceInfo, is_removal: bool) -> Self {
+        let action_text = if is_removal { "Removing" } else { "Installing" };
         Self {
             profile_name: profile_name.clone(),
             install_script,
             device_info,
+            is_removal,
             is_running: true,
             is_complete: false,
             has_error: false,
             is_post_install: false,
             post_install_complete: false,
-            progress_text: format!("Installing driver: {}...", profile_name),
+            progress_text: format!("{} driver: {}...", action_text, profile_name),
             terminal_output: String::new(),
             post_install_output: String::new(),
         }
     }
 
-    pub fn run_separate_window(profile_name: String, install_script: String, device_info: DeviceInfo) -> Result<(), iced::Error> {
-        let dialog = Self::new(profile_name, install_script, device_info);
+    pub fn run_separate_window(profile_name: String, install_script: String, device_info: DeviceInfo, is_removal: bool) -> Result<(), iced::Error> {
+        let dialog = Self::new(profile_name, install_script, device_info, is_removal);
         
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(1000.0, 700.0);
@@ -100,7 +103,8 @@ impl Application for DeviceInstallDialog {
     }
 
     fn title(&self) -> String {
-        format!("Installing Driver: {} - FedoraForge", self.profile_name)
+        let action = if self.is_removal { "Removing" } else { "Installing" };
+        format!("{} Driver: {} - FedoraForge", action, self.profile_name)
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
@@ -109,9 +113,10 @@ impl Application for DeviceInstallDialog {
                 self.is_running = true;
                 self.terminal_output.clear();
                 let script = self.install_script.clone();
+                let is_removal = self.is_removal;
                 
                 iced::Command::perform(
-                    execute_install_script(script),
+                    execute_install_script(script, is_removal),
                     |result| match result {
                         Ok(output) => Message::InstallationProgress(output),
                         Err(e) => Message::InstallationError(e),
@@ -119,26 +124,31 @@ impl Application for DeviceInstallDialog {
                 )
             }
             Message::InstallationProgress(output) => {
-                // Set the complete output (installation finished successfully)
+                // Set the complete output (installation/removal finished successfully)
                 self.terminal_output = output;
                 self.is_running = false;
                 self.is_complete = true;
                 
-                // Check if this is an NVIDIA driver and run post-install commands
-                let is_nvidia = self.device_info.vendor_id == "10de" || 
-                                self.device_info.driver.to_lowercase().contains("nvidia");
-                
-                if is_nvidia {
-                    // Start post-installation steps
-                    self.is_post_install = true;
-                    self.progress_text = "Rebuilding kernel modules...".to_string();
-                    iced::Command::perform(
-                        run_nvidia_post_install(),
-                        |result| match result {
-                            Ok(output) => Message::PostInstallProgress(output),
-                            Err(e) => Message::PostInstallError(e),
-                        },
-                    )
+                // Only run post-install commands for NVIDIA driver installation (not removal)
+                if !self.is_removal {
+                    // Check if this is an NVIDIA driver and run post-install commands
+                    let is_nvidia = self.device_info.vendor_id == "10de" || 
+                                    self.device_info.driver.to_lowercase().contains("nvidia");
+                    
+                    if is_nvidia {
+                        // Start post-installation steps
+                        self.is_post_install = true;
+                        self.progress_text = "Rebuilding kernel modules...".to_string();
+                        iced::Command::perform(
+                            run_nvidia_post_install(),
+                            |result| match result {
+                                Ok(output) => Message::PostInstallProgress(output),
+                                Err(e) => Message::PostInstallError(e),
+                            },
+                        )
+                    } else {
+                        Command::none()
+                    }
                 } else {
                     Command::none()
                 }
@@ -235,7 +245,7 @@ impl DeviceInstallDialog {
                 .width(Length::Fill),
                 Space::with_height(Length::Fixed(6.0)),
                 row![
-                    text("Driver to Install:").size(13).width(Length::Fixed(120.0))
+                    text(if self.is_removal { "Driver to Remove:" } else { "Driver to Install:" }).size(13).width(Length::Fixed(120.0))
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     text(&self.device_info.driver).size(13)
                         .style(iced::theme::Text::Color(theme.primary())),
@@ -309,16 +319,17 @@ impl DeviceInstallDialog {
 
         let content = if self.is_running || self.is_post_install {
             // Show running state with terminal output
-            let title_text = if self.is_post_install {
-                "Post-Installation Steps"
+            let action = if self.is_removal { "Removing" } else { "Installing" };
+            let title_text: String = if self.is_post_install {
+                "Post-Installation Steps".to_string()
             } else {
-                "Installing Driver"
+                format!("{} Driver", action)
             };
             
-            let output_text = if self.is_post_install {
-                "Post-Installation Output:"
+            let output_text: String = if self.is_post_install {
+                "Post-Installation Output:".to_string()
             } else {
-                "Installation Output:"
+                format!("{} Output:", action)
             };
             
             let combined_output = if self.is_post_install {
@@ -379,9 +390,14 @@ impl DeviceInstallDialog {
             .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
         } else if self.has_error {
             // Show error state
+            let error_title = if self.is_removal {
+                "Removal Failed"
+            } else {
+                "Installation Failed"
+            };
             container(
                 column![
-                    text("Installation Failed")
+                    text(error_title)
                         .size(22)
                         .style(iced::theme::Text::Color(theme.danger())),
                     Space::with_height(Length::Fixed(12.0)),
@@ -427,10 +443,11 @@ impl DeviceInstallDialog {
             .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
         } else {
             // Show success state
-            let success_title = if self.post_install_complete {
-                "Installation and Post-Installation Complete"
+            let action = if self.is_removal { "Removal" } else { "Installation" };
+            let success_title: String = if self.post_install_complete {
+                "Installation and Post-Installation Complete".to_string()
             } else {
-                "Installation Complete"
+                format!("{} Complete", action)
             };
             
             let combined_output = if self.post_install_complete {
@@ -461,12 +478,17 @@ impl DeviceInstallDialog {
                             .size(14)
                             .style(iced::theme::Text::Color(theme.primary()))
                     } else {
-                        text("Installation completed successfully.")
+                        let success_msg = if self.is_removal {
+                            "Removal completed successfully."
+                        } else {
+                            "Installation completed successfully."
+                        };
+                        text(success_msg)
                             .size(14)
                             .style(iced::theme::Text::Color(theme.primary()))
                     },
                     Space::with_height(Length::Fixed(16.0)),
-                    text("Installation Output:")
+                    text(format!("{} Output:", action))
                         .size(14)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     Space::with_height(Length::Fixed(8.0)),
@@ -510,14 +532,15 @@ impl DeviceInstallDialog {
     }
 }
 
-// Execute install script with streaming output
-async fn execute_install_script(script: String) -> Result<String, String> {
+// Execute install/remove script with streaming output
+async fn execute_install_script(script: String, is_removal: bool) -> Result<String, String> {
     use tokio::io::{AsyncBufReadExt, BufReader};
     
     // Write script to temporary file
     use std::io::Write;
     let mut temp_file = std::env::temp_dir();
-    temp_file.push(format!("fedoraforge_install_{}.sh", std::process::id()));
+    let file_prefix = if is_removal { "fedoraforge_remove" } else { "fedoraforge_install" };
+    temp_file.push(format!("{}_{}.sh", file_prefix, std::process::id()));
     
     {
         let mut file = std::fs::File::create(&temp_file)
@@ -612,12 +635,22 @@ async fn execute_install_script(script: String) -> Result<String, String> {
     
     if status.success() {
         if output.is_empty() {
-            output = "Installation completed successfully.".to_string();
+            let success_msg = if is_removal {
+                "Removal completed successfully."
+            } else {
+                "Installation completed successfully."
+            };
+            output = success_msg.to_string();
         }
         Ok(output)
     } else {
         let exit_code = status.code().unwrap_or(-1);
-        Err(format!("Installation failed with exit code {}. Output:\n{}", exit_code, output))
+        let error_msg = if is_removal {
+            format!("Removal failed with exit code {}. Output:\n{}", exit_code, output)
+        } else {
+            format!("Installation failed with exit code {}. Output:\n{}", exit_code, output)
+        };
+        Err(error_msg)
     }
 }
 

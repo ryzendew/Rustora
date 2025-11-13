@@ -820,8 +820,8 @@ impl KernelTab {
                         })
                         .collect::<Vec<_>>(),
                 )
-                .spacing(8)
-                .padding(Padding::new(8.0))
+                .spacing(12)
+                .padding(Padding::new(16.0))
             )
             .width(Length::Fill)
             .height(Length::Fill)
@@ -882,11 +882,12 @@ impl KernelTab {
     }
 
     fn view_kernel_item(&self, kernel: &EnhancedKernelInfo, theme: &crate::gui::Theme, material_font: &iced::Font) -> Element<'_, Message> {
+        // Status badge
         let status_badge = if kernel.installed {
             container(
                 text("INSTALLED")
                     .size(10)
-                    .style(iced::theme::Text::Color(iced::Color::from_rgb(0.1, 0.5, 0.1))) // Darker green for better visibility
+                    .style(iced::theme::Text::Color(iced::Color::from_rgb(0.0, 0.7, 0.0)))
             )
             .padding(Padding::from([4.0, 8.0, 4.0, 8.0]))
             .style(iced::theme::Container::Custom(Box::new(InstalledBadgeStyle)))
@@ -894,14 +895,14 @@ impl KernelTab {
             container(
                 text("AVAILABLE")
                     .size(10)
-                    .style(iced::theme::Text::Color(theme.text()))
+                    .style(iced::theme::Text::Color(theme.secondary_text()))
             )
             .padding(Padding::from([4.0, 8.0, 4.0, 8.0]))
             .style(iced::theme::Container::Custom(Box::new(AvailableBadgeStyle)))
         };
 
         // CPU feature requirement badge
-        let cpu_badge = if kernel.min_x86_march > 1 {
+        let cpu_badge: Element<Message> = if kernel.min_x86_march > 1 {
             let level_text = match kernel.min_x86_march {
                 2 => "x86-64-v2",
                 3 => "x86-64-v3",
@@ -913,36 +914,38 @@ impl KernelTab {
                     .size(9)
                     .style(iced::theme::Text::Color(iced::Color::from_rgb(0.9, 0.6, 0.2)))
             )
-            .padding(Padding::from([2.0, 6.0, 2.0, 6.0]))
+            .padding(Padding::from([3.0, 7.0, 3.0, 7.0]))
             .style(iced::theme::Container::Custom(Box::new(CpuBadgeStyle)))
+            .into()
         } else {
-            container(Space::with_height(Length::Shrink))
+            Space::with_width(Length::Shrink).into()
         };
 
+        // Action button
         let action_button = if kernel.installed {
             button(
                 row![
                     text(crate::gui::fonts::glyphs::DELETE_SYMBOL)
                         .font(*material_font)
-                        .size(16),
+                        .size(14),
                     text("Remove")
-                        .size(12)
+                        .size(13)
                 ]
                 .spacing(6)
                 .align_items(Alignment::Center)
             )
             .style(iced::theme::Button::Custom(Box::new(RemoveButtonStyle)))
             .on_press(Message::RemoveKernel(kernel.main_package.clone()))
-            .padding(Padding::new(8.0))
+            .padding(Padding::from([10.0, 16.0, 10.0, 16.0]))
         } else {
             let is_installing = self.installing_kernels.contains(&kernel.main_package);
             button(
                 row![
                     text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL)
                         .font(*material_font)
-                        .size(16),
+                        .size(14),
                     text(if is_installing { "Installing..." } else { "Install" })
-                        .size(12)
+                        .size(13)
                 ]
                 .spacing(6)
                 .align_items(Alignment::Center)
@@ -953,56 +956,108 @@ impl KernelTab {
             } else {
                 Message::InstallKernel(kernel.main_package.clone())
             })
-            .padding(Padding::new(8.0))
+            .padding(Padding::from([10.0, 16.0, 10.0, 16.0]))
         };
 
+        // Extract vendor/repository info from branch
+        let vendor_text = if kernel.branch.contains("Copr") || kernel.branch.contains("copr") {
+            // Try to extract user/repo from branch string
+            if let Some(copr_part) = kernel.branch.split("Copr").nth(1) {
+                format!("Fedora Copr{}", copr_part.split(')').next().unwrap_or(""))
+            } else if kernel.branch.contains("bieszczaders") {
+                "Fedora Copr - user bieszczaders".to_string()
+            } else {
+                kernel.branch.clone()
+            }
+        } else {
+            kernel.branch.clone()
+        };
+
+        // Professional card layout - wrapped in button for click-to-view-details
         button(
             container(
-                row![
-                    column![
+                column![
+                    // Header row: Title (left), Badges + Action button (right)
+                    row![
+                        // Left: Title
+                        text(&kernel.name)
+                            .size(17)
+                            .style(iced::theme::Text::Color(theme.primary()))
+                            .width(Length::Fill),
+                        // Right: Badges and action button
                         row![
-                            text(&kernel.name)
-                                .size(15) // Slightly larger for emphasis
-                                .style(iced::theme::Text::Color(theme.text())) // Darker color for better visibility
-                                .width(Length::Fill),
                             status_badge,
                             cpu_badge,
+                            action_button,
                         ]
-                        .align_items(Alignment::Center)
-                        .spacing(12)
-                        .width(Length::Fill),
-                        Space::with_height(Length::Fixed(4.0)),
-                        text(&kernel.description)
-                            .size(12)
-                            .style(iced::theme::Text::Color(theme.secondary_text()))
-                            .width(Length::Fill),
-                        Space::with_height(Length::Fixed(4.0)),
-                        row![
-                            text(format!("Package: {}", kernel.main_package))
-                                .size(11)
+                        .spacing(10)
+                        .align_items(Alignment::Center),
+                    ]
+                    .align_items(Alignment::Center)
+                    .width(Length::Fill)
+                    .spacing(12),
+                    Space::with_height(Length::Fixed(12.0)),
+                    // Description
+                    text(&kernel.description)
+                        .size(13)
+                        .style(iced::theme::Text::Color(theme.text()))
+                        .width(Length::Fill)
+                        .shaping(iced::widget::text::Shaping::Advanced),
+                    Space::with_height(Length::Fixed(12.0)),
+                    // Metadata row: Package, Version, Vendor (aligned with fixed widths)
+                    row![
+                        // Package
+                        column![
+                            text("Package")
+                                .size(10)
                                 .style(iced::theme::Text::Color(theme.secondary_text())),
-                            Space::with_width(Length::Fixed(16.0)),
-                            text(format!("Version: {}", kernel.version))
-                                .size(11)
-                                .style(iced::theme::Text::Color(theme.secondary_text())),
+                            Space::with_height(Length::Fixed(2.0)),
+                            text(&kernel.main_package)
+                                .size(12)
+                                .style(iced::theme::Text::Color(theme.text())),
                         ]
                         .spacing(0)
-                        .width(Length::Fill),
+                        .width(Length::FillPortion(2)),
+                        // Version
+                        column![
+                            text("Version")
+                                .size(10)
+                                .style(iced::theme::Text::Color(theme.secondary_text())),
+                            Space::with_height(Length::Fixed(2.0)),
+                            text(&kernel.version)
+                                .size(12)
+                                .style(iced::theme::Text::Color(theme.text())),
+                        ]
+                        .spacing(0)
+                        .width(Length::FillPortion(2)),
+                        // Vendor/Repository
+                        column![
+                            text("Vendor")
+                                .size(10)
+                                .style(iced::theme::Text::Color(theme.secondary_text())),
+                            Space::with_height(Length::Fixed(2.0)),
+                            text(&vendor_text)
+                                .size(12)
+                                .style(iced::theme::Text::Color(theme.text()))
+                                .shaping(iced::widget::text::Shaping::Advanced),
+                        ]
+                        .spacing(0)
+                        .width(Length::FillPortion(3)),
                     ]
-                    .spacing(0)
+                    .spacing(16)
+                    .align_items(Alignment::Start)
                     .width(Length::Fill),
-                    action_button,
                 ]
-                .align_items(Alignment::Center)
-                .spacing(16)
+                .spacing(0)
+                .padding(Padding::new(20.0))
             )
-            .width(Length::Fill)
-            .padding(Padding::new(16.0))
             .style(iced::theme::Container::Custom(Box::new(KernelItemStyle)))
+            .width(Length::Fill)
         )
         .on_press(Message::KernelSelected(kernel.name.clone()))
         .style(iced::theme::Button::Text)
         .padding(0)
+        .width(Length::Fill)
         .into()
     }
 
