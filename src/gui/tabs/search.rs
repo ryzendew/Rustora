@@ -389,7 +389,8 @@ impl SearchTab {
 async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
     // Use repoquery which is much faster than dnf search
     // Get all info in one query using --qf (queryformat) to avoid multiple dnf info calls
-    let queryformat = "%{name}|%{version}|%{release}|%{arch}|%{summary}|%{description}|%{size}";
+    // Note: %{installsize} gives size in bytes, and we add \n to separate packages
+    let queryformat = "%{name}|%{version}|%{release}|%{arch}|%{summary}|%{description}|%{installsize}\n";
     
     let output = tokio::process::Command::new("dnf")
         .args([
@@ -427,6 +428,9 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
     let mut packages = Vec::new();
     let mut seen_names = std::collections::HashSet::new();
 
+    // Split by newlines, but handle multi-line descriptions
+    // Each package should be on one line with our format, but descriptions might have been
+    // truncated or formatted. We'll parse each line as a complete package record.
     for line in stdout.lines() {
         let line = line.trim();
         if line.is_empty() {
@@ -434,28 +438,53 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
         }
 
         // Parse pipe-separated values: name|version|release|arch|summary|description|size
+        // We expect exactly 7 fields. If we get more, descriptions might contain | characters
+        // If we get fewer, the line might be malformed
         let parts: Vec<&str> = line.split('|').collect();
+        
+        // We need at least 4 fields (name, version, release, arch) to be valid
         if parts.len() < 4 {
             continue;
         }
 
+        // If we have more than 7 parts, the description likely contains | characters
+        // In that case, we need to be smarter about parsing
         let name = parts[0].trim();
+        let version = parts.get(1).unwrap_or(&"").trim();
+        let release = parts.get(2).unwrap_or(&"").trim();
+        let arch = parts.get(3).unwrap_or(&"").trim();
+        let summary = parts.get(4).unwrap_or(&"").trim();
+        let (description, size_str) = if parts.len() == 7 {
+            // Perfect case: exactly 7 fields
+            (
+                parts.get(5).unwrap_or(&"").trim().to_string(),
+                parts.get(6).unwrap_or(&"").trim(),
+            )
+        } else if parts.len() > 7 {
+            // Description contains | characters - join middle parts as description
+            let desc_joined = parts[5..parts.len()-1].join("|");
+            (
+                desc_joined.trim().to_string(),
+                parts.last().unwrap_or(&"").trim(),
+            )
+        } else {
+            // Not enough fields - skip this line
+            continue;
+        };
+
         // Skip duplicates (same package from different repos)
         if seen_names.contains(name) {
             continue;
         }
         seen_names.insert(name.to_string());
 
-        let version = parts.get(1).unwrap_or(&"").trim();
-        let release = parts.get(2).unwrap_or(&"").trim();
-        let arch = parts.get(3).unwrap_or(&"").trim();
-        let summary = parts.get(4).unwrap_or(&"").trim();
-        let description = parts.get(5).unwrap_or(&"").trim();
-        let size_str = parts.get(6).unwrap_or(&"").trim();
-
-        // Parse size
+        // Parse size - %{installsize} gives size in bytes as a number
         let size = if !size_str.is_empty() {
-            if let Ok(size_bytes) = parse_size(size_str) {
+            // Try to parse as bytes (number only)
+            if let Ok(size_bytes) = size_str.parse::<u64>() {
+                format_size(size_bytes)
+            } else if let Ok(size_bytes) = parse_size(size_str) {
+                // Fallback: try parsing as formatted size string (e.g., "123 KB")
                 format_size(size_bytes)
             } else {
                 size_str.to_string()
