@@ -151,7 +151,7 @@ impl InstalledTab {
                     async move {
                         use tokio::process::Command as TokioCommand;
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         TokioCommand::new(&exe_path)
                             .arg("remove-dialog")
                             .args(packages)
@@ -179,7 +179,11 @@ impl InstalledTab {
         }
     }
 
-    fn view_panel(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+    fn view_panel(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        let title_font_size = settings.font_size_titles * settings.scale_titles;
+        let body_font_size = settings.font_size_body * settings.scale_body;
+        let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         if let Some(ref details) = self.package_details {
             // Icon widget - try to load actual icon
             let icon_widget = if let Some(ref icon_path) = details.icon_path {
@@ -226,12 +230,12 @@ impl InstalledTab {
                     column![
                         // Header with close button
                         row![
-                            text("Package Details").size(16).style(iced::theme::Text::Color(theme.primary())),
+                            text("Package Details").size(title_font_size).style(iced::theme::Text::Color(theme.primary())),
                             Space::with_width(Length::Fill),
                             {
                                 let material_font = crate::gui::fonts::get_material_symbols_font();
                                 button(
-                                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(18)
+                                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size)
                                 )
                                     .on_press(Message::ClosePanel)
                                     .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)))
@@ -246,7 +250,7 @@ impl InstalledTab {
                         Space::with_height(Length::Fixed(20.0)),
                         // Package name
                         text(&details.name)
-                            .size(22) // Larger size for emphasis
+                            .size(title_font_size * 1.2)
                             .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
                             .horizontal_alignment(iced::alignment::Horizontal::Center),
                         Space::with_height(Length::Fixed(20.0)),
@@ -254,26 +258,26 @@ impl InstalledTab {
                         container(
                             column![
                                 row![
-                                    text("Version:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                    text(&details.version).size(13).width(Length::Fill),
+                                    text("Version:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(&details.version).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12),
                                 Space::with_height(Length::Fixed(8.0)),
                                 row![
-                                    text("Release:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                    text(&details.release).size(13).width(Length::Fill),
+                                    text("Release:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(&details.release).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12),
                                 Space::with_height(Length::Fixed(8.0)),
                                 row![
-                                    text("Architecture:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                    text(&details.arch).size(13).width(Length::Fill),
+                                    text("Architecture:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(&details.arch).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12),
                                 Space::with_height(Length::Fixed(8.0)),
                                 row![
-                                    text("Size:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                    text(&details.size).size(13).width(Length::Fill),
+                                    text("Size:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(&details.size).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12),
                             ]
@@ -283,14 +287,14 @@ impl InstalledTab {
                         .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
                         Space::with_height(Length::Fixed(20.0)),
                         // Summary
-                        text("Summary").size(15).style(iced::theme::Text::Color(theme.primary())),
+                        text("Summary").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(8.0)),
-                        text(&details.summary).size(13),
+                        text(&details.summary).size(package_detail_size),
                         Space::with_height(Length::Fixed(20.0)),
                         // Description
-                        text("Description").size(15).style(iced::theme::Text::Color(theme.primary())),
+                        text("Description").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(8.0)),
-                        text(&details.description).size(13).width(Length::Fill),
+                        text(&details.description).size(package_detail_size).width(Length::Fill),
                     ]
                     .spacing(0)
                     .padding(Padding::new(25.0))
@@ -299,7 +303,9 @@ impl InstalledTab {
             )
             .width(Length::Fixed(420.0))
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(PanelStyle)))
+            .style(iced::theme::Container::Custom(Box::new(PanelStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         } else {
             container(
@@ -309,42 +315,54 @@ impl InstalledTab {
                         {
                             let material_font = crate::gui::fonts::get_material_symbols_font();
                             button(
-                                text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(20)
+                                text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size * 1.2)
                             )
                                 .on_press(Message::ClosePanel)
                                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                                     is_primary: false,
+                                    radius: settings.border_radius,
                                 })))
                                 .padding(Padding::new(8.0))
                         },
                     ]
                     .width(Length::Fill),
                     Space::with_height(Length::Fill),
-                    text("Loading...").size(16).horizontal_alignment(iced::alignment::Horizontal::Center),
+                    text("Loading...").size(body_font_size).horizontal_alignment(iced::alignment::Horizontal::Center),
                     Space::with_height(Length::Fill),
                 ]
                 .padding(Padding::new(20.0))
             )
             .width(Length::Fixed(400.0))
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(PanelStyle)))
+            .style(iced::theme::Container::Custom(Box::new(PanelStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         }
     }
 
-    pub fn view(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+    pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        let input_font_size = settings.font_size_inputs * settings.scale_inputs;
+        let body_font_size = settings.font_size_body * settings.scale_body;
+        let button_font_size = settings.font_size_buttons * settings.scale_buttons;
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
+        let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
+        
         let search_input = text_input("Search installed packages...", &self.search_query)
             .on_input(Message::SearchQueryChanged)
-            .size(16)
+            .size(input_font_size)
             .width(Length::Fill)
             .padding(14)
-            .style(iced::theme::TextInput::Custom(Box::new(RoundedTextInputStyle)));
+            .style(iced::theme::TextInput::Custom(Box::new(RoundedTextInputStyle {
+                radius: settings.border_radius,
+            })));
 
         let material_font = crate::gui::fonts::get_material_symbols_font();
         let refresh_button = button(
             row![
-                text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font),
-                text(" Refresh")
+                text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                text(" Refresh").size(button_font_size)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -352,27 +370,29 @@ impl InstalledTab {
             .on_press(Message::LoadPackages)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: false,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(14.0));
 
         let remove_button = if self.selected_packages.is_empty() {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font),
-                    text(" Remove Selected")
+                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font).size(icon_size),
+                    text(" Remove Selected").size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
             )
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(14.0))
         } else {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font),
-                    text(format!(" Remove {} Package(s)", self.selected_packages.len()))
+                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font).size(icon_size),
+                    text(format!(" Remove {} Package(s)", self.selected_packages.len())).size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -380,6 +400,7 @@ impl InstalledTab {
                 .on_press(Message::RemoveSelected)
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: true,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(14.0))
         };
@@ -389,25 +410,31 @@ impl InstalledTab {
             .align_items(Alignment::Center);
 
         let content: Element<Message> = if self.is_loading {
-            container(text("Loading installed packages...").size(16))
+            container(text("Loading installed packages...").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else {
             let package_list: Element<Message> = if self.packages.is_empty() {
-                container(text("No packages found").size(14))
+                container(text("No packages found").size(body_font_size))
                     .width(Length::Fill)
                     .padding(20)
-                    .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                    .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                        radius: settings.border_radius,
+                    })))
                     .into()
             } else if self.filtered_packages.is_empty() && !self.search_query.trim().is_empty() {
-                container(text(format!("No packages found matching '{}'", self.search_query)).size(14))
+                container(text(format!("No packages found matching '{}'", self.search_query)).size(body_font_size))
                     .width(Length::Fill)
                     .padding(20)
-                    .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                    .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                        radius: settings.border_radius,
+                    })))
                     .into()
             } else {
                 scrollable(
@@ -419,18 +446,20 @@ impl InstalledTab {
                                 let is_selected = self.selected_packages.contains(&pkg.name);
                                 let checkbox_widget = checkbox("", is_selected)
                                     .on_toggle(move |_| Message::TogglePackage(pkg_name_for_toggle.clone()))
-                                    .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle)));
+                                    .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle {
+                                        radius: settings.border_radius,
+                                    })));
                                 let pkg_name_for_click = pkg.name.clone();
                                 button(
                                     container(
                                         row![
                                             checkbox_widget,
                                             text(&pkg.name)
-                                                .size(17) // Larger size for emphasis
+                                                .size(package_name_size)
                                                 .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
                                                 .width(Length::FillPortion(3)),
-                                            text(&pkg.version).size(14).width(Length::FillPortion(2)),
-                                            text(&pkg.repository).size(14).width(Length::FillPortion(2)),
+                                            text(&pkg.version).size(package_detail_size).width(Length::FillPortion(2)),
+                                            text(&pkg.repository).size(package_detail_size).width(Length::FillPortion(2)),
                                         ]
                                         .spacing(12)
                                         .align_items(Alignment::Center)
@@ -438,6 +467,7 @@ impl InstalledTab {
                                     )
                                     .style(iced::theme::Container::Custom(Box::new(PackageItemStyle {
                                         is_selected,
+                                        radius: settings.border_radius,
                                     })))
                                 )
                                 .on_press(Message::PackageSelected(pkg_name_for_click))
@@ -457,7 +487,7 @@ impl InstalledTab {
 
         // Create the slide-out panel
         let panel = if self.panel_open {
-            self.view_panel(theme)
+            self.view_panel(theme, settings)
         } else {
             container(Space::with_width(Length::Fixed(0.0)))
                 .width(Length::Fixed(0.0))
@@ -689,6 +719,7 @@ async fn remove_packages(packages: Vec<String>) -> Result<(), String> {
 
 struct PackageItemStyle {
     is_selected: bool,
+    radius: f32,
 }
 
 impl iced::widget::container::StyleSheet for PackageItemStyle {
@@ -703,7 +734,7 @@ impl iced::widget::container::StyleSheet for PackageItemStyle {
                 palette.background
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if self.is_selected {
                     palette.primary
@@ -716,7 +747,9 @@ impl iced::widget::container::StyleSheet for PackageItemStyle {
     }
 }
 
-struct RoundedMessageStyle;
+struct RoundedMessageStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for RoundedMessageStyle {
     type Style = iced::Theme;
@@ -724,7 +757,7 @@ impl iced::widget::container::StyleSheet for RoundedMessageStyle {
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 0.0,
                 color: iced::Color::TRANSPARENT,
             },
@@ -735,6 +768,7 @@ impl iced::widget::container::StyleSheet for RoundedMessageStyle {
 
 struct RoundedButtonStyle {
     is_primary: bool,
+    radius: f32,
 }
 
 impl ButtonStyleSheet for RoundedButtonStyle {
@@ -749,7 +783,7 @@ impl ButtonStyleSheet for RoundedButtonStyle {
                 iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
@@ -774,7 +808,9 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     }
 }
 
-struct RoundedTextInputStyle;
+struct RoundedTextInputStyle {
+    radius: f32,
+}
 
 impl TextInputStyleSheet for RoundedTextInputStyle {
     type Style = iced::Theme;
@@ -784,7 +820,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(palette.background),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: palette.primary,
             },
@@ -797,7 +833,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(palette.background),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: palette.primary,
             },
@@ -825,7 +861,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
             },
@@ -858,7 +894,9 @@ impl iced::widget::container::StyleSheet for InfoContainerStyle {
     }
 }
 
-struct PanelStyle;
+struct PanelStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for PanelStyle {
     type Style = iced::Theme;
@@ -873,7 +911,7 @@ impl iced::widget::container::StyleSheet for PanelStyle {
                 1.0,
             ))),
             border: Border {
-                radius: 20.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15),
             },
@@ -933,7 +971,9 @@ impl ButtonStyleSheet for CloseButtonStyle {
     }
 }
 
-struct RoundedCheckboxStyle;
+struct RoundedCheckboxStyle {
+    radius: f32,
+}
 
 impl CheckboxStyleSheet for RoundedCheckboxStyle {
     type Style = iced::Theme;
@@ -952,7 +992,7 @@ impl CheckboxStyleSheet for RoundedCheckboxStyle {
                 iced::Color::TRANSPARENT
             },
             border: Border {
-                radius: 6.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: if is_checked {
                     palette.primary

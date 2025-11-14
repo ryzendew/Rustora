@@ -104,7 +104,7 @@ impl Application for DeviceInstallDialog {
 
     fn title(&self) -> String {
         let action = if self.is_removal { "Removing" } else { "Installing" };
-        format!("{} Driver: {} - FedoraForge", action, self.profile_name)
+        format!("{} Driver: {} - Rustora", action, self.profile_name)
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
@@ -539,7 +539,7 @@ async fn execute_install_script(script: String, is_removal: bool) -> Result<Stri
     // Write script to temporary file
     use std::io::Write;
     let mut temp_file = std::env::temp_dir();
-    let file_prefix = if is_removal { "fedoraforge_remove" } else { "fedoraforge_install" };
+    let file_prefix = if is_removal { "rustora_remove" } else { "rustora_install" };
     temp_file.push(format!("{}_{}.sh", file_prefix, std::process::id()));
     
     {

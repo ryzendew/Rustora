@@ -1081,29 +1081,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fedoraforge"
-version = "0.1.5"
-dependencies = [
- "anyhow",
- "async-channel",
- "base64 0.22.1",
- "cfhdb",
- "chrono",
- "clap",
- "colored 2.2.0",
- "futures",
- "iced",
- "once_cell",
- "rayon",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "textwrap",
- "tokio",
- "users",
-]
-
-[[package]]
 name = "find-msvc-tools"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3545,6 +3522,29 @@ dependencies = [
  "ring",
  "rustls-pki-types",
  "untrusted",
+]
+
+[[package]]
+name = "rustora"
+version = "0.1.5"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "base64 0.22.1",
+ "cfhdb",
+ "chrono",
+ "clap",
+ "colored 2.2.0",
+ "futures",
+ "iced",
+ "once_cell",
+ "rayon",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "textwrap",
+ "tokio",
+ "users",
 ]
 
 [[package]]

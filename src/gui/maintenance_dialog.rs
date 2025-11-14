@@ -106,7 +106,7 @@ impl Application for MaintenanceDialog {
     }
 
     fn title(&self) -> String {
-        format!("{} - FedoraForge", self.get_task_title())
+        format!("{} - Rustora", self.get_task_title())
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {

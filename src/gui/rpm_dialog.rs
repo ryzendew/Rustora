@@ -393,9 +393,9 @@ impl Application for RpmDialog {
 
     fn title(&self) -> String {
         if let Some(ref info) = self.rpm_info {
-            format!("Install {} - FedoraForge", info.name)
+            format!("Install {} - Rustora", info.name)
         } else {
-            "Install RPM Package - FedoraForge".to_string()
+            "Install RPM Package - Rustora".to_string()
         }
     }
 
@@ -579,8 +579,24 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
     let path_str = rpm_path.to_string_lossy().to_string();
 
     // Use pkexec (polkit) instead of sudo for better security
-    let output = TokioCommand::new("pkexec")
-        .args(["dnf", "install", "-y", "--assumeyes", &path_str])
+    // For local RPM files (especially converted ones), add --nogpgcheck to skip GPG verification
+    // Note: We do NOT use --allowerasing as it can remove critical system packages and break the system
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.args([
+        "dnf", 
+        "install", 
+        "-y", 
+        "--assumeyes",
+        "--nogpgcheck",  // Skip GPG checks for local/converted RPMs (safe for local files)
+        &path_str
+    ]);
+    
+    // Ensure DISPLAY is set for GUI password dialog
+    if let Ok(display) = std::env::var("DISPLAY") {
+        cmd.env("DISPLAY", display);
+    }
+    
+    let output = cmd
         .output()
         .await
         .map_err(|e| format!("Failed to execute installation: {}", e))?;
@@ -588,7 +604,30 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        return Err(format!("Installation failed: {}\n{}", stderr, stdout));
+        
+        // Check if the error is due to file conflicts
+        let error_msg = if stderr.contains("conflicts with file") || stdout.contains("conflicts with file") {
+            format!(
+                "Installation failed due to file conflicts. This is a known limitation of Alien (version 8.95).\n\n\
+                Alien-converted packages often try to claim ownership of system directories like /usr/bin, /usr/lib, etc., \
+                which are owned by the filesystem package. This is a bug in Alien's conversion process.\n\n\
+                Error details:\n{}\n{}\n\n\
+                ⚠️  WARNING: Using --allowerasing or --force could remove critical system files and break your system.\n\
+                \n\
+                Recommended solutions:\n\
+                1. Check if there's a native RPM version available (preferred)\n\
+                2. Look for Flatpak or AppImage versions of the application\n\
+                3. Manually extract and install the package contents (advanced)\n\
+                4. Report the issue to the package maintainer to provide native RPM support\n\
+                \n\
+                Note: Alien is outdated and has known issues with modern package structures.",
+                stderr, stdout
+            )
+        } else {
+            format!("Installation failed:\n{}\n{}", stderr, stdout)
+        };
+        
+        return Err(error_msg);
     }
 
     Ok("Installation Complete!".to_string())

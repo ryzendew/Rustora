@@ -8,7 +8,7 @@ use anyhow::{Result, Context};
 use iced::Application;
 
 #[derive(Parser)]
-#[command(name = "fedoraforge", about = "FedoraForge - A modern package manager for Fedora", version)]
+#[command(name = "rustora", about = "Rustora - A modern package manager for Fedora", version)]
 struct Cli {
     /// RPM file to open (when opened from file manager)
     #[arg(value_name = "RPM_FILE")]
@@ -81,6 +81,12 @@ enum Commands {
     FlatpakRemoveDialog {
         /// Application IDs to remove
         application_ids: Vec<String>,
+    },
+    /// Show Flatpak update dialog (internal use)
+    FlatpakUpdateDialog {
+        /// Base64 encoded JSON array of FlatpakUpdateInfo
+        #[arg(long)]
+        packages_b64: String,
     },
     /// Show update dialog (internal use)
     UpdateDialog {
@@ -171,6 +177,8 @@ enum Commands {
         /// Kernel name to remove
         kernel_name: String,
     },
+    /// Show settings dialog (internal use)
+    Settings,
 }
 
 #[tokio::main]
@@ -217,7 +225,7 @@ async fn main() -> Result<()> {
             // Use cached InterVariable font (optimized)
             let default_font = gui::fonts::get_inter_font();
 
-            gui::FedoraForgeApp::run(iced::Settings {
+            gui::RustoraApp::run(iced::Settings {
                 window: iced::window::Settings {
                     size: iced::Size::new(1200.0, 800.0),
                     ..Default::default()
@@ -256,7 +264,7 @@ async fn main() -> Result<()> {
                 // Use cached InterVariable font (optimized)
                 let default_font = gui::fonts::get_inter_font();
 
-                gui::FedoraForgeApp::run(iced::Settings {
+                gui::RustoraApp::run(iced::Settings {
                     window: iced::window::Settings {
                         size: iced::Size::new(1200.0, 800.0),
                         ..Default::default()
@@ -316,6 +324,26 @@ async fn main() -> Result<()> {
             FlatpakRemoveDialog::run_separate_window(application_ids)?;
             Ok(())
         }
+        Some(Commands::FlatpakUpdateDialog { packages_b64 }) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            // Decode base64 encoded JSON
+            use base64::{Engine as _, engine::general_purpose};
+            let decoded = general_purpose::STANDARD
+                .decode(&packages_b64)
+                .map_err(|e| anyhow::anyhow!("Failed to decode packages: {}", e))?;
+            let packages: Vec<crate::gui::flatpak_update_dialog::FlatpakUpdateInfo> = 
+                serde_json::from_slice(&decoded)
+                    .map_err(|e| anyhow::anyhow!("Failed to parse packages JSON: {}", e))?;
+            use crate::gui::flatpak_update_dialog::FlatpakUpdateDialog;
+            FlatpakUpdateDialog::run_separate_window(packages)?;
+            Ok(())
+        }
         Some(Commands::UpdateDialog { packages_b64 }) => {
             // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
@@ -338,6 +366,18 @@ async fn main() -> Result<()> {
             }
             use crate::gui::update_settings_dialog::UpdateSettingsDialog;
             UpdateSettingsDialog::run_separate_window()?;
+            Ok(())
+        }
+        Some(Commands::Settings) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            use crate::gui::settings_dialog::SettingsDialog;
+            SettingsDialog::run_separate_window()?;
             Ok(())
         }
         Some(Commands::MaintenanceDialog { task }) => {
@@ -522,8 +562,10 @@ async fn main() -> Result<()> {
                 Commands::InstallDialog { .. } => unreachable!(),
                 Commands::FlatpakInstallDialog { .. } => unreachable!(),
                 Commands::FlatpakRemoveDialog { .. } => unreachable!(),
+                Commands::FlatpakUpdateDialog { .. } => unreachable!(),
                 Commands::UpdateDialog { .. } => unreachable!(),
                 Commands::UpdateSettingsDialog => unreachable!(),
+                Commands::Settings => unreachable!(),
                 Commands::MaintenanceDialog { .. } => unreachable!(),
                 Commands::KernelInstallDialog { .. } => unreachable!(),
                 Commands::KernelRemoveDialog { .. } => unreachable!(),

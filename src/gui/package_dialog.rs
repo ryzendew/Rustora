@@ -325,12 +325,12 @@ impl Application for PackageDialog {
     fn title(&self) -> String {
         if let Some(ref info) = self.package_info {
             if self.package_names.len() == 1 {
-                format!("Remove {} - FedoraForge", info.name)
+                format!("Remove {} - Rustora", info.name)
             } else {
-                format!("Remove {} Packages - FedoraForge", self.package_names.len())
+                format!("Remove {} Packages - Rustora", self.package_names.len())
             }
         } else {
-            "Remove Package - FedoraForge".to_string()
+            "Remove Package - Rustora".to_string()
         }
     }
 

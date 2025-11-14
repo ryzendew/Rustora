@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build and Install script for FedoraForge
+# Build and Install script for Rustora
 
 set -e
 
@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 FedoraForge Build & Install${NC}"
+echo -e "${BLUE}🚀 Rustora Build & Install${NC}"
 echo "======================================"
 echo ""
 
@@ -81,10 +81,10 @@ cargo clean
 
 # Check if debug build is requested
 BUILD_MODE="release"
-BINARY_PATH="target/release/fedoraforge"
+BINARY_PATH="target/release/rustora"
 if [ "$1" = "debug" ]; then
     BUILD_MODE="debug"
-    BINARY_PATH="target/debug/fedoraforge"
+    BINARY_PATH="target/debug/rustora"
     echo "📦 Compiling in debug mode..."
     cargo build
 else
@@ -130,34 +130,34 @@ mkdir -p "$DESKTOP_DIR"
 
 # Install binary
 echo "📦 Installing binary to $BIN_DIR..."
-cp "$BINARY_PATH" "$BIN_DIR/fedoraforge"
-chmod +x "$BIN_DIR/fedoraforge"
+cp "$BINARY_PATH" "$BIN_DIR/rustora"
+chmod +x "$BIN_DIR/rustora"
 
 # Install icon if it exists
 ICON_DIR="$INSTALL_PREFIX/share/icons/hicolor/scalable/apps"
-if [ -f "src/assets/fedoraforge.svg" ]; then
+if [ -f "src/assets/rustora.svg" ]; then
     echo "🎨 Installing icon..."
     mkdir -p "$ICON_DIR"
-    cp src/assets/fedoraforge.svg "$ICON_DIR/fedoraforge.svg"
+    cp src/assets/rustora.svg "$ICON_DIR/rustora.svg"
     # Update icon cache if gtk-update-icon-cache exists
     if command -v gtk-update-icon-cache &> /dev/null; then
         gtk-update-icon-cache -f -t "$INSTALL_PREFIX/share/icons/hicolor" 2>/dev/null || true
     fi
-    ICON_NAME="fedoraforge"
+    ICON_NAME="rustora"
 else
     ICON_NAME="application-x-executable"
 fi
 
 # Create .desktop file
 echo "📝 Creating .desktop file..."
-cat > "$DESKTOP_DIR/fedoraforge.desktop" << EOF
+cat > "$DESKTOP_DIR/rustora.desktop" << EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=FedoraForge
+Name=Rustora
 GenericName=Package Manager
 Comment=A modern package manager for Fedora
-Exec=$BIN_DIR/fedoraforge %f
+Exec=$BIN_DIR/rustora %f
 Icon=$ICON_NAME
 Terminal=false
 Categories=System;PackageManager;
@@ -168,11 +168,11 @@ Actions=
 
 [Desktop Action InstallRPM]
 Name=Install RPM Package
-Exec=$BIN_DIR/fedoraforge gui
+Exec=$BIN_DIR/rustora gui
 EOF
 
 # Make .desktop file executable
-chmod +x "$DESKTOP_DIR/fedoraforge.desktop"
+chmod +x "$DESKTOP_DIR/rustora.desktop"
 
 # Update desktop database
 if command -v update-desktop-database &> /dev/null; then
@@ -183,10 +183,10 @@ fi
 echo ""
 echo -e "${GREEN}✅ Installation complete!${NC}"
 echo ""
-echo "📁 Binary installed to: $BIN_DIR/fedoraforge"
-echo "📁 Desktop file: $DESKTOP_DIR/fedoraforge.desktop"
+echo "📁 Binary installed to: $BIN_DIR/rustora"
+echo "📁 Desktop file: $DESKTOP_DIR/rustora.desktop"
 echo ""
-echo "You can now run FedoraForge with:"
-echo "  $BIN_DIR/fedoraforge"
+echo "You can now run Rustora with:"
+echo "  $BIN_DIR/rustora"
 echo ""
-echo "Or find it in your application menu as 'FedoraForge'"
+echo "Or find it in your application menu as 'Rustora'"

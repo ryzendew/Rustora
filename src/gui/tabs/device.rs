@@ -2,7 +2,8 @@
 // This is a massive port from GTK4/libadwaita to Iced
 
 use iced::widget::{button, column, container, row, scrollable, text, Space};
-use iced::{Alignment, Element, Length, Padding, Border};
+use iced::{Alignment, Element, Length, Padding, Border, Color};
+use crate::gui::app::CustomScrollableStyle;
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
@@ -642,7 +643,7 @@ impl DeviceTab {
                     if let Some(script) = install_script {
                         // Spawn separate window for driver installation
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         let exe_str = exe_path.to_string_lossy().to_string();
                         let profile_name_clone = profile_name.clone();
                         let script_clone = script.clone();
@@ -785,7 +786,7 @@ impl DeviceTab {
                     if let Some(script) = remove_script {
                         // Spawn separate window for driver removal
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         let exe_str = exe_path.to_string_lossy().to_string();
                         let profile_name_clone = profile_name.clone();
                         let script_clone = script.clone();
@@ -891,13 +892,18 @@ impl DeviceTab {
         }
     }
 
-    pub fn view(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+    pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        // Calculate font sizes from settings
+        let _title_font_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let _icon_size = (settings.font_size_icons * settings.scale_icons).round();
         if self.is_loading {
             container(
                 column![
-                    text("Loading device manager...").size(16),
+                    text("Loading device manager...").size(body_font_size * 1.14),
                     Space::with_height(Length::Fixed(10.0)),
-                    text(&self.loading_message).size(14).style(iced::theme::Text::Color(theme.secondary_text())),
+                    text(&self.loading_message).size(body_font_size).style(iced::theme::Text::Color(theme.secondary_text())),
                 ]
                 .spacing(10)
                 .align_items(Alignment::Center)
@@ -910,11 +916,12 @@ impl DeviceTab {
             .into()
         } else if let Some(err) = &self.error {
             let back_button = button(
-                text("← Back").size(14)
+                text("← Back").size(button_font_size)
             )
             .on_press(Message::ClearError)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: false,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(10.0));
             
@@ -922,9 +929,9 @@ impl DeviceTab {
                 column![
                     back_button,
                     Space::with_height(Length::Fixed(20.0)),
-                    text("Error").size(18).style(iced::theme::Text::Color(theme.danger())),
+                    text("Error").size(body_font_size * 1.29).style(iced::theme::Text::Color(theme.danger())),
                     Space::with_height(Length::Fixed(10.0)),
-                    text(err).size(14),
+                    text(err).size(body_font_size),
                 ]
                 .spacing(10)
                 .align_items(Alignment::Center)
@@ -938,13 +945,14 @@ impl DeviceTab {
         } else if self.pci_devices.is_empty() && self.usb_devices.is_empty() {
             container(
                 column![
-                    text("No devices found").size(16),
+                    text("No devices found").size(body_font_size * 1.14),
                     Space::with_height(Length::Fixed(10.0)),
                     button("Load Devices")
                         .on_press(Message::LoadDevices)
                         .padding(Padding::new(12.0))
                         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                             is_primary: true,
+                            radius: settings.border_radius,
                         }))),
                 ]
                 .spacing(10)
@@ -958,18 +966,18 @@ impl DeviceTab {
             .into()
         } else {
             // Main view with sidebar and content
-            self.view_main(theme)
+            self.view_main(theme, settings)
         }
     }
 
-    fn view_main(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+    fn view_main(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
         // Sidebar with categories
-        let sidebar = self.view_sidebar(theme, &material_font);
+        let sidebar = self.view_sidebar(theme, &material_font, settings);
         
         // Main content area
-        let content = self.view_content(theme, &material_font);
+        let content = self.view_content(theme, &material_font, settings);
 
         container(
             row![
@@ -985,23 +993,28 @@ impl DeviceTab {
         .into()
     }
 
-    fn view_sidebar(&self, theme: &crate::gui::Theme, material_font: &iced::Font) -> Element<'_, Message> {
+    fn view_sidebar(&self, theme: &crate::gui::Theme, material_font: &iced::Font, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
+        
+        // Calculate font sizes from settings
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         
         let mut sidebar_items = column![].spacing(4);
 
         // Download Profiles Button
         let download_button_text = if self.is_loading && self.loading_message.contains("Downloading") {
             row![
-                text(glyphs::REFRESH_SYMBOL).font(*material_font).size(16),
-                text(" Downloading...").size(13),
+                text(glyphs::REFRESH_SYMBOL).font(*material_font).size(icon_size),
+                text(" Downloading...").size(button_font_size),
             ]
             .spacing(8)
             .align_items(Alignment::Center)
         } else {
             row![
-                text(glyphs::DOWNLOAD_SYMBOL).font(*material_font).size(16),
-                text(" Download Profiles").size(13),
+                text(glyphs::DOWNLOAD_SYMBOL).font(*material_font).size(icon_size),
+                text(" Download Profiles").size(button_font_size),
             ]
             .spacing(8)
             .align_items(Alignment::Center)
@@ -1013,6 +1026,7 @@ impl DeviceTab {
                 .padding(Padding::new(10.0))
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
         } else {
             button(download_button_text)
@@ -1021,6 +1035,7 @@ impl DeviceTab {
                 .padding(Padding::new(10.0))
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: true,
+                    radius: settings.border_radius,
                 })))
         };
 
@@ -1030,7 +1045,7 @@ impl DeviceTab {
         // PCI Devices Section
         sidebar_items = sidebar_items.push(
             text("PCI Devices")
-                .size(14)
+                .size(body_font_size)
                 .style(iced::theme::Text::Color(theme.secondary_text()))
                 .width(Length::Fill)
         );
@@ -1043,8 +1058,8 @@ impl DeviceTab {
             
             let class_button = button(
                 row![
-                    text(glyphs::SETTINGS_SYMBOL).font(*material_font).size(16),
-                    text(&class_name).size(13),
+                    text(glyphs::SETTINGS_SYMBOL).font(*material_font).size(icon_size),
+                    text(&class_name).size(button_font_size),
                 ]
                 .spacing(8)
                 .align_items(Alignment::Center)
@@ -1054,6 +1069,7 @@ impl DeviceTab {
             .padding(Padding::new(10.0))
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: is_selected,
+                radius: settings.border_radius,
             })));
 
             sidebar_items = sidebar_items.push(class_button);
@@ -1064,7 +1080,7 @@ impl DeviceTab {
         // USB Devices Section
         sidebar_items = sidebar_items.push(
             text("USB Devices")
-                .size(14)
+                .size(body_font_size)
                 .style(iced::theme::Text::Color(theme.secondary_text()))
                 .width(Length::Fill)
         );
@@ -1077,8 +1093,8 @@ impl DeviceTab {
             
             let class_button = button(
                 row![
-                    text(glyphs::SETTINGS_SYMBOL).font(*material_font).size(16),
-                    text(&class_name).size(13),
+                    text(glyphs::SETTINGS_SYMBOL).font(*material_font).size(icon_size),
+                    text(&class_name).size(button_font_size),
                 ]
                 .spacing(8)
                 .align_items(Alignment::Center)
@@ -1088,6 +1104,7 @@ impl DeviceTab {
             .padding(Padding::new(10.0))
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: is_selected,
+                radius: settings.border_radius,
             })));
 
             sidebar_items = sidebar_items.push(class_button);
@@ -1097,31 +1114,39 @@ impl DeviceTab {
             scrollable(sidebar_items)
                 .width(Length::Fill)
                 .height(Length::Fill)
+                .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                    Color::from(settings.background_color.clone()),
+                    settings.border_radius,
+                ))))
         )
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(iced::theme::Container::Custom(Box::new(SidebarStyle)))
+        .style(iced::theme::Container::Custom(Box::new(SidebarStyle {
+            radius: settings.border_radius,
+        })))
         .padding(10)
         .into()
     }
 
-    fn view_content(&self, theme: &crate::gui::Theme, material_font: &iced::Font) -> Element<'_, Message> {
+    fn view_content(&self, theme: &crate::gui::Theme, material_font: &iced::Font, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         if let Some((cat_type, class)) = &self.selected_category {
             if let Some((dev_type, _, device_idx)) = &self.selected_device {
                 // Show device details
-                self.view_device_details(theme, material_font, *dev_type, class, *device_idx)
+                self.view_device_details(theme, material_font, *dev_type, class, *device_idx, settings)
             } else {
                 // Show device list for category
-                self.view_device_list(theme, material_font, *cat_type, class)
+                self.view_device_list(theme, material_font, *cat_type, class, settings)
             }
         } else {
             // Welcome/empty state
+            let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
+            let body_font_size = (settings.font_size_body * settings.scale_body).round();
             container(
                 column![
-                    text("Device Manager").size(24).style(iced::theme::Text::Color(theme.primary())),
+                    text("Device Manager").size(title_font_size * 0.86).style(iced::theme::Text::Color(theme.primary())),
                     Space::with_height(Length::Fixed(10.0)),
                     text("Select a device category from the sidebar to get started.")
-                        .size(14)
+                        .size(body_font_size)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                 ]
                 .spacing(10)
@@ -1135,7 +1160,8 @@ impl DeviceTab {
         }
     }
 
-    fn view_device_list(&self, theme: &crate::gui::Theme, _material_font: &iced::Font, cat_type: CategoryType, class: &str) -> Element<'_, Message> {
+    fn view_device_list(&self, theme: &crate::gui::Theme, _material_font: &iced::Font, cat_type: CategoryType, class: &str, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
         match cat_type {
             CategoryType::Pci => {
                 let devices: Vec<_> = self.pci_devices.iter()
@@ -1146,7 +1172,7 @@ impl DeviceTab {
                 if devices.is_empty() {
                     return container(
                         text("No devices found in this category")
-                            .size(14)
+                            .size(body_font_size)
                             .style(iced::theme::Text::Color(theme.secondary_text()))
                     )
                     .width(Length::Fill)
@@ -1174,13 +1200,14 @@ impl DeviceTab {
                             container(
                                 column![
                                     row![
-                                        text(&name).size(16).width(Length::Fill),
+                                        text(&name).size(body_font_size * 1.14).width(Length::Fill),
                                         container(
                                             Space::with_width(Length::Fixed(12.0))
                                                 .height(Length::Fixed(12.0))
                                         )
                                         .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
                                             color: status_color,
+                                            radius: settings.border_radius,
                                         }))),
                                     ]
                                     .spacing(10)
@@ -1188,14 +1215,16 @@ impl DeviceTab {
                                     .align_items(Alignment::Center),
                                     Space::with_height(Length::Fixed(8.0)),
                                     text(format!("Bus ID: {}", bus_id))
-                                        .size(12)
+                                        .size(body_font_size * 0.86)
                                         .style(iced::theme::Text::Color(theme.secondary_text())),
                                 ]
                                 .spacing(4)
                                 .padding(16)
                                 .width(Length::Fill)
                             )
-                            .style(iced::theme::Container::Custom(Box::new(DeviceCardStyle)))
+                            .style(iced::theme::Container::Custom(Box::new(DeviceCardStyle {
+                                radius: settings.border_radius,
+                            })))
                             .width(Length::Fill)
                         )
                         .on_press(Message::SelectDevice(DeviceType::Pci, class.to_string(), *idx))
@@ -1210,6 +1239,10 @@ impl DeviceTab {
                     scrollable(
                         column(device_cards).spacing(10).padding(10)
                     )
+                    .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                        Color::from(settings.background_color.clone()),
+                        settings.border_radius,
+                    ))))
                 )
                 .width(Length::Fill)
                 .height(Length::Fill)
@@ -1224,7 +1257,7 @@ impl DeviceTab {
                 if devices.is_empty() {
                     return container(
                         text("No devices found in this category")
-                            .size(14)
+                            .size(body_font_size)
                             .style(iced::theme::Text::Color(theme.secondary_text()))
                     )
                     .width(Length::Fill)
@@ -1252,13 +1285,14 @@ impl DeviceTab {
                             container(
                                 column![
                                     row![
-                                        text(&name).size(16).width(Length::Fill),
+                                        text(&name).size(body_font_size * 1.14).width(Length::Fill),
                                         container(
                                             Space::with_width(Length::Fixed(12.0))
                                                 .height(Length::Fixed(12.0))
                                         )
                                         .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
                                             color: status_color,
+                                            radius: settings.border_radius,
                                         }))),
                                     ]
                                     .spacing(10)
@@ -1266,14 +1300,16 @@ impl DeviceTab {
                                     .align_items(Alignment::Center),
                                     Space::with_height(Length::Fixed(8.0)),
                                     text(format!("Bus ID: {}", bus_id))
-                                        .size(12)
+                                        .size(body_font_size * 0.86)
                                         .style(iced::theme::Text::Color(theme.secondary_text())),
                                 ]
                                 .spacing(4)
                                 .padding(16)
                                 .width(Length::Fill)
                             )
-                            .style(iced::theme::Container::Custom(Box::new(DeviceCardStyle)))
+                            .style(iced::theme::Container::Custom(Box::new(DeviceCardStyle {
+                                radius: settings.border_radius,
+                            })))
                             .width(Length::Fill)
                         )
                         .on_press(Message::SelectDevice(DeviceType::Usb, class.to_string(), *idx))
@@ -1288,6 +1324,10 @@ impl DeviceTab {
                     scrollable(
                         column(device_cards).spacing(10).padding(10)
                     )
+                    .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                        Color::from(settings.background_color.clone()),
+                        settings.border_radius,
+                    ))))
                 )
                 .width(Length::Fill)
                 .height(Length::Fill)
@@ -1296,7 +1336,12 @@ impl DeviceTab {
         }
     }
 
-    fn view_device_details(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize) -> Element<'_, Message> {
+    fn view_device_details(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        // Calculate font sizes from settings
+        let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
+        let _body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         use crate::gui::fonts::glyphs;
         
         // Get the device
@@ -1356,8 +1401,8 @@ impl DeviceTab {
         // Back button
         let back_button = button(
             row![
-                text(glyphs::CLOSE_SYMBOL).font(*material_font).size(16),
-                text(" Back").size(13),
+                text(glyphs::CLOSE_SYMBOL).font(*material_font).size(icon_size),
+                text(" Back").size(button_font_size),
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -1365,12 +1410,13 @@ impl DeviceTab {
         .on_press(Message::BackToDeviceList)
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: false,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(10.0));
 
         // Device title
         let device_title = text(&device_name)
-            .size(20)
+            .size(title_font_size * 0.71)
             .style(iced::theme::Text::Color(theme.primary()))
             .width(Length::Fill);
 
@@ -1388,18 +1434,19 @@ impl DeviceTab {
         )
         .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
             color: status_color,
+            radius: settings.border_radius,
         })));
 
         // Status badges
-        let status_badges = self.view_status_badges(theme, &device_info);
+        let status_badges = self.view_status_badges(theme, &device_info, settings);
 
         // Control buttons
-        let control_buttons = self.view_control_buttons(theme, material_font, dev_type, class, device_idx, &device_info);
+        let control_buttons = self.view_control_buttons(theme, material_font, dev_type, class, device_idx, &device_info, settings);
 
         // Profiles section - use references to avoid cloning
         let profiles_section = match (profiles_pci, profiles_usb) {
-            (Some(p), None) => self.view_profiles_section_pci(theme, material_font, dev_type, class, device_idx, &p),
-            (None, Some(p)) => self.view_profiles_section_usb(theme, material_font, dev_type, class, device_idx, &p),
+            (Some(p), None) => self.view_profiles_section_pci(theme, material_font, dev_type, class, device_idx, &p, settings),
+            (None, Some(p)) => self.view_profiles_section_usb(theme, material_font, dev_type, class, device_idx, &p, settings),
             _ => self.view_error("No profiles available"),
         };
 
@@ -1432,6 +1479,10 @@ impl DeviceTab {
                 .padding(20)
                 .width(Length::Fill)
             )
+            .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                Color::from(settings.background_color.clone()),
+                settings.border_radius,
+            ))))
         )
         .width(Length::Fill)
         .height(Length::Fill)
@@ -1439,8 +1490,9 @@ impl DeviceTab {
     }
 
     fn view_error(&self, msg: &str) -> Element<'_, Message> {
+        let body_font_size = 14.0; // Default size for error messages
         container(
-            text(msg).size(14)
+            text(msg).size(body_font_size)
         )
         .width(Length::Fill)
         .height(Length::Fill)
@@ -1449,31 +1501,32 @@ impl DeviceTab {
         .into()
     }
 
-    fn view_status_badges(&self, theme: &crate::gui::Theme, device_info: &DeviceInfo) -> Element<'_, Message> {
+    fn view_status_badges(&self, theme: &crate::gui::Theme, device_info: &DeviceInfo, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        let _body_font_size = (settings.font_size_body * settings.scale_body).round();
         let mut badges = column![].spacing(10);
 
         match device_info {
             DeviceInfo::Pci { started, enabled, driver, driver_version, bus_id, vendor_id, device_id, .. } => {
-                badges = badges.push(self.create_status_badge(theme, "Started", if *started { "Yes" } else { "No" }, *started));
-                badges = badges.push(self.create_status_badge(theme, "Enabled", if *enabled { "Yes" } else { "No" }, *enabled));
-                badges = badges.push(self.create_info_badge(theme, "Driver", driver));
+                badges = badges.push(self.create_status_badge(theme, "Started", if *started { "Yes" } else { "No" }, *started, settings));
+                badges = badges.push(self.create_status_badge(theme, "Enabled", if *enabled { "Yes" } else { "No" }, *enabled, settings));
+                badges = badges.push(self.create_info_badge(theme, "Driver", driver, settings));
                 if !driver_version.is_empty() {
-                    badges = badges.push(self.create_info_badge(theme, "Driver Version", driver_version));
+                    badges = badges.push(self.create_info_badge(theme, "Driver Version", driver_version, settings));
                 }
-                badges = badges.push(self.create_info_badge(theme, "Bus ID", bus_id));
-                badges = badges.push(self.create_info_badge(theme, "Vendor ID", vendor_id));
-                badges = badges.push(self.create_info_badge(theme, "Device ID", device_id));
+                badges = badges.push(self.create_info_badge(theme, "Bus ID", bus_id, settings));
+                badges = badges.push(self.create_info_badge(theme, "Vendor ID", vendor_id, settings));
+                badges = badges.push(self.create_info_badge(theme, "Device ID", device_id, settings));
             }
             DeviceInfo::Usb { started, enabled, driver, driver_version, bus_id, vendor_id, product_id, .. } => {
-                badges = badges.push(self.create_status_badge(theme, "Started", if *started { "Yes" } else { "No" }, *started));
-                badges = badges.push(self.create_status_badge(theme, "Enabled", if *enabled { "Yes" } else { "No" }, *enabled));
-                badges = badges.push(self.create_info_badge(theme, "Driver", driver));
+                badges = badges.push(self.create_status_badge(theme, "Started", if *started { "Yes" } else { "No" }, *started, settings));
+                badges = badges.push(self.create_status_badge(theme, "Enabled", if *enabled { "Yes" } else { "No" }, *enabled, settings));
+                badges = badges.push(self.create_info_badge(theme, "Driver", driver, settings));
                 if !driver_version.is_empty() {
-                    badges = badges.push(self.create_info_badge(theme, "Driver Version", driver_version));
+                    badges = badges.push(self.create_info_badge(theme, "Driver Version", driver_version, settings));
                 }
-                badges = badges.push(self.create_info_badge(theme, "Bus ID", bus_id));
-                badges = badges.push(self.create_info_badge(theme, "Vendor ID", vendor_id));
-                badges = badges.push(self.create_info_badge(theme, "Product ID", product_id));
+                badges = badges.push(self.create_info_badge(theme, "Bus ID", bus_id, settings));
+                badges = badges.push(self.create_info_badge(theme, "Vendor ID", vendor_id, settings));
+                badges = badges.push(self.create_info_badge(theme, "Product ID", product_id, settings));
             }
         }
 
@@ -1482,19 +1535,22 @@ impl DeviceTab {
         )
         .width(Length::Fill)
         .padding(16)
-        .style(iced::theme::Container::Custom(Box::new(StatusBadgeContainerStyle)))
+        .style(iced::theme::Container::Custom(Box::new(StatusBadgeContainerStyle {
+            radius: settings.border_radius,
+        })))
         .into()
     }
 
-    fn create_status_badge(&self, theme: &crate::gui::Theme, label: &str, value: &str, is_positive: bool) -> Element<'_, Message> {
+    fn create_status_badge(&self, theme: &crate::gui::Theme, label: &str, value: &str, is_positive: bool, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
         container(
             row![
                 text(label)
-                    .size(12)
+                    .size(body_font_size * 0.86)
                     .style(iced::theme::Text::Color(theme.secondary_text()))
                     .width(Length::Fixed(100.0)),
                 text(value)
-                    .size(12)
+                    .size(body_font_size * 0.86)
                     .style(iced::theme::Text::Color(if is_positive { theme.primary() } else { theme.danger() })),
             ]
             .spacing(10)
@@ -1504,78 +1560,87 @@ impl DeviceTab {
         .padding(12)
         .style(iced::theme::Container::Custom(Box::new(BadgeStyle {
             is_positive,
+            radius: settings.border_radius,
         })))
         .width(Length::Fill)
         .into()
     }
 
-    fn create_info_badge(&self, theme: &crate::gui::Theme, label: &str, value: &str) -> Element<'_, Message> {
+    fn create_info_badge(&self, theme: &crate::gui::Theme, label: &str, value: &str, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
         container(
             row![
                 text(label)
-                    .size(12)
+                    .size(body_font_size * 0.86)
                     .style(iced::theme::Text::Color(theme.secondary_text()))
                     .width(Length::Fixed(100.0)),
                 text(value)
-                    .size(12),
+                    .size(body_font_size * 0.86),
             ]
             .spacing(10)
             .align_items(Alignment::Center)
             .width(Length::Fill)
         )
         .padding(12)
-        .style(iced::theme::Container::Custom(Box::new(InfoBadgeStyle)))
+        .style(iced::theme::Container::Custom(Box::new(InfoBadgeStyle {
+            radius: settings.border_radius,
+        })))
         .width(Length::Fill)
         .into()
     }
 
-    fn view_control_buttons(&self, _theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, device_info: &DeviceInfo) -> Element<'_, Message> {
+    fn view_control_buttons(&self, _theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, device_info: &DeviceInfo, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
         
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         let (_started, _enabled) = match device_info {
             DeviceInfo::Pci { started, enabled, .. } => (*started, *enabled),
             DeviceInfo::Usb { started, enabled, .. } => (*started, *enabled),
         };
 
         let start_button = button(
-            text(glyphs::REFRESH_SYMBOL).font(*material_font).size(20)
+            text(glyphs::REFRESH_SYMBOL).font(*material_font).size(icon_size * 1.11)
         )
         .on_press(Message::StartDevice(dev_type, class.to_string(), device_idx))
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: false,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(12.0))
         .width(Length::Fixed(50.0))
         .height(Length::Fixed(50.0));
 
         let stop_button = button(
-            text(glyphs::CLOSE_SYMBOL).font(*material_font).size(20)
+            text(glyphs::CLOSE_SYMBOL).font(*material_font).size(icon_size * 1.11)
         )
         .on_press(Message::StopDevice(dev_type, class.to_string(), device_idx))
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: false,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(12.0))
         .width(Length::Fixed(50.0))
         .height(Length::Fixed(50.0));
 
         let enable_button = button(
-            text(glyphs::CHECK_SYMBOL).font(*material_font).size(20)
+            text(glyphs::CHECK_SYMBOL).font(*material_font).size(icon_size * 1.11)
         )
         .on_press(Message::EnableDevice(dev_type, class.to_string(), device_idx))
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: true,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(12.0))
         .width(Length::Fixed(50.0))
         .height(Length::Fixed(50.0));
 
         let disable_button = button(
-            text(glyphs::CANCEL_SYMBOL).font(*material_font).size(20)
+            text(glyphs::CANCEL_SYMBOL).font(*material_font).size(icon_size * 1.11)
         )
         .on_press(Message::DisableDevice(dev_type, class.to_string(), device_idx))
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: false,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(12.0))
         .width(Length::Fixed(50.0))
@@ -1596,13 +1661,17 @@ impl DeviceTab {
         .into()
     }
 
-    fn view_profiles_section_pci(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedPciProfile>]) -> Element<'_, Message> {
+    fn view_profiles_section_pci(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedPciProfile>], settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
+        
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         
         if profiles.is_empty() {
             return container(
                 text("No profiles available for this device")
-                    .size(14)
+                    .size(body_font_size)
                     .style(iced::theme::Text::Color(theme.secondary_text()))
             )
             .width(Length::Fill)
@@ -1646,21 +1715,22 @@ impl DeviceTab {
             let install_button = if is_installed {
                 button(
                     row![
-                        text(glyphs::CHECK_SYMBOL).font(*material_font).size(16),
-                        text(" Installed").size(13),
+                        text(glyphs::CHECK_SYMBOL).font(*material_font).size(icon_size),
+                        text(" Installed").size(button_font_size),
                     ]
                     .spacing(4)
                     .align_items(Alignment::Center)
                 )
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(10.0))
             } else {
                 button(
                     row![
-                        text(glyphs::DOWNLOAD_SYMBOL).font(*material_font).size(16),
-                        text(" Install").size(13),
+                        text(glyphs::DOWNLOAD_SYMBOL).font(*material_font).size(icon_size),
+                        text(" Install").size(button_font_size),
                     ]
                     .spacing(4)
                     .align_items(Alignment::Center)
@@ -1668,6 +1738,7 @@ impl DeviceTab {
                 .on_press(Message::InstallProfile(dev_type, class.to_string(), device_idx, profile_data.codename.clone()))
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: true,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(10.0))
             };
@@ -1675,8 +1746,8 @@ impl DeviceTab {
             let remove_button = if profile_data.removable && is_installed {
                 button(
                     row![
-                        text(glyphs::DELETE_SYMBOL).font(*material_font).size(16),
-                        text(" Remove").size(13),
+                        text(glyphs::DELETE_SYMBOL).font(*material_font).size(icon_size),
+                        text(" Remove").size(button_font_size),
                     ]
                     .spacing(4)
                     .align_items(Alignment::Center)
@@ -1684,19 +1755,21 @@ impl DeviceTab {
                 .on_press(Message::RemoveProfile(dev_type, class.to_string(), device_idx, profile_data.codename.clone()))
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(10.0))
             } else {
                 button(
                     row![
-                        text(glyphs::DELETE_SYMBOL).font(*material_font).size(16),
-                        text(" Remove").size(13),
+                        text(glyphs::DELETE_SYMBOL).font(*material_font).size(icon_size),
+                        text(" Remove").size(button_font_size),
                     ]
                     .spacing(4)
                     .align_items(Alignment::Center)
                 )
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(10.0))
             };
@@ -1704,11 +1777,13 @@ impl DeviceTab {
             let experimental_badge: Element<Message> = if profile_data.experimental {
                 container(
                     text("Experimental")
-                        .size(11)
+                        .size(body_font_size * 0.79)
                         .style(iced::theme::Text::Color(theme.danger()))
                 )
                 .padding(Padding::from([4.0, 8.0, 4.0, 8.0]))
-                .style(iced::theme::Container::Custom(Box::new(ExperimentalBadgeStyle)))
+                .style(iced::theme::Container::Custom(Box::new(ExperimentalBadgeStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
             } else {
                 Space::with_width(Length::Shrink).into()
@@ -1718,7 +1793,7 @@ impl DeviceTab {
                 column![
                     row![
                         text(&profile_data.i18n_desc)
-                            .size(16)
+                            .size(body_font_size * 1.14)
                             .style(iced::theme::Text::Color(theme.primary()))
                             .width(Length::Fill),
                         {
@@ -1729,6 +1804,7 @@ impl DeviceTab {
                                 )
                                 .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
                                     color: theme.primary(),
+                                    radius: settings.border_radius,
                                 })))
                                 .into()
                             } else {
@@ -1742,7 +1818,7 @@ impl DeviceTab {
                     .width(Length::Fill),
                     Space::with_height(Length::Fixed(8.0)),
                     text(&profile_data.codename)
-                        .size(12)
+                        .size(body_font_size * 0.86)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     {
                         // Use cached driver version (loaded asynchronously) - extract clean version
@@ -1895,7 +1971,7 @@ impl DeviceTab {
                         if let Some(drv_ver) = driver_version_display {
                             info_rows = info_rows.push(
                                 text(format!("Driver Version: {}", drv_ver))
-                                    .size(11)
+                                    .size(body_font_size * 0.79)
                                     .style(iced::theme::Text::Color(theme.primary()))
                             );
                         }
@@ -1904,7 +1980,7 @@ impl DeviceTab {
                         if let Some(repo) = profile.repository() {
                             info_rows = info_rows.push(
                                 text(format!("Repository: {}", repo))
-                                    .size(11)
+                                    .size(body_font_size * 0.79)
                                     .style(iced::theme::Text::Color(theme.secondary_text()))
                             );
                         }
@@ -1913,7 +1989,7 @@ impl DeviceTab {
                         if let Some(size) = profile.package_size() {
                             info_rows = info_rows.push(
                                 text(format!("Total Size: {}", size))
-                                    .size(11)
+                                    .size(body_font_size * 0.79)
                                     .style(iced::theme::Text::Color(theme.secondary_text()))
                             );
                         }
@@ -1923,7 +1999,7 @@ impl DeviceTab {
                             if !deps.is_empty() {
                                 info_rows = info_rows.push(
                                     text(format!("Dependencies: {} packages", deps.len()))
-                                        .size(11)
+                                        .size(body_font_size * 0.79)
                                         .style(iced::theme::Text::Color(theme.secondary_text()))
                                 );
                             }
@@ -1934,7 +2010,7 @@ impl DeviceTab {
                     Space::with_height(Length::Fixed(8.0)),
                     row![
                         text(format!("License: {}", profile_data.license))
-                            .size(11)
+                            .size(body_font_size * 0.79)
                             .style(iced::theme::Text::Color(theme.secondary_text())),
                         Space::with_width(Length::Fill),
                         experimental_badge,
@@ -1954,7 +2030,9 @@ impl DeviceTab {
                 .padding(16)
                 .width(Length::Fill)
             )
-            .style(iced::theme::Container::Custom(Box::new(ProfileCardStyle)))
+            .style(iced::theme::Container::Custom(Box::new(ProfileCardStyle {
+                radius: settings.border_radius,
+            })))
             .width(Length::Fill);
 
             profile_cards = profile_cards.push(profile_card);
@@ -1963,7 +2041,7 @@ impl DeviceTab {
         container(
             column![
                 text("Available Profiles")
-                    .size(18)
+                    .size(body_font_size * 1.29)
                     .style(iced::theme::Text::Color(theme.primary()))
                     .width(Length::Fill),
                 Space::with_height(Length::Fixed(10.0)),
@@ -1976,13 +2054,17 @@ impl DeviceTab {
         .into()
     }
 
-    fn view_profiles_section_usb(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedUsbProfile>]) -> Element<'_, Message> {
+    fn view_profiles_section_usb(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedUsbProfile>], settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
+        
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         
         if profiles.is_empty() {
             return container(
                 text("No profiles available for this device")
-                    .size(14)
+                    .size(body_font_size)
                     .style(iced::theme::Text::Color(theme.secondary_text()))
             )
             .width(Length::Fill)
@@ -2004,21 +2086,22 @@ impl DeviceTab {
             let install_button = if is_installed {
                 button(
                     row![
-                        text(glyphs::CHECK_SYMBOL).font(*material_font).size(16),
-                        text(" Installed").size(13),
+                        text(glyphs::CHECK_SYMBOL).font(*material_font).size(icon_size),
+                        text(" Installed").size(button_font_size),
                     ]
                     .spacing(4)
                     .align_items(Alignment::Center)
                 )
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(10.0))
             } else {
                 button(
                     row![
-                        text(glyphs::DOWNLOAD_SYMBOL).font(*material_font).size(16),
-                        text(" Install").size(13),
+                        text(glyphs::DOWNLOAD_SYMBOL).font(*material_font).size(icon_size),
+                        text(" Install").size(button_font_size),
                     ]
                     .spacing(4)
                     .align_items(Alignment::Center)
@@ -2026,6 +2109,7 @@ impl DeviceTab {
                 .on_press(Message::InstallProfile(dev_type, class.to_string(), device_idx, profile_data.codename.clone()))
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: true,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(10.0))
             };
@@ -2033,8 +2117,8 @@ impl DeviceTab {
             let remove_button = if profile_data.removable && is_installed {
                 button(
                     row![
-                        text(glyphs::DELETE_SYMBOL).font(*material_font).size(16),
-                        text(" Remove").size(13),
+                        text(glyphs::DELETE_SYMBOL).font(*material_font).size(icon_size),
+                        text(" Remove").size(button_font_size),
                     ]
                     .spacing(4)
                     .align_items(Alignment::Center)
@@ -2042,19 +2126,21 @@ impl DeviceTab {
                 .on_press(Message::RemoveProfile(dev_type, class.to_string(), device_idx, profile_data.codename.clone()))
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(10.0))
             } else {
                 button(
                     row![
-                        text(glyphs::DELETE_SYMBOL).font(*material_font).size(16),
-                        text(" Remove").size(13),
+                        text(glyphs::DELETE_SYMBOL).font(*material_font).size(icon_size),
+                        text(" Remove").size(button_font_size),
                     ]
                     .spacing(4)
                     .align_items(Alignment::Center)
                 )
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(10.0))
             };
@@ -2062,11 +2148,13 @@ impl DeviceTab {
             let experimental_badge: Element<Message> = if profile_data.experimental {
                 container(
                     text("Experimental")
-                        .size(11)
+                        .size(body_font_size * 0.79)
                         .style(iced::theme::Text::Color(theme.danger()))
                 )
                 .padding(Padding::from([4.0, 8.0, 4.0, 8.0]))
-                .style(iced::theme::Container::Custom(Box::new(ExperimentalBadgeStyle)))
+                .style(iced::theme::Container::Custom(Box::new(ExperimentalBadgeStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
             } else {
                 Space::with_width(Length::Shrink).into()
@@ -2076,7 +2164,7 @@ impl DeviceTab {
                 column![
                     row![
                         text(&profile_data.i18n_desc)
-                            .size(16)
+                            .size(body_font_size * 1.14)
                             .style(iced::theme::Text::Color(theme.primary()))
                             .width(Length::Fill),
                         {
@@ -2087,6 +2175,7 @@ impl DeviceTab {
                                 )
                                 .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
                                     color: theme.primary(),
+                                    radius: settings.border_radius,
                                 })))
                                 .into()
                             } else {
@@ -2100,7 +2189,7 @@ impl DeviceTab {
                     .width(Length::Fill),
                     Space::with_height(Length::Fixed(8.0)),
                     text(&profile_data.codename)
-                        .size(12)
+                        .size(body_font_size * 0.86)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     {
                         // Use cached driver version (loaded asynchronously)
@@ -2108,7 +2197,7 @@ impl DeviceTab {
                             if !driver_version.is_empty() {
                                 row![
                                     text(format!("Driver Version: {}", driver_version))
-                                        .size(11)
+                                        .size(body_font_size * 0.79)
                                         .style(iced::theme::Text::Color(theme.primary())),
                                 ]
                                 .spacing(8)
@@ -2124,7 +2213,7 @@ impl DeviceTab {
                     Space::with_height(Length::Fixed(8.0)),
                     row![
                         text(format!("License: {}", profile_data.license))
-                            .size(11)
+                            .size(body_font_size * 0.79)
                             .style(iced::theme::Text::Color(theme.secondary_text())),
                         Space::with_width(Length::Fill),
                         experimental_badge,
@@ -2144,7 +2233,9 @@ impl DeviceTab {
                 .padding(16)
                 .width(Length::Fill)
             )
-            .style(iced::theme::Container::Custom(Box::new(ProfileCardStyle)))
+            .style(iced::theme::Container::Custom(Box::new(ProfileCardStyle {
+                radius: settings.border_radius,
+            })))
             .width(Length::Fill);
 
             profile_cards = profile_cards.push(profile_card);
@@ -2153,7 +2244,7 @@ impl DeviceTab {
         container(
             column![
                 text("Available Profiles")
-                    .size(18)
+                    .size(body_font_size * 1.29)
                     .style(iced::theme::Text::Color(theme.primary()))
                     .width(Length::Fill),
                 Space::with_height(Length::Fixed(10.0)),
@@ -4507,6 +4598,7 @@ fn get_pre_checked_usb_device(
 // Style sheets
 struct RoundedButtonStyle {
     is_primary: bool,
+    radius: f32,
 }
 
 impl ButtonStyleSheet for RoundedButtonStyle {
@@ -4521,7 +4613,7 @@ impl ButtonStyleSheet for RoundedButtonStyle {
                 iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
             })),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
@@ -4546,7 +4638,9 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     }
 }
 
-struct SidebarStyle;
+struct SidebarStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for SidebarStyle {
     type Style = iced::Theme;
@@ -4563,7 +4657,7 @@ impl iced::widget::container::StyleSheet for SidebarStyle {
                 )
             )),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
             },
@@ -4572,7 +4666,9 @@ impl iced::widget::container::StyleSheet for SidebarStyle {
     }
 }
 
-struct DeviceCardStyle;
+struct DeviceCardStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for DeviceCardStyle {
     type Style = iced::Theme;
@@ -4589,7 +4685,7 @@ impl iced::widget::container::StyleSheet for DeviceCardStyle {
                 )
             )),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15),
             },
@@ -4600,6 +4696,7 @@ impl iced::widget::container::StyleSheet for DeviceCardStyle {
 
 struct StatusIndicatorStyle {
     color: iced::Color,
+    radius: f32,
 }
 
 impl iced::widget::container::StyleSheet for StatusIndicatorStyle {
@@ -4609,7 +4706,7 @@ impl iced::widget::container::StyleSheet for StatusIndicatorStyle {
         Appearance {
             background: Some(iced::Background::Color(self.color)),
             border: Border {
-                radius: 6.0.into(),
+                radius: self.radius.into(),
                 width: 0.0,
                 color: iced::Color::TRANSPARENT,
             },
@@ -4618,7 +4715,9 @@ impl iced::widget::container::StyleSheet for StatusIndicatorStyle {
     }
 }
 
-struct StatusBadgeContainerStyle;
+struct StatusBadgeContainerStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for StatusBadgeContainerStyle {
     type Style = iced::Theme;
@@ -4635,7 +4734,7 @@ impl iced::widget::container::StyleSheet for StatusBadgeContainerStyle {
                 )
             )),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15),
             },
@@ -4646,6 +4745,7 @@ impl iced::widget::container::StyleSheet for StatusBadgeContainerStyle {
 
 struct BadgeStyle {
     is_positive: bool,
+    radius: f32,
 }
 
 impl iced::widget::container::StyleSheet for BadgeStyle {
@@ -4672,7 +4772,7 @@ impl iced::widget::container::StyleSheet for BadgeStyle {
                 }
             )),
             border: Border {
-                radius: 8.0.into(),
+                radius: self.radius.into(),
                 width: 0.0,
                 color: iced::Color::TRANSPARENT,
             },
@@ -4681,7 +4781,9 @@ impl iced::widget::container::StyleSheet for BadgeStyle {
     }
 }
 
-struct InfoBadgeStyle;
+struct InfoBadgeStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for InfoBadgeStyle {
     type Style = iced::Theme;
@@ -4698,7 +4800,7 @@ impl iced::widget::container::StyleSheet for InfoBadgeStyle {
                 )
             )),
             border: Border {
-                radius: 8.0.into(),
+                radius: self.radius.into(),
                 width: 0.0,
                 color: iced::Color::TRANSPARENT,
             },
@@ -4707,7 +4809,9 @@ impl iced::widget::container::StyleSheet for InfoBadgeStyle {
     }
 }
 
-struct ExperimentalBadgeStyle;
+struct ExperimentalBadgeStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for ExperimentalBadgeStyle {
     type Style = iced::Theme;
@@ -4724,7 +4828,7 @@ impl iced::widget::container::StyleSheet for ExperimentalBadgeStyle {
                 )
             )),
             border: Border {
-                radius: 6.0.into(),
+                radius: self.radius.into(),
                 width: 0.0,
                 color: iced::Color::TRANSPARENT,
             },
@@ -4733,7 +4837,9 @@ impl iced::widget::container::StyleSheet for ExperimentalBadgeStyle {
     }
 }
 
-struct ProfileCardStyle;
+struct ProfileCardStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for ProfileCardStyle {
     type Style = iced::Theme;
@@ -4750,7 +4856,7 @@ impl iced::widget::container::StyleSheet for ProfileCardStyle {
                 )
             )),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15),
             },

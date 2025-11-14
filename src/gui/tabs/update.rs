@@ -99,7 +99,7 @@ impl UpdateTab {
                     async move {
                         use tokio::process::Command as TokioCommand;
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         TokioCommand::new(&exe_path)
                             .arg("update-dialog")
                             .arg(&packages_b64)
@@ -123,7 +123,7 @@ impl UpdateTab {
                     async move {
                         use tokio::process::Command as TokioCommand;
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         TokioCommand::new(&exe_path)
                             .arg("update-settings-dialog")
                             .spawn()
@@ -135,26 +135,33 @@ impl UpdateTab {
         }
     }
 
-    pub fn view(&self, _theme: &crate::gui::Theme) -> Element<'_, Message> {
+    pub fn view(&self, _theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        let button_font_size = settings.font_size_buttons * settings.scale_buttons;
+        let body_font_size = settings.font_size_body * settings.scale_body;
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
+        let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
+        
         let material_font = crate::gui::fonts::get_material_symbols_font();
         let check_button = if self.is_checking {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font),
-                    text(" Checking...")
+                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                    text(" Checking...").size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
             )
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(14.0))
         } else {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font),
-                    text(" Check for Updates")
+                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                    text(" Check for Updates").size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -162,6 +169,7 @@ impl UpdateTab {
                 .on_press(Message::CheckUpdates)
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: true,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(14.0))
         };
@@ -170,21 +178,23 @@ impl UpdateTab {
             if self.is_installing {
                 button(
                     row![
-                        text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                        text(" Installing...")
+                        text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
+                        text(" Installing...").size(button_font_size)
                     ]
                     .spacing(4)
                     .align_items(Alignment::Center)
                 )
                     .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                         is_primary: false,
+                        radius: settings.border_radius,
                     })))
                     .padding(Padding::new(14.0))
                     .into()
             } else {
-                button(text("No Updates Available"))
+                button(text("No Updates Available").size(button_font_size))
                     .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                         is_primary: false,
+                        radius: settings.border_radius,
                     })))
                     .padding(Padding::new(14.0))
                     .into()
@@ -197,8 +207,8 @@ impl UpdateTab {
             };
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                    text(format!(" Install {} Update(s)", selected_count))
+                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
+                    text(format!(" Install {} Update(s)", selected_count)).size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -206,17 +216,19 @@ impl UpdateTab {
                 .on_press(Message::InstallUpdates)
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: true,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(14.0))
                 .into()
         };
 
         let settings_button = button(
-            text(crate::gui::fonts::glyphs::SETTINGS_SYMBOL).font(material_font)
+            text(crate::gui::fonts::glyphs::SETTINGS_SYMBOL).font(material_font).size(icon_size)
         )
         .on_press(Message::OpenSettings)
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: false,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(10.0));
 
@@ -231,28 +243,34 @@ impl UpdateTab {
         .align_items(Alignment::Center);
 
         let content: Element<Message> = if self.is_checking {
-            container(text("Checking for updates...").size(16))
+            container(text("Checking for updates...").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedContainerStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedContainerStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else if self.updates.is_empty() && !self.has_updates {
-            container(text("Click 'Check for Updates' to see available updates").size(14))
+            container(text("Click 'Check for Updates' to see available updates").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedContainerStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedContainerStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else if self.updates.is_empty() && self.has_updates {
-            container(text("System is up to date!").size(16))
+            container(text("System is up to date!").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedContainerStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedContainerStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else {
             scrollable(
@@ -268,17 +286,19 @@ impl UpdateTab {
                                     checkbox("", is_selected)
                                         .on_toggle(move |_| Message::TogglePackage(index_for_toggle))
                                         .width(Length::Shrink),
-                                    text(&update.name).size(16).width(Length::FillPortion(3)),
-                                    text(&update.current_version).size(14).width(Length::FillPortion(2)),
-                                    text("→").size(14),
-                                    text(&update.available_version).size(14).width(Length::FillPortion(2)),
-                                    text(&update.repository).size(14).width(Length::FillPortion(2)),
+                                    text(&update.name).size(package_name_size).width(Length::FillPortion(3)),
+                                    text(&update.current_version).size(package_detail_size).width(Length::FillPortion(2)),
+                                    text("→").size(package_detail_size),
+                                    text(&update.available_version).size(package_detail_size).width(Length::FillPortion(2)),
+                                    text(&update.repository).size(package_detail_size).width(Length::FillPortion(2)),
                                 ]
                                 .spacing(12)
                                 .align_items(Alignment::Center)
                                 .padding(12)
                             )
-                            .style(iced::theme::Container::Custom(Box::new(UpdateItemStyle)))
+                                .style(iced::theme::Container::Custom(Box::new(UpdateItemStyle {
+                                    radius: settings.border_radius,
+                                })))
                             .into()
                         })
                         .collect::<Vec<_>>(),
@@ -373,7 +393,9 @@ async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
     Ok(updates)
 }
 
-struct RoundedContainerStyle;
+struct RoundedContainerStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for RoundedContainerStyle {
     type Style = iced::Theme;
@@ -381,7 +403,7 @@ impl iced::widget::container::StyleSheet for RoundedContainerStyle {
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 0.0,
                 color: iced::Color::TRANSPARENT,
             },
@@ -390,7 +412,9 @@ impl iced::widget::container::StyleSheet for RoundedContainerStyle {
     }
 }
 
-struct UpdateItemStyle;
+struct UpdateItemStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for UpdateItemStyle {
     type Style = iced::Theme;
@@ -400,7 +424,7 @@ impl iced::widget::container::StyleSheet for UpdateItemStyle {
         Appearance {
             background: Some(iced::Background::Color(palette.background)),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
             },
@@ -411,6 +435,7 @@ impl iced::widget::container::StyleSheet for UpdateItemStyle {
 
 struct RoundedButtonStyle {
     is_primary: bool,
+    radius: f32,
 }
 
 impl ButtonStyleSheet for RoundedButtonStyle {
@@ -425,7 +450,7 @@ impl ButtonStyleSheet for RoundedButtonStyle {
                 iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary

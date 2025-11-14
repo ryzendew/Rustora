@@ -482,7 +482,7 @@ impl Application for UpdateDialog {
     }
 
     fn title(&self) -> String {
-        "System Updates - FedoraForge".to_string()
+        "System Updates - Rustora".to_string()
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {

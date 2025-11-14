@@ -423,9 +423,9 @@ impl Application for FlatpakDialog {
 
     fn title(&self) -> String {
         if let Some(ref info) = self.flatpak_info {
-            format!("Install {} - FedoraForge", info.name)
+            format!("Install {} - Rustora", info.name)
         } else {
-            "Install Flatpak - FedoraForge".to_string()
+            "Install Flatpak - Rustora".to_string()
         }
     }
 
@@ -610,7 +610,7 @@ async fn load_flatpak_info(app_id: String, remote: Option<String>) -> Result<Fla
 
 async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String>, output: &str, success: bool) {
     if let Ok(home) = std::env::var("HOME") {
-        let log_dir = PathBuf::from(&home).join(".fedoraforge");
+        let log_dir = PathBuf::from(&home).join(".rustora");
         if let Err(e) = fs::create_dir_all(&log_dir).await {
             eprintln!("Failed to create log directory: {}", e);
             return;

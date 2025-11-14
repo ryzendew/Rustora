@@ -1,5 +1,6 @@
 use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
-use iced::{Alignment, Element, Length, Padding, Border};
+use iced::{Alignment, Element, Length, Padding, Border, Color};
+use crate::gui::app::CustomScrollableStyle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KernelView {
@@ -429,7 +430,7 @@ impl KernelTab {
                         async move {
                             use tokio::process::Command as TokioCommand;
                             let exe_path = std::env::current_exe()
-                                .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                                .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                             TokioCommand::new(&exe_path)
                                 .arg("kernel-install-dialog")
                                 .arg(&packages)
@@ -444,7 +445,7 @@ impl KernelTab {
                         async move {
                             use tokio::process::Command as TokioCommand;
                             let exe_path = std::env::current_exe()
-                                .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                                .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                             TokioCommand::new(&exe_path)
                                 .arg("kernel-install-dialog")
                                 .arg(&kernel_name)
@@ -482,7 +483,7 @@ impl KernelTab {
                         async move {
                             use tokio::process::Command as TokioCommand;
                             let exe_path = std::env::current_exe()
-                                .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                                .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                             TokioCommand::new(&exe_path)
                                 .arg("kernel-remove-dialog")
                                 .arg(&packages)
@@ -496,7 +497,7 @@ impl KernelTab {
                         async move {
                             use tokio::process::Command as TokioCommand;
                             let exe_path = std::env::current_exe()
-                                .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                                .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                             TokioCommand::new(&exe_path)
                                 .arg("kernel-remove-dialog")
                                 .arg(&kernel_name)
@@ -647,21 +648,31 @@ impl KernelTab {
         }
     }
 
-    pub fn view<'a>(&'a self, theme: &'a crate::gui::Theme) -> Element<'a, Message> {
+    pub fn view<'a>(&'a self, theme: &'a crate::gui::Theme, settings: &'a crate::gui::settings::AppSettings) -> Element<'a, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
+        
+        // Calculate font sizes from settings
+        let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let _button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let input_font_size = (settings.font_size_inputs * settings.scale_inputs).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let tab_font_size = (settings.font_size_tabs * settings.scale_tabs).round();
         
         let header = container(
             row![
                 text("Kernel Manager")
-                    .size(32)
+                    .size(title_font_size)
                     .style(iced::theme::Text::Color(theme.primary()))
                     .width(Length::Fill),
                 button(
                     text(crate::gui::fonts::glyphs::REFRESH_SYMBOL)
                         .font(material_font)
-                        .size(24)
+                        .size(icon_size)
                 )
-                .style(iced::theme::Button::Custom(Box::new(RefreshButtonStyle)))
+                .style(iced::theme::Button::Custom(Box::new(RefreshButtonStyle {
+                    radius: settings.border_radius,
+                })))
                 .on_press(Message::LoadBranches)
                 .padding(Padding::new(12.0)),
             ]
@@ -676,7 +687,7 @@ impl KernelTab {
             row![
                 button(
                     text("Kernels")
-                        .size(16)
+                        .size(tab_font_size)
                         .style(iced::theme::Text::Color(if self.current_view == KernelView::Kernels {
                             iced::Color::WHITE
                         } else {
@@ -685,12 +696,13 @@ impl KernelTab {
                 )
                 .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
                     is_active: self.current_view == KernelView::Kernels,
+                    radius: settings.border_radius,
                 })))
                 .on_press(Message::SwitchView(KernelView::Kernels))
                 .padding(Padding::from([12.0, 24.0, 12.0, 24.0])),
                 button(
                     text("Scheduler")
-                        .size(16)
+                        .size(tab_font_size)
                         .style(iced::theme::Text::Color(if self.current_view == KernelView::Scheduler {
                             iced::Color::WHITE
                         } else {
@@ -699,6 +711,7 @@ impl KernelTab {
                 )
                 .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
                     is_active: self.current_view == KernelView::Scheduler,
+                    radius: settings.border_radius,
                 })))
                 .on_press(Message::SwitchView(KernelView::Scheduler))
                 .padding(Padding::from([12.0, 24.0, 12.0, 24.0])),
@@ -715,7 +728,7 @@ impl KernelTab {
             container(
                 row![
                     text("Branch:")
-                        .size(18)
+                        .size(body_font_size * 1.29)
                         .style(iced::theme::Text::Color(theme.primary())),
                     Space::with_width(Length::Fixed(16.0)),
                     scrollable(
@@ -727,10 +740,11 @@ impl KernelTab {
                                     let is_selected = self.selected_branch.as_ref().map(|s| s == &branch.name).unwrap_or(false);
                                     button(
                                         text(&branch.name)
-                                            .size(15)
+                                            .size(body_font_size * 1.07)
                                     )
                                     .style(iced::theme::Button::Custom(Box::new(BranchButtonStyle {
                                         is_selected,
+                                        radius: settings.border_radius,
                                     })))
                                     .on_press(Message::BranchSelected(branch_name))
                                     .padding(Padding::from([10.0, 20.0, 10.0, 20.0]))
@@ -742,13 +756,19 @@ impl KernelTab {
                     )
                     .width(Length::Fill)
                     .height(Length::Shrink)
+                    .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                        Color::from(settings.background_color.clone()),
+                        settings.border_radius,
+                    ))))
                 ]
                 .align_items(Alignment::Center)
                 .spacing(0)
             )
             .width(Length::Fill)
             .padding(Padding::new(20.0))
-            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            })))
         } else {
             container(Space::with_height(Length::Shrink))
         };
@@ -757,28 +777,32 @@ impl KernelTab {
             row![
                 text(crate::gui::fonts::glyphs::SEARCH_SYMBOL)
                     .font(material_font)
-                    .size(22)
+                    .size(icon_size * 1.22)
                     .style(iced::theme::Text::Color(theme.text())),
                 text_input("Search kernels...", &self.search_query)
                     .on_input(Message::SearchQueryChanged)
-                    .style(iced::theme::TextInput::Custom(Box::new(SearchInputStyle)))
+                    .style(iced::theme::TextInput::Custom(Box::new(SearchInputStyle {
+                        radius: settings.border_radius,
+                    })))
                     .width(Length::Fill)
                     .padding(Padding::new(16.0))
-                    .size(16),
+                    .size(input_font_size),
             ]
             .align_items(Alignment::Center)
             .spacing(16)
         )
         .width(Length::Fill)
         .padding(Padding::new(20.0))
-        .style(iced::theme::Container::Custom(Box::new(SearchContainerStyle)));
+        .style(iced::theme::Container::Custom(Box::new(SearchContainerStyle {
+            radius: settings.border_radius,
+        })));
 
         let content: Element<Message> = if self.is_loading || self.is_loading_branches {
             container(
                 column![
                     Space::with_height(Length::Fill),
                     text(if self.is_loading_branches { "Loading branches..." } else { "Loading kernels..." })
-                        .size(18)
+                        .size(body_font_size * 1.29)
                         .style(iced::theme::Text::Color(theme.text()))
                         .width(Length::Shrink),
                     Space::with_height(Length::Fill),
@@ -799,7 +823,7 @@ impl KernelTab {
                 column![
                     Space::with_height(Length::Fill),
                     text(message)
-                        .size(18)
+                        .size(body_font_size * 1.29)
                         .style(iced::theme::Text::Color(theme.text()))
                         .width(Length::Shrink),
                     Space::with_height(Length::Fill),
@@ -816,7 +840,7 @@ impl KernelTab {
                     self.filtered_kernels
                         .iter()
                         .map(|kernel| {
-                            self.view_kernel_item(kernel, theme, &material_font)
+                            self.view_kernel_item(kernel, theme, &material_font, settings)
                         })
                         .collect::<Vec<_>>(),
                 )
@@ -825,6 +849,10 @@ impl KernelTab {
             )
             .width(Length::Fill)
             .height(Length::Fill)
+            .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                Color::from(settings.background_color.clone()),
+                settings.border_radius,
+            ))))
             .into();
 
             if self.panel_open {
@@ -832,7 +860,7 @@ impl KernelTab {
                     container(kernel_list)
                         .width(Length::FillPortion(2))
                         .height(Length::Fill),
-                    container(self.view_panel(theme, &material_font))
+                    container(self.view_panel(theme, &material_font, settings))
                         .width(Length::FillPortion(1))
                         .height(Length::Fill)
                 ]
@@ -861,7 +889,7 @@ impl KernelTab {
                 .into()
             }
             KernelView::Scheduler => {
-                self.view_scheduler(theme, &material_font)
+                self.view_scheduler(theme, &material_font, settings)
             }
         };
 
@@ -881,24 +909,34 @@ impl KernelTab {
         .into()
     }
 
-    fn view_kernel_item(&self, kernel: &EnhancedKernelInfo, theme: &crate::gui::Theme, material_font: &iced::Font) -> Element<'_, Message> {
+    fn view_kernel_item(&self, kernel: &EnhancedKernelInfo, theme: &crate::gui::Theme, material_font: &iced::Font, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        // Calculate font sizes from settings
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let package_name_size = (settings.font_size_package_names * settings.scale_package_cards).round();
+        let package_detail_size = (settings.font_size_package_details * settings.scale_package_cards).round();
         // Status badge
         let status_badge = if kernel.installed {
             container(
                 text("INSTALLED")
-                    .size(10)
+                    .size(body_font_size * 0.71)
                     .style(iced::theme::Text::Color(iced::Color::from_rgb(0.0, 0.7, 0.0)))
             )
             .padding(Padding::from([4.0, 8.0, 4.0, 8.0]))
-            .style(iced::theme::Container::Custom(Box::new(InstalledBadgeStyle)))
+            .style(iced::theme::Container::Custom(Box::new(InstalledBadgeStyle {
+                radius: settings.border_radius,
+            })))
         } else {
             container(
                 text("AVAILABLE")
-                    .size(10)
+                    .size(body_font_size * 0.71)
                     .style(iced::theme::Text::Color(theme.secondary_text()))
             )
             .padding(Padding::from([4.0, 8.0, 4.0, 8.0]))
-            .style(iced::theme::Container::Custom(Box::new(AvailableBadgeStyle)))
+            .style(iced::theme::Container::Custom(Box::new(AvailableBadgeStyle {
+                radius: settings.border_radius,
+            })))
         };
 
         // CPU feature requirement badge
@@ -911,11 +949,13 @@ impl KernelTab {
             };
             container(
                 text(level_text)
-                    .size(9)
+                    .size(body_font_size * 0.64)
                     .style(iced::theme::Text::Color(iced::Color::from_rgb(0.9, 0.6, 0.2)))
             )
             .padding(Padding::from([3.0, 7.0, 3.0, 7.0]))
-            .style(iced::theme::Container::Custom(Box::new(CpuBadgeStyle)))
+            .style(iced::theme::Container::Custom(Box::new(CpuBadgeStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         } else {
             Space::with_width(Length::Shrink).into()
@@ -927,14 +967,16 @@ impl KernelTab {
                 row![
                     text(crate::gui::fonts::glyphs::DELETE_SYMBOL)
                         .font(*material_font)
-                        .size(14),
+                        .size(icon_size * 0.78),
                     text("Remove")
-                        .size(13)
+                        .size(button_font_size)
                 ]
                 .spacing(6)
                 .align_items(Alignment::Center)
             )
-            .style(iced::theme::Button::Custom(Box::new(RemoveButtonStyle)))
+            .style(iced::theme::Button::Custom(Box::new(RemoveButtonStyle {
+                radius: settings.border_radius,
+            })))
             .on_press(Message::RemoveKernel(kernel.main_package.clone()))
             .padding(Padding::from([10.0, 16.0, 10.0, 16.0]))
         } else {
@@ -943,14 +985,16 @@ impl KernelTab {
                 row![
                     text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL)
                         .font(*material_font)
-                        .size(14),
+                        .size(icon_size * 0.78),
                     text(if is_installing { "Installing..." } else { "Install" })
-                        .size(13)
+                        .size(button_font_size)
                 ]
                 .spacing(6)
                 .align_items(Alignment::Center)
             )
-            .style(iced::theme::Button::Custom(Box::new(InstallButtonStyle)))
+            .style(iced::theme::Button::Custom(Box::new(InstallButtonStyle {
+                radius: settings.border_radius,
+            })))
             .on_press(if is_installing {
                 Message::Error(())
             } else {
@@ -981,7 +1025,7 @@ impl KernelTab {
                     row![
                         // Left: Title
                         text(&kernel.name)
-                            .size(17)
+                            .size(package_name_size)
                             .style(iced::theme::Text::Color(theme.primary()))
                             .width(Length::Fill),
                         // Right: Badges and action button
@@ -999,7 +1043,7 @@ impl KernelTab {
                     Space::with_height(Length::Fixed(12.0)),
                     // Description
                     text(&kernel.description)
-                        .size(13)
+                        .size(package_detail_size)
                         .style(iced::theme::Text::Color(theme.text()))
                         .width(Length::Fill)
                         .shaping(iced::widget::text::Shaping::Advanced),
@@ -1009,11 +1053,11 @@ impl KernelTab {
                         // Package
                         column![
                             text("Package")
-                                .size(10)
+                                .size(package_detail_size * 0.77)
                                 .style(iced::theme::Text::Color(theme.secondary_text())),
                             Space::with_height(Length::Fixed(2.0)),
                             text(&kernel.main_package)
-                                .size(12)
+                                .size(package_detail_size)
                                 .style(iced::theme::Text::Color(theme.text())),
                         ]
                         .spacing(0)
@@ -1021,11 +1065,11 @@ impl KernelTab {
                         // Version
                         column![
                             text("Version")
-                                .size(10)
+                                .size(package_detail_size * 0.77)
                                 .style(iced::theme::Text::Color(theme.secondary_text())),
                             Space::with_height(Length::Fixed(2.0)),
                             text(&kernel.version)
-                                .size(12)
+                                .size(package_detail_size)
                                 .style(iced::theme::Text::Color(theme.text())),
                         ]
                         .spacing(0)
@@ -1033,11 +1077,11 @@ impl KernelTab {
                         // Vendor/Repository
                         column![
                             text("Vendor")
-                                .size(10)
+                                .size(package_detail_size * 0.77)
                                 .style(iced::theme::Text::Color(theme.secondary_text())),
                             Space::with_height(Length::Fixed(2.0)),
                             text(&vendor_text)
-                                .size(12)
+                                .size(package_detail_size)
                                 .style(iced::theme::Text::Color(theme.text()))
                                 .shaping(iced::widget::text::Shaping::Advanced),
                         ]
@@ -1051,7 +1095,9 @@ impl KernelTab {
                 .spacing(0)
                 .padding(Padding::new(20.0))
             )
-            .style(iced::theme::Container::Custom(Box::new(KernelItemStyle)))
+            .style(iced::theme::Container::Custom(Box::new(KernelItemStyle {
+                radius: settings.border_radius,
+            })))
             .width(Length::Fill)
         )
         .on_press(Message::KernelSelected(kernel.name.clone()))
@@ -1061,21 +1107,30 @@ impl KernelTab {
         .into()
     }
 
-    fn view_panel(&self, theme: &crate::gui::Theme, material_font: &iced::Font) -> Element<'_, Message> {
+    fn view_panel(&self, theme: &crate::gui::Theme, material_font: &iced::Font, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        // Calculate font sizes from settings
+        let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let _button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let _package_name_size = (settings.font_size_package_names * settings.scale_package_cards).round();
+        let _package_detail_size = (settings.font_size_package_details * settings.scale_package_cards).round();
         if let Some(ref details) = self.kernel_details {
             container(
                 column![
                     row![
                         text("Kernel Details")
-                            .size(24)
+                            .size(title_font_size * 0.86)
                             .style(iced::theme::Text::Color(theme.primary()))
                             .width(Length::Fill),
                         button(
                             text(crate::gui::fonts::glyphs::CLOSE_SYMBOL)
                                 .font(*material_font)
-                                .size(24)
+                                .size(icon_size * 1.33)
                         )
-                        .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)))
+                        .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle {
+                            radius: settings.border_radius,
+                        })))
                         .on_press(Message::ClosePanel)
                         .padding(Padding::new(12.0)),
                     ]
@@ -1087,74 +1142,88 @@ impl KernelTab {
                             container(
                                 column![
                                     text("Name")
-                                        .size(14)
+                                        .size(body_font_size)
                                         .style(iced::theme::Text::Color(theme.secondary_text())),
                                     Space::with_height(Length::Fixed(6.0)),
                                     text(&details.name)
-                                        .size(18),
+                                        .size(body_font_size * 1.29),
                                 ]
                                 .spacing(0)
                             )
                             .width(Length::Fill)
                             .padding(Padding::new(20.0))
-                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            }))),
                             container(
                                 column![
                                     text("Version")
-                                        .size(14)
+                                        .size(body_font_size)
                                         .style(iced::theme::Text::Color(theme.text())),
                                     Space::with_height(Length::Fixed(6.0)),
                                     text(&details.version)
-                                        .size(18)
+                                        .size(body_font_size * 1.29)
                                         .style(iced::theme::Text::Color(theme.text())),
                                 ]
                                 .spacing(0)
                             )
                             .width(Length::Fill)
                             .padding(Padding::new(20.0))
-                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            }))),
                             container(
                                 column![
                                     text("Summary")
-                                        .size(14)
+                                        .size(body_font_size)
                                         .style(iced::theme::Text::Color(theme.text())),
                                     Space::with_height(Length::Fixed(6.0)),
                                     text(&details.summary)
-                                        .size(16)
+                                        .size(body_font_size * 1.14)
                                         .style(iced::theme::Text::Color(theme.text())),
                                 ]
                                 .spacing(0)
                             )
                             .width(Length::Fill)
                             .padding(Padding::new(20.0))
-                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            }))),
                             container(
                                 column![
                                     text("Description")
-                                        .size(14)
+                                        .size(body_font_size)
                                         .style(iced::theme::Text::Color(theme.text())),
                                     Space::with_height(Length::Fixed(6.0)),
                                     text(&details.description)
-                                        .size(14)
+                                        .size(body_font_size)
                                         .style(iced::theme::Text::Color(theme.text())),
                                 ]
                                 .spacing(0)
                             )
                             .width(Length::Fill)
                             .padding(Padding::new(20.0))
-                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            }))),
                         ]
                         .spacing(16)
                     )
                     .width(Length::Fill)
-                    .height(Length::Fill),
+                    .height(Length::Fill)
+                    .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                        Color::from(settings.background_color.clone()),
+                        settings.border_radius,
+                    )))),
                 ]
                 .spacing(0)
             )
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(Padding::new(20.0))
-            .style(iced::theme::Container::Custom(Box::new(PanelStyle)))
+            .style(iced::theme::Container::Custom(Box::new(PanelStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         } else {
             container(Space::with_height(Length::Shrink))
@@ -1164,7 +1233,13 @@ impl KernelTab {
         }
     }
 
-    fn view_scheduler<'a>(&'a self, theme: &'a crate::gui::Theme, material_font: &iced::Font) -> Element<'a, Message> {
+    fn view_scheduler<'a>(&'a self, theme: &'a crate::gui::Theme, material_font: &iced::Font, settings: &'a crate::gui::settings::AppSettings) -> Element<'a, Message> {
+        // Calculate font sizes from settings
+        let _title_font_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let input_font_size = (settings.font_size_inputs * settings.scale_inputs).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         // Get current scheduler info - prefer stored current_scheduler, fallback to running_kernel_info
         let current_sched_text = if let Some(ref current) = self.current_scheduler {
             current.clone()
@@ -1218,14 +1293,16 @@ impl KernelTab {
                 column![
                     Space::with_height(Length::Fixed(100.0)),
                     text("Loading schedulers...")
-                        .size(16)
+                        .size(body_font_size * 1.14)
                         .style(iced::theme::Text::Color(theme.secondary_text()))
                 ]
                 .align_items(Alignment::Center)
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         } else {
             scrollable(
@@ -1255,17 +1332,19 @@ impl KernelTab {
                                         column![
                                             row![
                                                 text(&scheduler.name)
-                                                    .size(14)
+                                                    .size(body_font_size)
                                                     .style(iced::theme::Text::Color(theme.primary()))
                                                     .width(Length::Fill),
                                                 if is_current {
                                                     container(
                                                         text("CURRENT")
-                                                            .size(10)
+                                                            .size(body_font_size * 0.71)
                                                             .style(iced::theme::Text::Color(iced::Color::from_rgb(0.1, 0.5, 0.1))) // Darker green
                                                     )
                                                     .padding(Padding::from([4.0, 8.0, 4.0, 8.0]))
-                                                    .style(iced::theme::Container::Custom(Box::new(InstalledBadgeStyle)))
+                                                    .style(iced::theme::Container::Custom(Box::new(InstalledBadgeStyle {
+                radius: settings.border_radius,
+            })))
                                                 } else {
                                                     container(Space::with_height(Length::Shrink))
                                                 },
@@ -1290,7 +1369,7 @@ impl KernelTab {
                                                                 container(
                                                                     row![
                                                                         text(&mode.name)
-                                                                            .size(12)
+                                                                            .size(body_font_size * 0.86)
                                                                             .style(iced::theme::Text::Color(if is_mode_current {
                                                                                 iced::Color::from_rgb(1.0, 1.0, 1.0) // White text for current mode
                                                                             } else {
@@ -1298,7 +1377,7 @@ impl KernelTab {
                                                                             })),
                                                                         Space::with_width(Length::Fill),
                                                                         text(&mode.flags)
-                                                                            .size(11)
+                                                                            .size(body_font_size * 0.79)
                                                                             .style(iced::theme::Text::Color(if is_mode_current {
                                                                                 iced::Color::from_rgb(1.0, 1.0, 1.0) // White text for current mode
                                                                             } else {
@@ -1312,12 +1391,12 @@ impl KernelTab {
                                                                 .padding(Padding::new(12.0))
                                                                 .style(iced::theme::Container::Custom(if is_mode_current {
                                                                     // Red highlight for currently active mode
-                                                                    Box::new(CurrentModeStyle) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
+                                                                    Box::new(CurrentModeStyle { radius: settings.border_radius }) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
                                                                 } else if is_mode_selected {
                                                                     // Blue highlight for selected mode
-                                                                    Box::new(SelectedModeStyle) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
+                                                                    Box::new(SelectedModeStyle { radius: settings.border_radius }) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
                                                                 } else {
-                                                                    Box::new(ModeStyle) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
+                                                                    Box::new(ModeStyle { radius: settings.border_radius }) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
                                                                 }))
                                                             )
                                                             .on_press(Message::SchedulerModeSelected(mode_name.clone()))
@@ -1343,12 +1422,12 @@ impl KernelTab {
                                 .padding(Padding::new(16.0))
                                 .style(iced::theme::Container::Custom(if is_current {
                                     // Green highlight for currently running scheduler
-                                    Box::new(CurrentSchedulerStyle) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
+                                    Box::new(CurrentSchedulerStyle { radius: settings.border_radius }) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
                                 } else if is_selected {
                                     // Blue highlight for selected scheduler
-                                    Box::new(SelectedSchedulerStyle) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
+                                    Box::new(SelectedSchedulerStyle { radius: settings.border_radius }) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
                                 } else {
-                                    Box::new(SchedulerItemStyle) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
+                                    Box::new(SchedulerItemStyle { radius: settings.border_radius }) as Box<dyn iced::widget::container::StyleSheet<Style = iced::Theme>>
                                 }))
                             )
                             .on_press(Message::SchedulerSelected(scheduler_name))
@@ -1363,6 +1442,10 @@ impl KernelTab {
             )
             .width(Length::Fill)
             .height(Length::Fill)
+            .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                Color::from(settings.background_color.clone()),
+                settings.border_radius,
+            ))))
             .into()
         };
 
@@ -1372,22 +1455,25 @@ impl KernelTab {
         )
         .on_input(Message::SchedulerFlagsChanged)
         .padding(12)
-        .size(14)
-        .style(iced::theme::TextInput::Custom(Box::new(SearchInputStyle)))
+        .size(input_font_size)
+        .style(iced::theme::TextInput::Custom(Box::new(SearchInputStyle {
+            radius: settings.border_radius,
+        })))
         .width(Length::Fill);
 
         let apply_button: Element<Message> = button(
             row![
                 text(crate::gui::fonts::glyphs::CHECK_SYMBOL)
                     .font(*material_font)
-                    .size(18),
-                text(" Apply Scheduler")
+                    .size(icon_size),
+                text(" Apply Scheduler").size(button_font_size)
             ]
             .spacing(8)
             .align_items(Alignment::Center)
         )
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: true,
+            radius: settings.border_radius,
         })))
         .on_press(Message::ApplyScheduler)
         .padding(Padding::new(12.0))
@@ -1403,27 +1489,31 @@ impl KernelTab {
                 container(
                     column![
                         text("Current Scheduler")
-                            .size(16)
+                            .size(body_font_size * 1.14)
                             .style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(8.0)),
                         container(
                             text(&current_sched_text)
-                                .size(14)
+                                .size(body_font_size)
                         )
                         .width(Length::Fill)
                         .padding(Padding::new(16.0))
-                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            }))),
                     ]
                     .spacing(0)
                 )
                 .width(Length::Fill)
                 .padding(Padding::new(16.0))
-                .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            }))),
                 Space::with_height(Length::Fixed(16.0)),
                 container(
                     column![
                         text("Available Schedulers")
-                            .size(16)
+                            .size(body_font_size * 1.14)
                             .style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(8.0)),
                         scheduler_list,
@@ -1433,12 +1523,14 @@ impl KernelTab {
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .padding(Padding::new(16.0))
-                .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            }))),
                 Space::with_height(Length::Fixed(16.0)),
                 container(
                     column![
                         text("Extra Flags")
-                            .size(14)
+                            .size(body_font_size)
                             .style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(8.0)),
                         extra_flags_input,
@@ -1447,7 +1539,9 @@ impl KernelTab {
                 )
                 .width(Length::Fill)
                 .padding(Padding::new(16.0))
-                .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            }))),
                 Space::with_height(Length::Fixed(16.0)),
                 container(
                     row![
@@ -1459,14 +1553,15 @@ impl KernelTab {
                                 row![
                                     text(crate::gui::fonts::glyphs::CHECK_SYMBOL)
                                         .font(*material_font)
-                                        .size(18),
-                                    text(" Apply Scheduler")
+                                        .size(icon_size),
+                                    text(" Apply Scheduler").size(button_font_size)
                                 ]
                                 .spacing(8)
                                 .align_items(Alignment::Center)
                             )
                             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                                 is_primary: false,
+                                radius: settings.border_radius,
                             })))
                             .padding(Padding::new(12.0))
                             .into()
@@ -2341,7 +2436,9 @@ async fn apply_scx_scheduler(scheduler_name: String, flags: String) -> Result<()
 }
 
 // Style structs
-struct KernelItemStyle;
+struct KernelItemStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for KernelItemStyle {
     type Style = iced::Theme;
 
@@ -2354,13 +2451,15 @@ impl iced::widget::container::StyleSheet for KernelItemStyle {
             } else {
                 iced::Color::from_rgba(0.98, 0.98, 0.99, 1.0).into() // Softer, calmer white
             }),
-            border: Border::with_radius(8.0),
+            border: Border::with_radius(self.radius * 0.5),
             ..Default::default()
         }
     }
 }
 
-struct InstallButtonStyle;
+struct InstallButtonStyle {
+    radius: f32,
+}
 impl ButtonStyleSheet for InstallButtonStyle {
     type Style = iced::Theme;
 
@@ -2368,13 +2467,15 @@ impl ButtonStyleSheet for InstallButtonStyle {
         ButtonAppearance {
             background: Some(iced::Color::from_rgb(0.2, 0.6, 0.9).into()),
             text_color: iced::Color::WHITE,
-            border: Border::with_radius(6.0),
+            border: Border::with_radius(self.radius * 0.375),
             ..Default::default()
         }
     }
 }
 
-struct RemoveButtonStyle;
+struct RemoveButtonStyle {
+    radius: f32,
+}
 impl ButtonStyleSheet for RemoveButtonStyle {
     type Style = iced::Theme;
 
@@ -2382,13 +2483,15 @@ impl ButtonStyleSheet for RemoveButtonStyle {
         ButtonAppearance {
             background: Some(iced::Color::from_rgb(0.9, 0.3, 0.3).into()),
             text_color: iced::Color::WHITE,
-            border: Border::with_radius(6.0),
+            border: Border::with_radius(self.radius * 0.375),
             ..Default::default()
         }
     }
 }
 
-struct InstalledBadgeStyle;
+struct InstalledBadgeStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for InstalledBadgeStyle {
     type Style = iced::Theme;
 
@@ -2401,33 +2504,37 @@ impl iced::widget::container::StyleSheet for InstalledBadgeStyle {
             } else {
                 iced::Color::from_rgba(0.1, 0.5, 0.1, 0.15).into() // Darker green for light mode
             }),
-            border: Border::with_radius(4.0),
+            border: Border::with_radius(self.radius * 0.25),
             ..Default::default()
         }
     }
 }
 
-struct AvailableBadgeStyle;
+struct AvailableBadgeStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for AvailableBadgeStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
             background: Some(iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2).into()),
-            border: Border::with_radius(4.0),
+            border: Border::with_radius(self.radius * 0.25),
             ..Default::default()
         }
     }
 }
 
-struct CpuBadgeStyle;
+struct CpuBadgeStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for CpuBadgeStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
             background: Some(iced::Color::from_rgba(0.9, 0.6, 0.2, 0.2).into()),
-            border: Border::with_radius(4.0),
+            border: Border::with_radius(self.radius * 0.25),
             ..Default::default()
         }
     }
@@ -2455,6 +2562,7 @@ impl iced::widget::container::StyleSheet for InfoBadgeStyle {
 
 struct BranchButtonStyle {
     is_selected: bool,
+    radius: f32,
 }
 impl ButtonStyleSheet for BranchButtonStyle {
     type Style = iced::Theme;
@@ -2473,13 +2581,15 @@ impl ButtonStyleSheet for BranchButtonStyle {
                 }
             }),
             text_color: if self.is_selected { iced::Color::WHITE } else { palette.text },
-            border: Border::with_radius(6.0),
+            border: Border::with_radius(self.radius * 0.375),
             ..Default::default()
         }
     }
 }
 
-struct RefreshButtonStyle;
+struct RefreshButtonStyle {
+    radius: f32,
+}
 impl ButtonStyleSheet for RefreshButtonStyle {
     type Style = iced::Theme;
 
@@ -2493,13 +2603,15 @@ impl ButtonStyleSheet for RefreshButtonStyle {
                 iced::Color::from_rgba(0.85, 0.85, 0.85, 1.0).into()
             }),
             text_color: palette.text,
-            border: Border::with_radius(6.0),
+            border: Border::with_radius(self.radius * 0.375),
             ..Default::default()
         }
     }
 }
 
-struct SearchContainerStyle;
+struct SearchContainerStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for SearchContainerStyle {
     type Style = iced::Theme;
 
@@ -2512,13 +2624,15 @@ impl iced::widget::container::StyleSheet for SearchContainerStyle {
             } else {
                 iced::Color::from_rgba(0.96, 0.96, 0.97, 1.0).into() // Softer background
             }),
-            border: Border::with_radius(8.0),
+            border: Border::with_radius(self.radius * 0.5),
             ..Default::default()
         }
     }
 }
 
-struct SearchInputStyle;
+struct SearchInputStyle {
+    radius: f32,
+}
 impl TextInputStyleSheet for SearchInputStyle {
     type Style = iced::Theme;
 
@@ -2531,7 +2645,7 @@ impl TextInputStyleSheet for SearchInputStyle {
             } else {
                 iced::Color::from_rgba(0.99, 0.99, 0.99, 1.0).into() // Softer input background
             },
-            border: Border::with_radius(6.0),
+            border: Border::with_radius(self.radius * 0.375),
             icon_color: palette.text,
         }
     }
@@ -2546,7 +2660,7 @@ impl TextInputStyleSheet for SearchInputStyle {
                 iced::Color::from_rgba(0.99, 0.99, 0.99, 1.0).into() // Softer input background
             },
             border: Border {
-                radius: 6.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: palette.primary,
             },
@@ -2582,7 +2696,7 @@ impl TextInputStyleSheet for SearchInputStyle {
                 iced::Color::from_rgba(0.95, 0.95, 0.95, 1.0).into()
             },
             border: Border {
-                radius: 6.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if is_dark {
                     iced::Color::from_rgba(0.3, 0.3, 0.3, 1.0)
@@ -2595,7 +2709,9 @@ impl TextInputStyleSheet for SearchInputStyle {
     }
 }
 
-struct PanelStyle;
+struct PanelStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for PanelStyle {
     type Style = iced::Theme;
 
@@ -2608,13 +2724,15 @@ impl iced::widget::container::StyleSheet for PanelStyle {
             } else {
                 iced::Color::from_rgba(0.96, 0.96, 0.97, 1.0).into() // Softer background
             }),
-            border: Border::with_radius(8.0),
+            border: Border::with_radius(self.radius * 0.5),
             ..Default::default()
         }
     }
 }
 
-struct InfoContainerStyle;
+struct InfoContainerStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for InfoContainerStyle {
     type Style = iced::Theme;
 
@@ -2627,13 +2745,15 @@ impl iced::widget::container::StyleSheet for InfoContainerStyle {
             } else {
                 iced::Color::from_rgba(0.97, 0.97, 0.98, 1.0).into() // Softer container
             }),
-            border: Border::with_radius(6.0),
+            border: Border::with_radius(self.radius * 0.375),
             ..Default::default()
         }
     }
 }
 
-struct CloseButtonStyle;
+struct CloseButtonStyle {
+    radius: f32,
+}
 impl ButtonStyleSheet for CloseButtonStyle {
     type Style = iced::Theme;
 
@@ -2647,7 +2767,7 @@ impl ButtonStyleSheet for CloseButtonStyle {
                 iced::Color::from_rgba(0.85, 0.85, 0.85, 1.0).into()
             }),
             text_color: palette.text,
-            border: Border::with_radius(6.0),
+            border: Border::with_radius(self.radius * 0.375),
             ..Default::default()
         }
     }
@@ -2655,6 +2775,7 @@ impl ButtonStyleSheet for CloseButtonStyle {
 
 struct SubTabButtonStyle {
     is_active: bool,
+    radius: f32,
 }
 impl ButtonStyleSheet for SubTabButtonStyle {
     type Style = iced::Theme;
@@ -2673,7 +2794,7 @@ impl ButtonStyleSheet for SubTabButtonStyle {
                 }
             }),
             text_color: if self.is_active { iced::Color::WHITE } else { palette.text },
-            border: Border::with_radius(6.0),
+            border: Border::with_radius(self.radius * 0.375),
             ..Default::default()
         }
     }
@@ -2693,7 +2814,9 @@ impl ButtonStyleSheet for SubTabButtonStyle {
     }
 }
 
-struct SchedulerItemStyle;
+struct SchedulerItemStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for SchedulerItemStyle {
     type Style = iced::Theme;
 
@@ -2706,13 +2829,15 @@ impl iced::widget::container::StyleSheet for SchedulerItemStyle {
             } else {
                 iced::Color::from_rgba(0.98, 0.98, 0.99, 1.0).into() // Softer, calmer white
             }),
-            border: Border::with_radius(8.0),
+            border: Border::with_radius(self.radius * 0.5),
             ..Default::default()
         }
     }
 }
 
-struct SelectedSchedulerStyle;
+struct SelectedSchedulerStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for SelectedSchedulerStyle {
     type Style = iced::Theme;
 
@@ -2720,7 +2845,7 @@ impl iced::widget::container::StyleSheet for SelectedSchedulerStyle {
         Appearance {
             background: Some(iced::Color::from_rgba(0.2, 0.4, 0.6, 0.3).into()),
             border: Border {
-                radius: 8.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: iced::Color::from_rgb(0.2, 0.6, 0.9),
             },
@@ -2729,7 +2854,9 @@ impl iced::widget::container::StyleSheet for SelectedSchedulerStyle {
     }
 }
 
-struct CurrentSchedulerStyle;
+struct CurrentSchedulerStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for CurrentSchedulerStyle {
     type Style = iced::Theme;
 
@@ -2737,7 +2864,7 @@ impl iced::widget::container::StyleSheet for CurrentSchedulerStyle {
         Appearance {
             background: Some(iced::Color::from_rgba(0.3, 0.5, 0.4, 0.25).into()),
             border: Border {
-                radius: 8.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: iced::Color::from_rgb(0.4, 0.7, 0.5), // Calmer green
             },
@@ -2746,7 +2873,9 @@ impl iced::widget::container::StyleSheet for CurrentSchedulerStyle {
     }
 }
 
-struct ModeStyle;
+struct ModeStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for ModeStyle {
     type Style = iced::Theme;
 
@@ -2759,13 +2888,15 @@ impl iced::widget::container::StyleSheet for ModeStyle {
             } else {
                 iced::Color::from_rgba(0.96, 0.96, 0.97, 1.0).into() // Softer background
             }),
-            border: Border::with_radius(6.0),
+            border: Border::with_radius(self.radius * 0.375),
             ..Default::default()
         }
     }
 }
 
-struct SelectedModeStyle;
+struct SelectedModeStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for SelectedModeStyle {
     type Style = iced::Theme;
 
@@ -2773,7 +2904,7 @@ impl iced::widget::container::StyleSheet for SelectedModeStyle {
         Appearance {
             background: Some(iced::Color::from_rgba(0.2, 0.5, 0.7, 0.3).into()),
             border: Border {
-                radius: 6.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: iced::Color::from_rgb(0.2, 0.6, 0.9),
             },
@@ -2782,7 +2913,9 @@ impl iced::widget::container::StyleSheet for SelectedModeStyle {
     }
 }
 
-struct CurrentModeStyle;
+struct CurrentModeStyle {
+    radius: f32,
+}
 impl iced::widget::container::StyleSheet for CurrentModeStyle {
     type Style = iced::Theme;
 
@@ -2790,7 +2923,7 @@ impl iced::widget::container::StyleSheet for CurrentModeStyle {
         Appearance {
             background: Some(iced::Color::from_rgba(0.5, 0.3, 0.3, 0.25).into()),
             border: Border {
-                radius: 6.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: iced::Color::from_rgb(0.7, 0.4, 0.4), // Calmer red
             },
@@ -2801,6 +2934,7 @@ impl iced::widget::container::StyleSheet for CurrentModeStyle {
 
 struct RoundedButtonStyle {
     is_primary: bool,
+    radius: f32,
 }
 impl ButtonStyleSheet for RoundedButtonStyle {
     type Style = iced::Theme;
@@ -2813,7 +2947,7 @@ impl ButtonStyleSheet for RoundedButtonStyle {
             } else {
                 iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
             })),
-            border: Border::with_radius(8.0),
+            border: Border::with_radius(self.radius),
             text_color: if self.is_primary {
                 iced::Color::WHITE
             } else {

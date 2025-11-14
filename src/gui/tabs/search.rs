@@ -114,7 +114,7 @@ impl SearchTab {
                     async move {
                         use tokio::process::Command as TokioCommand;
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         TokioCommand::new(&exe_path)
                             .arg("install-dialog")
                             .args(packages)
@@ -149,14 +149,23 @@ impl SearchTab {
         }
     }
 
-    pub fn view(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+    pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        let input_font_size = settings.font_size_inputs * settings.scale_inputs;
+        let body_font_size = settings.font_size_body * settings.scale_body;
+        let button_font_size = settings.font_size_buttons * settings.scale_buttons;
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
+        let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
+        
         let search_input = text_input("Search packages...", &self.search_query)
             .on_input(Message::SearchQueryChanged)
             .on_submit(Message::Search)
-            .size(16)
+            .size(input_font_size)
             .width(Length::Fill)
             .padding(14)
-            .style(iced::theme::TextInput::Custom(Box::new(RoundedTextInputStyle)));
+            .style(iced::theme::TextInput::Custom(Box::new(RoundedTextInputStyle {
+                radius: settings.border_radius,
+            })));
 
         use crate::gui::fonts::glyphs;
         
@@ -164,8 +173,8 @@ impl SearchTab {
         
         let search_button = button(
             row![
-                text(glyphs::SEARCH_SYMBOL).font(material_font),
-                text(" Search")
+                text(glyphs::SEARCH_SYMBOL).font(material_font).size(icon_size),
+                text(" Search").size(button_font_size)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -174,6 +183,7 @@ impl SearchTab {
             .padding(Padding::new(14.0))
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: true,
+                radius: settings.border_radius,
             })));
 
         let search_row = row![search_input, search_button]
@@ -183,21 +193,22 @@ impl SearchTab {
         let install_button = if self.selected_packages.is_empty() {
             button(
                 row![
-                    text(glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                    text(" Install Selected")
+                    text(glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
+                    text(" Install Selected").size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
             )
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(14.0))
         } else {
             button(
                 row![
-                    text(glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                    text(format!(" Install {} Package(s)", self.selected_packages.len()))
+                    text(glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
+                    text(format!(" Install {} Package(s)", self.selected_packages.len())).size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -205,32 +216,39 @@ impl SearchTab {
                 .on_press(Message::InstallSelected)
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: true,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(14.0))
         };
 
         let content: Element<Message> = if self.is_searching {
-            container(text("Searching...").size(16))
+            container(text("Searching...").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else if self.packages.is_empty() && !self.search_query.is_empty() {
-            container(text("No packages found").size(16))
+            container(text("No packages found").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else {
             let package_list: Element<Message> = if self.packages.is_empty() {
-                container(text("Enter a search query to find packages").size(14))
+                container(text("Enter a search query to find packages").size(body_font_size))
                     .width(Length::Fill)
                     .padding(20)
-                    .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                    .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                        radius: settings.border_radius,
+                    })))
                     .into()
             } else {
                 scrollable(
@@ -244,7 +262,9 @@ impl SearchTab {
                                 // Professional card layout
                                 let checkbox_widget = checkbox("", is_selected)
                                     .on_toggle(move |_| Message::TogglePackage(pkg_name_for_toggle.clone()))
-                                    .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle)));
+                                    .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle {
+                                        radius: settings.border_radius,
+                                    })));
                                 
                                 // Package header with name and version
                                 let version_info: Element<Message> = if !pkg.version.is_empty() || !pkg.release.is_empty() {
@@ -257,10 +277,10 @@ impl SearchTab {
                                     };
                                     row![
                                         text("Version:")
-                                            .size(12)
+                                            .size(package_detail_size)
                                             .style(iced::theme::Text::Color(theme.secondary_text())),
                                         text(&version_text)
-                                            .size(12),
+                                            .size(package_detail_size),
                                     ]
                                     .spacing(6)
                                     .into()
@@ -273,7 +293,7 @@ impl SearchTab {
                                     column![
                                         row![
                                             text(&pkg.name)
-                                                .size(17)
+                                                .size(package_name_size)
                                                 .style(iced::theme::Text::Color(theme.primary()))
                                                 .width(Length::Fill),
                                         ]
@@ -304,7 +324,7 @@ impl SearchTab {
                                     
                                     column![
                                         text(&display_text)
-                                            .size(13)
+                                            .size(package_detail_size)
                                             .shaping(iced::widget::text::Shaping::Advanced)
                                             .width(Length::Fill),
                                     ]
@@ -318,10 +338,10 @@ impl SearchTab {
                                 let arch_info: Element<Message> = if !pkg.arch.is_empty() {
                                     row![
                                         text("Arch:")
-                                            .size(11)
+                                            .size(package_detail_size * 0.85)
                                             .style(iced::theme::Text::Color(theme.secondary_text())),
                                         text(&pkg.arch)
-                                            .size(11),
+                                            .size(package_detail_size * 0.85),
                                     ]
                                     .spacing(4)
                                     .into()
@@ -332,10 +352,10 @@ impl SearchTab {
                                 let size_info: Element<Message> = if !pkg.size.is_empty() {
                                     row![
                                         text("Size:")
-                                            .size(11)
+                                            .size(package_detail_size * 0.85)
                                             .style(iced::theme::Text::Color(theme.secondary_text())),
                                         text(&pkg.size)
-                                            .size(11),
+                                            .size(package_detail_size * 0.85),
                                     ]
                                     .spacing(4)
                                     .into()
@@ -365,6 +385,7 @@ impl SearchTab {
                                 )
                                 .style(iced::theme::Container::Custom(Box::new(PackageCardStyle {
                                     is_selected,
+                                    radius: settings.border_radius,
                                 })))
                                 .width(Length::Fill)
                                 .into()
@@ -665,6 +686,7 @@ fn format_size(bytes: u64) -> String {
 
 struct PackageCardStyle {
     is_selected: bool,
+    radius: f32,
 }
 
 impl iced::widget::container::StyleSheet for PackageCardStyle {
@@ -684,7 +706,7 @@ impl iced::widget::container::StyleSheet for PackageCardStyle {
                 )
             })),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: if self.is_selected { 2.0 } else { 1.0 },
                 color: if self.is_selected {
                     palette.primary
@@ -697,7 +719,9 @@ impl iced::widget::container::StyleSheet for PackageCardStyle {
     }
 }
 
-struct RoundedTextInputStyle;
+struct RoundedTextInputStyle {
+    radius: f32,
+}
 
 impl TextInputStyleSheet for RoundedTextInputStyle {
     type Style = iced::Theme;
@@ -707,7 +731,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(palette.background),
             border: Border {
-                radius: 18.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
             },
@@ -720,7 +744,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(palette.background),
             border: Border {
-                radius: 18.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: palette.primary,
             },
@@ -732,7 +756,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(iced::Color::from_rgba(0.9, 0.9, 0.9, 1.0)),
             border: Border {
-                radius: 18.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
             },
@@ -776,7 +800,9 @@ impl iced::widget::container::StyleSheet for ButtonContainerStyle {
     }
 }
 
-struct RoundedMessageStyle;
+struct RoundedMessageStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for RoundedMessageStyle {
     type Style = iced::Theme;
@@ -784,7 +810,7 @@ impl iced::widget::container::StyleSheet for RoundedMessageStyle {
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 0.0,
                 color: iced::Color::TRANSPARENT,
             },
@@ -795,6 +821,7 @@ impl iced::widget::container::StyleSheet for RoundedMessageStyle {
 
 struct RoundedButtonStyle {
     is_primary: bool,
+    radius: f32,
 }
 
 impl ButtonStyleSheet for RoundedButtonStyle {
@@ -809,7 +836,7 @@ impl ButtonStyleSheet for RoundedButtonStyle {
                 iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
@@ -838,7 +865,9 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     }
 }
 
-struct RoundedCheckboxStyle;
+struct RoundedCheckboxStyle {
+    radius: f32,
+}
 
 impl CheckboxStyleSheet for RoundedCheckboxStyle {
     type Style = iced::Theme;
@@ -857,7 +886,7 @@ impl CheckboxStyleSheet for RoundedCheckboxStyle {
                 iced::Color::TRANSPARENT
             },
             border: Border {
-                radius: 6.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: if is_checked {
                     palette.primary

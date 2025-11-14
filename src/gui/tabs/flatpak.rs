@@ -88,6 +88,7 @@ pub struct FlatpakTab {
     updates: Vec<FlatpakInfo>,
     is_checking_updates: bool,
     is_updating: bool,
+    update_error: Option<String>,
     
     // View mode
     view_mode: ViewMode,
@@ -119,6 +120,7 @@ impl FlatpakTab {
             updates: Vec::new(),
             is_checking_updates: false,
             is_updating: false,
+            update_error: None,
             view_mode: ViewMode::Search,
             selected_package: None,
             package_details: None,
@@ -216,7 +218,7 @@ impl FlatpakTab {
                         async move {
                             use tokio::process::Command as TokioCommand;
                             let exe_path = std::env::current_exe()
-                                .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                                .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                             let mut cmd = TokioCommand::new(&exe_path);
                             cmd.arg("flatpak-install-dialog").arg(&app_id);
                             if let Some(ref r) = remote_clone {
@@ -266,7 +268,7 @@ impl FlatpakTab {
                     async move {
                         use tokio::process::Command as TokioCommand;
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         let _ = TokioCommand::new(&exe_path)
                             .arg("flatpak-remove-dialog")
                             .args(packages)
@@ -289,6 +291,7 @@ impl FlatpakTab {
             }
             Message::CheckUpdates => {
                 self.is_checking_updates = true;
+                self.update_error = None;
                 self.view_mode = ViewMode::Updates;
                 iced::Command::perform(check_flatpak_updates(), |result| {
                     match result {
@@ -300,19 +303,44 @@ impl FlatpakTab {
             Message::UpdatesFound(updates) => {
                 self.is_checking_updates = false;
                 self.updates = updates;
+                self.update_error = None;
                 iced::Command::none()
             }
             Message::InstallUpdates => {
                 if self.updates.is_empty() {
                     return iced::Command::none();
                 }
-                self.is_updating = true;
-                iced::Command::perform(update_flatpaks(), |result| {
-                    match result {
-                        Ok(_) => Message::UpdatesInstalled,
-                        Err(e) => Message::Error(e.to_string()),
-                    }
-                })
+                // Spawn separate window for Flatpak updates
+                let updates: Vec<crate::gui::flatpak_update_dialog::FlatpakUpdateInfo> = self.updates
+                    .iter()
+                    .map(|u| crate::gui::flatpak_update_dialog::FlatpakUpdateInfo {
+                        name: u.name.clone(),
+                        application_id: u.application_id.clone(),
+                        version: u.version.clone(),
+                        remote: u.remote.clone(),
+                    })
+                    .collect();
+                
+                iced::Command::perform(
+                    async move {
+                        use tokio::process::Command as TokioCommand;
+                        use base64::{Engine as _, engine::general_purpose};
+                        
+                        // Serialize to JSON and encode as base64
+                        let json = serde_json::to_string(&updates)
+                            .unwrap_or_else(|_| "[]".to_string());
+                        let encoded = general_purpose::STANDARD.encode(json.as_bytes());
+                        
+                        let exe_path = std::env::current_exe()
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
+                        let _ = TokioCommand::new(&exe_path)
+                            .arg("flatpak-update-dialog")
+                            .arg("--packages-b64")
+                            .arg(&encoded)
+                            .spawn();
+                    },
+                    |_| Message::UpdatesInstalled,
+                )
             }
             Message::UpdatesInstalled => {
                 self.is_updating = false;
@@ -340,26 +368,33 @@ impl FlatpakTab {
                 self.package_details = None;
                 iced::Command::none()
             }
-            Message::Error(_msg) => {
+            Message::Error(msg) => {
                 self.is_searching = false;
                 self.is_installing = false;
                 self.is_loading_installed = false;
                 self.is_removing = false;
                 self.is_checking_updates = false;
                 self.is_updating = false;
+                // Store error message if we're in updates view
+                if self.view_mode == ViewMode::Updates {
+                    self.update_error = Some(msg);
+                }
                 iced::Command::none()
             }
         }
     }
 
-    pub fn view(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+    pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        let tab_font_size = settings.font_size_tabs * settings.scale_tabs;
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        
         let material_font = crate::gui::fonts::get_material_symbols_font();
         
         // Mode selector buttons
         let search_mode_button = button(
             row![
-                text(crate::gui::fonts::glyphs::SEARCH_SYMBOL).font(material_font),
-                text(" Search")
+                text(crate::gui::fonts::glyphs::SEARCH_SYMBOL).font(material_font).size(icon_size),
+                text(" Search").size(tab_font_size)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -367,13 +402,14 @@ impl FlatpakTab {
         .on_press(Message::SwitchToSearch)
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: self.view_mode == ViewMode::Search,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(12.0));
 
         let installed_mode_button = button(
             row![
-                text(crate::gui::fonts::glyphs::INSTALLED_SYMBOL).font(material_font),
-                text(" Installed")
+                text(crate::gui::fonts::glyphs::INSTALLED_SYMBOL).font(material_font).size(icon_size),
+                text(" Installed").size(tab_font_size)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -381,13 +417,14 @@ impl FlatpakTab {
         .on_press(Message::SwitchToInstalled)
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: self.view_mode == ViewMode::Installed,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(12.0));
 
         let updates_mode_button = button(
             row![
-                text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font),
-                text(" Updates")
+                text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                text(" Updates").size(tab_font_size)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -395,6 +432,7 @@ impl FlatpakTab {
         .on_press(Message::SwitchToUpdates)
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: self.view_mode == ViewMode::Updates,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(12.0));
 
@@ -408,9 +446,9 @@ impl FlatpakTab {
 
         // Content based on view mode
         let content: Element<Message> = match self.view_mode {
-            ViewMode::Search => self.view_search(theme, material_font),
-            ViewMode::Installed => self.view_installed(theme, material_font),
-            ViewMode::Updates => self.view_updates(theme, material_font),
+            ViewMode::Search => self.view_search(theme, settings, material_font),
+            ViewMode::Installed => self.view_installed(theme, settings, material_font),
+            ViewMode::Updates => self.view_updates(theme, settings, material_font),
         };
 
         container(column![mode_selector, content].spacing(15).padding(20))
@@ -419,19 +457,27 @@ impl FlatpakTab {
             .into()
     }
 
-    fn view_search(&self, theme: &crate::gui::Theme, material_font: iced::Font) -> Element<'_, Message> {
+    fn view_search(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings, material_font: iced::Font) -> Element<'_, Message> {
+        let input_font_size = settings.font_size_inputs * settings.scale_inputs;
+        let body_font_size = settings.font_size_body * settings.scale_body;
+        let button_font_size = settings.font_size_buttons * settings.scale_buttons;
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
+        let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
         let search_input = text_input("Search Flatpak applications...", &self.search_query)
             .on_input(Message::SearchQueryChanged)
             .on_submit(Message::Search)
-            .size(16)
+            .size(input_font_size)
             .width(Length::Fill)
             .padding(14)
-            .style(iced::theme::TextInput::Custom(Box::new(RoundedTextInputStyle)));
+            .style(iced::theme::TextInput::Custom(Box::new(RoundedTextInputStyle {
+                radius: settings.border_radius,
+            })));
 
         let search_button = button(
             row![
-                text(crate::gui::fonts::glyphs::SEARCH_SYMBOL).font(material_font),
-                text(" Search")
+                text(crate::gui::fonts::glyphs::SEARCH_SYMBOL).font(material_font).size(icon_size),
+                text(" Search").size(button_font_size)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -440,6 +486,7 @@ impl FlatpakTab {
         .padding(Padding::new(14.0))
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: true,
+            radius: settings.border_radius,
         })));
 
         let search_row = row![search_input, search_button]
@@ -457,13 +504,14 @@ impl FlatpakTab {
             )
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: false,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(14.0))
         } else {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                    text(format!(" Install {} Package(s)", self.selected_packages.len()))
+                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
+                    text(format!(" Install {} Package(s)", self.selected_packages.len())).size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -471,32 +519,39 @@ impl FlatpakTab {
             .on_press(Message::InstallSelected)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: true,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(14.0))
         };
 
         let content: Element<Message> = if self.is_searching {
-            container(text("Searching...").size(16))
+            container(text("Searching...").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else if self.search_results.is_empty() && !self.search_query.is_empty() {
-            container(text("No Flatpak applications found").size(16))
+            container(text("No Flatpak applications found").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else {
             let package_list: Element<Message> = if self.search_results.is_empty() {
-                container(text("Enter a search query to find Flatpak applications").size(14))
+                container(text("Enter a search query to find Flatpak applications").size(body_font_size))
                     .width(Length::Fill)
                     .padding(20)
-                    .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                    .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                        radius: settings.border_radius,
+                    })))
                     .into()
             } else {
                 scrollable(
@@ -509,16 +564,18 @@ impl FlatpakTab {
                                 let is_selected = self.selected_packages.contains(&pkg_id);
                                 let checkbox_widget = checkbox("", is_selected)
                                     .on_toggle(move |_| Message::TogglePackage(pkg_id.clone()))
-                                    .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle)));
+                                    .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle {
+                                        radius: settings.border_radius,
+                                    })));
                                 let pkg_id_for_click = pkg.application_id.clone();
                                 let pkg_remote_for_click = pkg.remote.clone();
                                 button(
                                     container(
                                         row![
                                             checkbox_widget,
-                                            text(&pkg_name).size(16).width(Length::FillPortion(2)),
-                                            text(&pkg.version).size(14).width(Length::FillPortion(1)),
-                                            text(&pkg.description).size(14).width(Length::FillPortion(4)),
+                                            text(&pkg_name).size(package_name_size).width(Length::FillPortion(2)),
+                                            text(&pkg.version).size(package_detail_size).width(Length::FillPortion(1)),
+                                            text(&pkg.description).size(package_detail_size).width(Length::FillPortion(4)),
                                         ]
                                         .spacing(12)
                                         .align_items(Alignment::Center)
@@ -526,6 +583,7 @@ impl FlatpakTab {
                                     )
                                     .style(iced::theme::Container::Custom(Box::new(PackageItemStyle {
                                         is_selected,
+                                        radius: settings.border_radius,
                                     })))
                                 )
                                 .on_press(Message::PackageSelected(pkg_id_for_click, pkg_remote_for_click))
@@ -545,7 +603,7 @@ impl FlatpakTab {
 
         // Create the slide-out panel
         let panel = if self.panel_open {
-            self.view_panel(theme, material_font)
+            self.view_panel(theme, settings, material_font)
         } else {
             container(Space::with_width(Length::Fixed(0.0)))
                 .width(Length::Fixed(0.0))
@@ -568,17 +626,21 @@ impl FlatpakTab {
         .into()
     }
 
-    fn view_panel(&self, theme: &crate::gui::Theme, material_font: iced::Font) -> Element<'_, Message> {
+    fn view_panel(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings, material_font: iced::Font) -> Element<'_, Message> {
+        let title_font_size = settings.font_size_titles * settings.scale_titles;
+        let body_font_size = settings.font_size_body * settings.scale_body;
+        let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         if let Some(ref details) = self.package_details {
             container(
                 scrollable(
                     column![
                         // Header with close button
                         row![
-                            text("Flatpak Details").size(16).style(iced::theme::Text::Color(theme.primary())),
+                            text("Flatpak Details").size(title_font_size).style(iced::theme::Text::Color(theme.primary())),
                             Space::with_width(Length::Fill),
                             button(
-                                text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(18)
+                                text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size)
                             )
                             .on_press(Message::ClosePanel)
                             .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)))
@@ -589,55 +651,55 @@ impl FlatpakTab {
                         Space::with_height(Length::Fixed(20.0)),
                         // Package name
                         text(&details.name)
-                            .size(20)
+                            .size(title_font_size * 1.1)
                             .style(iced::theme::Text::Color(theme.primary()))
                             .horizontal_alignment(iced::alignment::Horizontal::Center),
                         Space::with_height(Length::Fixed(10.0)),
                         text(&details.application_id)
-                            .size(12)
+                            .size(package_detail_size * 0.9)
                             .horizontal_alignment(iced::alignment::Horizontal::Center),
                         Space::with_height(Length::Fixed(20.0)),
                         // Package details
                         container({
                             let mut items: Vec<Element<Message>> = vec![
                                 row![
-                                    text("Version:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                    text(&details.version).size(13).width(Length::Fill),
+                                    text("Version:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(&details.version).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
                                 Space::with_height(Length::Fixed(8.0)).into(),
                                 row![
-                                    text("Branch:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                    text(&details.branch).size(13).width(Length::Fill),
+                                    text("Branch:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(&details.branch).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
                                 Space::with_height(Length::Fixed(8.0)).into(),
                                 row![
-                                    text("Architecture:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                    text(&details.arch).size(13).width(Length::Fill),
+                                    text("Architecture:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(&details.arch).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
                                 Space::with_height(Length::Fixed(8.0)).into(),
                                 row![
-                                    text("Size:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                    text(&details.size).size(13).width(Length::Fill),
+                                    text("Size:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(&details.size).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
                                 Space::with_height(Length::Fixed(8.0)).into(),
                                 row![
-                                    text("Runtime:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                    text(&details.runtime).size(13).width(Length::Fill),
+                                    text("Runtime:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(&details.runtime).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
                                 Space::with_height(Length::Fixed(8.0)).into(),
                                 row![
-                                    text("Remote:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                    text(details.remote.as_deref().unwrap_or("N/A")).size(13).width(Length::Fill),
+                                    text("Remote:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(details.remote.as_deref().unwrap_or("N/A")).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
@@ -647,8 +709,8 @@ impl FlatpakTab {
                                 items.push(Space::with_height(Length::Fixed(8.0)).into());
                                 items.push(
                                     row![
-                                        text("License:").size(13).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
-                                        text(&details.license).size(13).width(Length::Fill),
+                                        text("License:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                        text(&details.license).size(package_detail_size).width(Length::Fill),
                                     ]
                                     .spacing(12)
                                     .into()
@@ -658,17 +720,19 @@ impl FlatpakTab {
                             column(items).spacing(0)
                         })
                         .padding(Padding::new(18.0))
-                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                            radius: settings.border_radius,
+                        }))),
                         Space::with_height(Length::Fixed(20.0)),
                         // Summary
-                        text("Summary").size(15).style(iced::theme::Text::Color(theme.primary())),
+                        text("Summary").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(8.0)),
-                        text(&details.summary).size(13),
+                        text(&details.summary).size(package_detail_size),
                         Space::with_height(Length::Fixed(20.0)),
                         // Description
-                        text("Description").size(15).style(iced::theme::Text::Color(theme.primary())),
+                        text("Description").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(8.0)),
-                        text(&details.description).size(13).width(Length::Fill),
+                        text(&details.description).size(package_detail_size).width(Length::Fill),
                     ]
                     .spacing(0)
                     .padding(Padding::new(25.0))
@@ -677,7 +741,9 @@ impl FlatpakTab {
             )
             .width(Length::Fixed(420.0))
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(PanelStyle)))
+            .style(iced::theme::Container::Custom(Box::new(PanelStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         } else {
             container(
@@ -685,33 +751,42 @@ impl FlatpakTab {
                     row![
                         Space::with_width(Length::Fill),
                         button(
-                            text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(20)
+                            text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size * 1.2)
                         )
                         .on_press(Message::ClosePanel)
                         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                             is_primary: false,
+                            radius: settings.border_radius,
                         })))
                         .padding(Padding::new(8.0))
                     ]
                     .width(Length::Fill),
                     Space::with_height(Length::Fill),
-                    text("Loading...").size(16).horizontal_alignment(iced::alignment::Horizontal::Center),
+                    text("Loading...").size(body_font_size).horizontal_alignment(iced::alignment::Horizontal::Center),
                     Space::with_height(Length::Fill),
                 ]
                 .padding(Padding::new(20.0))
             )
             .width(Length::Fixed(400.0))
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(PanelStyle)))
+            .style(iced::theme::Container::Custom(Box::new(PanelStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         }
     }
 
-    fn view_installed(&self, _theme: &crate::gui::Theme, material_font: iced::Font) -> Element<'_, Message> {
+    fn view_installed(&self, _theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings, material_font: iced::Font) -> Element<'_, Message> {
+        let body_font_size = settings.font_size_body * settings.scale_body;
+        let button_font_size = settings.font_size_buttons * settings.scale_buttons;
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
+        let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
+        
         let refresh_button = button(
             row![
-                text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font),
-                text(" Refresh")
+                text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                text(" Refresh").size(button_font_size)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -719,27 +794,29 @@ impl FlatpakTab {
         .on_press(Message::LoadInstalled)
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: false,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(14.0));
 
         let remove_button = if self.selected_packages.is_empty() {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font),
-                    text(" Remove Selected")
+                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font).size(icon_size),
+                    text(" Remove Selected").size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
             )
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: false,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(14.0))
         } else {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font),
-                    text(format!(" Remove {} Package(s)", self.selected_packages.len()))
+                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font).size(icon_size),
+                    text(format!(" Remove {} Package(s)", self.selected_packages.len())).size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -747,6 +824,7 @@ impl FlatpakTab {
             .on_press(Message::RemoveSelected)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: true,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(14.0))
         };
@@ -756,18 +834,22 @@ impl FlatpakTab {
             .align_items(Alignment::Center);
 
         let content: Element<Message> = if self.is_loading_installed {
-            container(text("Loading installed Flatpaks...").size(16))
+            container(text("Loading installed Flatpaks...").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else if self.installed_flatpaks.is_empty() {
-            container(text("No Flatpak applications installed").size(14))
+            container(text("No Flatpak applications installed").size(body_font_size))
                 .width(Length::Fill)
                 .padding(20)
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else {
             scrollable(
@@ -779,13 +861,15 @@ impl FlatpakTab {
                             let is_selected = self.selected_packages.contains(&pkg_id);
                             let checkbox_widget = checkbox("", is_selected)
                                 .on_toggle(move |_| Message::TogglePackage(pkg_id.clone()))
-                                .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle)));
+                                .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle {
+                                    radius: settings.border_radius,
+                                })));
                             container(
                                 row![
                                     checkbox_widget,
-                                    text(&pkg.name).size(16).width(Length::FillPortion(3)),
-                                    text(&pkg.version).size(14).width(Length::FillPortion(2)),
-                                    text(pkg.remote.as_deref().unwrap_or("local")).size(14).width(Length::FillPortion(2)),
+                                    text(&pkg.name).size(package_name_size).width(Length::FillPortion(3)),
+                                    text(&pkg.version).size(package_detail_size).width(Length::FillPortion(2)),
+                                    text(pkg.remote.as_deref().unwrap_or("local")).size(package_detail_size).width(Length::FillPortion(2)),
                                 ]
                                 .spacing(12)
                                 .align_items(Alignment::Center)
@@ -793,6 +877,7 @@ impl FlatpakTab {
                             )
                             .style(iced::theme::Container::Custom(Box::new(PackageItemStyle {
                                 is_selected,
+                                radius: settings.border_radius,
                             })))
                             .into()
                         })
@@ -807,25 +892,32 @@ impl FlatpakTab {
         column![header, content].spacing(10).into()
     }
 
-    fn view_updates(&self, _theme: &crate::gui::Theme, material_font: iced::Font) -> Element<'_, Message> {
+    fn view_updates(&self, _theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings, material_font: iced::Font) -> Element<'_, Message> {
+        let body_font_size = settings.font_size_body * settings.scale_body;
+        let button_font_size = settings.font_size_buttons * settings.scale_buttons;
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
+        let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
+        
         let check_button = if self.is_checking_updates {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font),
-                    text(" Checking...")
+                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                    text(" Checking...").size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
             )
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: false,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(14.0))
         } else {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font),
-                    text(" Check for Updates")
+                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                    text(" Check for Updates").size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -833,6 +925,7 @@ impl FlatpakTab {
             .on_press(Message::CheckUpdates)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: true,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(14.0))
         };
@@ -841,21 +934,23 @@ impl FlatpakTab {
             if self.is_updating {
                 button(
                     row![
-                        text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                        text(" Updating...")
+                        text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
+                        text(" Updating...").size(button_font_size)
                     ]
                     .spacing(4)
                     .align_items(Alignment::Center)
                 )
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
+                    radius: settings.border_radius,
                 })))
                 .padding(Padding::new(14.0))
                 .into()
             } else {
-                button(text("No Updates Available"))
+                button(text("No Updates Available").size(button_font_size))
                     .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                         is_primary: false,
+                        radius: settings.border_radius,
                     })))
                     .padding(Padding::new(14.0))
                     .into()
@@ -863,8 +958,8 @@ impl FlatpakTab {
         } else {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                    text(format!(" Update {} Package(s)", self.updates.len()))
+                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
+                    text(format!(" Update {} Package(s)", self.updates.len())).size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -872,6 +967,7 @@ impl FlatpakTab {
             .on_press(Message::InstallUpdates)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: true,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(14.0))
             .into()
@@ -882,20 +978,59 @@ impl FlatpakTab {
             .align_items(Alignment::Center);
 
         let content: Element<Message> = if self.is_checking_updates {
-            container(text("Checking for updates...").size(16))
+            container(text("Checking for updates...").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
+        } else if let Some(ref error) = self.update_error {
+            let material_font = crate::gui::fonts::get_material_symbols_font();
+            container(
+                column![
+                    text("Update Error").size(body_font_size).style(iced::theme::Text::Color(iced::Color::from_rgb(1.0, 0.3, 0.3))),
+                    Space::with_height(Length::Fixed(10.0)),
+                    text(error).size(package_detail_size),
+                    Space::with_height(Length::Fixed(15.0)),
+                    button(
+                        row![
+                            text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                            text(" Try Again").size(button_font_size)
+                        ]
+                        .spacing(4)
+                        .align_items(Alignment::Center)
+                    )
+                    .on_press(Message::CheckUpdates)
+                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                        is_primary: true,
+                        radius: settings.border_radius,
+                    })))
+                    .padding(Padding::new(12.0)),
+                ]
+                .spacing(8)
+                .align_items(Alignment::Center)
+                .padding(20)
+            )
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x()
+            .center_y()
+            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                radius: settings.border_radius,
+            })))
+            .into()
         } else if self.updates.is_empty() {
-            container(text("Click 'Check for Updates' to see available updates").size(14))
+            container(text("Click 'Check for Updates' to see available updates").size(body_font_size))
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .center_x()
                 .center_y()
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
         } else {
             scrollable(
@@ -905,15 +1040,17 @@ impl FlatpakTab {
                         .map(|update| {
                             container(
                                 row![
-                                    text(&update.name).size(16).width(Length::FillPortion(3)),
-                                    text(&update.version).size(14).width(Length::FillPortion(2)),
-                                    text(update.remote.as_deref().unwrap_or("local")).size(14).width(Length::FillPortion(2)),
+                                    text(&update.name).size(package_name_size).width(Length::FillPortion(3)),
+                                    text(&update.version).size(package_detail_size).width(Length::FillPortion(2)),
+                                    text(update.remote.as_deref().unwrap_or("local")).size(package_detail_size).width(Length::FillPortion(2)),
                                 ]
                                 .spacing(12)
                                 .align_items(Alignment::Center)
                                 .padding(12)
                             )
-                            .style(iced::theme::Container::Custom(Box::new(UpdateItemStyle)))
+                            .style(iced::theme::Container::Custom(Box::new(UpdateItemStyle {
+                                radius: settings.border_radius,
+                            })))
                             .into()
                         })
                         .collect::<Vec<_>>(),
@@ -1061,71 +1198,125 @@ async fn check_flatpak_updates() -> Result<Vec<FlatpakInfo>, String> {
         .status()
         .await;
 
-    // Then check for updates using remote-ls
-    // Note: remote-ls uses 'origin' not 'remotes' as column name
-    let output = TokioCommand::new("flatpak")
-        .args(["remote-ls", "--updates", "--app", "--columns=name,application,version,origin"])
+    // Get list of installed applications first
+    let installed_output = TokioCommand::new("flatpak")
+        .args(["list", "--app", "--columns=application,version,origin"])
         .output()
         .await
-        .map_err(|e| format!("Failed to execute flatpak remote-ls: {}", e))?;
+        .map_err(|e| format!("Failed to execute flatpak list: {}", e))?;
 
-    if !output.status.success() {
-        // If remote-ls fails, check if it's just "no updates" or a real error
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        // If there are no updates, remote-ls might return an error code
-        // but that's okay - just return empty list
-        if stderr.contains("No updates") || stderr.contains("nothing to update") || 
-           stderr.is_empty() || output.stdout.is_empty() {
-            return Ok(Vec::new());
-        }
-        // Otherwise, it's a real error
-        return Err(format!("Flatpak update check failed: {}", stderr));
+    if !installed_output.status.success() {
+        return Err(format!("Failed to list installed flatpaks: {}", 
+            String::from_utf8_lossy(&installed_output.stderr)));
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let installed_stdout = String::from_utf8_lossy(&installed_output.stdout);
     let mut updates = Vec::new();
 
-    for line in stdout.lines() {
+    // For each installed app, check if there's an update available
+    for line in installed_stdout.lines() {
         let line = line.trim();
         if line.is_empty() {
             continue;
         }
-        
-        // Parse tab-separated values: name, application, version, origin
+
+        // Parse: application_id<TAB>version<TAB>origin
         let parts: Vec<&str> = line.split('\t').collect();
-        if parts.len() >= 2 {
-            let name = parts[0].trim().to_string();
-            let application_id = parts[1].trim().to_string();
-            let version = parts.get(2).map(|s| s.trim()).unwrap_or("").to_string();
-            let remote = parts.get(3).map(|s| s.trim()).filter(|s| !s.is_empty()).map(|s| s.to_string());
-            
-            updates.push(FlatpakInfo {
-                name,
-                application_id,
-                description: String::new(),
-                version,
-                remote,
-            });
+        if parts.len() >= 3 {
+            let application_id = parts[0].trim().to_string();
+            let installed_version = parts[1].trim().to_string();
+            let remote = parts[2].trim().to_string();
+
+            if remote.is_empty() {
+                continue;
+            }
+
+            // Check remote version
+            let remote_info_output = TokioCommand::new("flatpak")
+                .args(["remote-info", &remote, &application_id])
+                .output()
+                .await;
+
+            if let Ok(remote_info) = remote_info_output {
+                if remote_info.status.success() {
+                    let remote_stdout = String::from_utf8_lossy(&remote_info.stdout);
+                    let mut remote_version = String::new();
+                    let mut name = application_id.clone();
+
+                    // Parse remote-info output
+                    for info_line in remote_stdout.lines() {
+                        let info_line = info_line.trim();
+                        if info_line.starts_with("Name:") {
+                            name = info_line.splitn(2, ':')
+                                .nth(1)
+                                .unwrap_or("")
+                                .trim()
+                                .to_string();
+                        } else if info_line.starts_with("Version:") {
+                            remote_version = info_line.splitn(2, ':')
+                                .nth(1)
+                                .unwrap_or("")
+                                .trim()
+                                .to_string();
+                        }
+                    }
+
+                    // Compare versions - if remote version differs from installed, there's an update
+                    if !remote_version.is_empty() && remote_version != installed_version {
+                        updates.push(FlatpakInfo {
+                            name: if name.is_empty() { application_id.clone() } else { name },
+                            application_id,
+                            description: String::new(),
+                            version: remote_version,
+                            remote: Some(remote),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Alternative: Also try the remote-ls --updates method as a fallback
+    // This might catch updates that the version comparison missed
+    let remote_ls_output = TokioCommand::new("flatpak")
+        .args(["remote-ls", "--updates", "--app", "--columns=name,application,version,origin"])
+        .output()
+        .await;
+
+    if let Ok(remote_ls) = remote_ls_output {
+        if remote_ls.status.success() {
+            let remote_ls_stdout = String::from_utf8_lossy(&remote_ls.stdout);
+            for line in remote_ls_stdout.lines() {
+                let line = line.trim();
+                if line.is_empty() {
+                    continue;
+                }
+                
+                let parts: Vec<&str> = line.split('\t').collect();
+                if parts.len() >= 2 {
+                    let name = parts[0].trim().to_string();
+                    let application_id = parts[1].trim().to_string();
+                    let version = parts.get(2).map(|s| s.trim()).unwrap_or("").to_string();
+                    let remote = parts.get(3).map(|s| s.trim()).filter(|s| !s.is_empty()).map(|s| s.to_string());
+                    
+                    // Only add if not already in updates list
+                    if !updates.iter().any(|u| u.application_id == application_id) {
+                        updates.push(FlatpakInfo {
+                            name,
+                            application_id,
+                            description: String::new(),
+                            version,
+                            remote,
+                        });
+                    }
+                }
+            }
         }
     }
 
     Ok(updates)
 }
 
-async fn update_flatpaks() -> Result<(), String> {
-    // Use --assumeyes (-y) and --noninteractive for automated updates
-    // Use --app flag to update only applications (not runtimes)
-    let status = TokioCommand::new("flatpak")
-        .args(["update", "--app", "-y", "--noninteractive"])
-        .status()
-        .await
-        .map_err(|e| format!("Failed to execute flatpak update: {}", e))?;
-
-    if !status.success() {
-        return Err("Flatpak update failed".to_string());
-    }
-    Ok(())
-}
 
 async fn load_flatpak_details(app_id: String, remote: Option<String>) -> FlatpakDetails {
     // Try to get info from remote first, then fallback to installed
@@ -1234,6 +1425,7 @@ async fn load_flatpak_details(app_id: String, remote: Option<String>) -> Flatpak
 // Style implementations
 struct PackageItemStyle {
     is_selected: bool,
+    radius: f32,
 }
 
 impl iced::widget::container::StyleSheet for PackageItemStyle {
@@ -1248,7 +1440,7 @@ impl iced::widget::container::StyleSheet for PackageItemStyle {
                 palette.background
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if self.is_selected {
                     palette.primary
@@ -1261,7 +1453,9 @@ impl iced::widget::container::StyleSheet for PackageItemStyle {
     }
 }
 
-struct RoundedMessageStyle;
+struct RoundedMessageStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for RoundedMessageStyle {
     type Style = iced::Theme;
@@ -1269,7 +1463,7 @@ impl iced::widget::container::StyleSheet for RoundedMessageStyle {
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 0.0,
                 color: iced::Color::TRANSPARENT,
             },
@@ -1280,6 +1474,7 @@ impl iced::widget::container::StyleSheet for RoundedMessageStyle {
 
 struct RoundedButtonStyle {
     is_primary: bool,
+    radius: f32,
 }
 
 impl ButtonStyleSheet for RoundedButtonStyle {
@@ -1294,7 +1489,7 @@ impl ButtonStyleSheet for RoundedButtonStyle {
                 iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
@@ -1319,7 +1514,9 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     }
 }
 
-struct RoundedTextInputStyle;
+struct RoundedTextInputStyle {
+    radius: f32,
+}
 
 impl TextInputStyleSheet for RoundedTextInputStyle {
     type Style = iced::Theme;
@@ -1329,7 +1526,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(palette.background),
             border: Border {
-                radius: 18.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
             },
@@ -1342,7 +1539,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(palette.background),
             border: Border {
-                radius: 18.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: palette.primary,
             },
@@ -1354,7 +1551,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(iced::Color::from_rgba(0.9, 0.9, 0.9, 1.0)),
             border: Border {
-                radius: 18.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
             },
@@ -1379,7 +1576,9 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
     }
 }
 
-struct RoundedCheckboxStyle;
+struct RoundedCheckboxStyle {
+    radius: f32,
+}
 
 impl CheckboxStyleSheet for RoundedCheckboxStyle {
     type Style = iced::Theme;
@@ -1398,7 +1597,7 @@ impl CheckboxStyleSheet for RoundedCheckboxStyle {
                 iced::Color::TRANSPARENT
             },
             border: Border {
-                radius: 6.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: if is_checked {
                     palette.primary
@@ -1418,7 +1617,9 @@ impl CheckboxStyleSheet for RoundedCheckboxStyle {
     }
 }
 
-struct UpdateItemStyle;
+struct UpdateItemStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for UpdateItemStyle {
     type Style = iced::Theme;
@@ -1428,7 +1629,7 @@ impl iced::widget::container::StyleSheet for UpdateItemStyle {
         Appearance {
             background: Some(iced::Background::Color(palette.background)),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
             },
@@ -1437,7 +1638,9 @@ impl iced::widget::container::StyleSheet for UpdateItemStyle {
     }
 }
 
-struct PanelStyle;
+struct PanelStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for PanelStyle {
     type Style = iced::Theme;
@@ -1452,7 +1655,7 @@ impl iced::widget::container::StyleSheet for PanelStyle {
                 1.0,
             ))),
             border: Border {
-                radius: 20.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15),
             },
@@ -1461,7 +1664,9 @@ impl iced::widget::container::StyleSheet for PanelStyle {
     }
 }
 
-struct InfoContainerStyle;
+struct InfoContainerStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for InfoContainerStyle {
     type Style = iced::Theme;
@@ -1476,7 +1681,7 @@ impl iced::widget::container::StyleSheet for InfoContainerStyle {
                 1.0,
             ))),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
             },

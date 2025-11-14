@@ -320,9 +320,9 @@ impl Application for FlatpakRemoveDialog {
 
     fn title(&self) -> String {
         if self.application_ids.len() == 1 {
-            format!("Remove Flatpak - FedoraForge")
+            format!("Remove Flatpak - Rustora")
         } else {
-            format!("Remove {} Flatpaks - FedoraForge", self.application_ids.len())
+            format!("Remove {} Flatpaks - Rustora", self.application_ids.len())
         }
     }
 
@@ -446,7 +446,7 @@ async fn load_flatpak_infos(application_ids: Vec<String>) -> Result<Vec<FlatpakI
 
 async fn write_flatpak_remove_log(application_ids: &[String], output: &str, success: bool) {
     if let Ok(home) = std::env::var("HOME") {
-        let log_dir = PathBuf::from(&home).join(".fedoraforge");
+        let log_dir = PathBuf::from(&home).join(".rustora");
         let _ = fs::create_dir_all(&log_dir).await;
         
         let timestamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S");

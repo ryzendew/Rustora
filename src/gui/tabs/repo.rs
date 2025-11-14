@@ -1,10 +1,11 @@
 use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
-use iced::{Alignment, Element, Length, Padding, Border};
+use iced::{Alignment, Element, Length, Padding, Border, Color};
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
 use iced::widget::text_input::Appearance as TextInputAppearance;
 use iced::widget::text_input::StyleSheet as TextInputStyleSheet;
+use crate::gui::app::CustomScrollableStyle;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::process::Command as TokioCommand;
@@ -366,7 +367,12 @@ impl RepoTab {
         }
     }
 
-    fn view_panel(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+    fn view_panel(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
+        // Calculate font sizes from settings
+        let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         if let Some(ref details) = self.repository_details {
             let material_font = crate::gui::fonts::get_material_symbols_font();
             
@@ -376,14 +382,16 @@ impl RepoTab {
                         // Header with close button
                         row![
                             text("Repository Details")
-                                .size(18)
+                                .size(title_font_size * 0.64)
                                 .style(iced::theme::Text::Color(theme.primary())),
                             Space::with_width(Length::Fill),
                             button(
-                                text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(18)
+                                text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size)
                             )
                             .on_press(Message::ClosePanel)
-                            .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)))
+                            .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle {
+                                radius: settings.border_radius,
+                            })))
                             .padding(Padding::new(6.0)),
                         ]
                         .width(Length::Fill)
@@ -393,28 +401,30 @@ impl RepoTab {
                         container(
                             column![
                                 text("Repository ID")
-                                    .size(13)
+                                    .size(body_font_size * 0.93)
                                     .style(iced::theme::Text::Color(theme.primary())),
                                 Space::with_height(Length::Fixed(4.0)),
                                 text(&details.id)
-                                    .size(15)
+                                    .size(body_font_size * 1.07)
                                     .width(Length::Fill),
                             ]
                             .spacing(0)
                         )
                         .width(Length::Fill)
                         .padding(Padding::new(16.0))
-                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                            radius: settings.border_radius,
+                        }))),
                         Space::with_height(Length::Fixed(12.0)),
                         // Name
                         container(
                             column![
                                 text("Name")
-                                    .size(13)
+                                    .size(body_font_size * 0.93)
                                     .style(iced::theme::Text::Color(theme.primary())),
                                 Space::with_height(Length::Fixed(4.0)),
                                 text(&details.name)
-                                    .size(16) // Larger size for emphasis
+                                    .size(body_font_size * 1.14) // Larger size for emphasis
                                     .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
                                     .width(Length::Fill),
                             ]
@@ -422,17 +432,19 @@ impl RepoTab {
                         )
                         .width(Length::Fill)
                         .padding(Padding::new(16.0))
-                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                            radius: settings.border_radius,
+                        }))),
                         Space::with_height(Length::Fixed(12.0)),
                         // Enabled status with toggle button
                         container(
                             row![
                                 text("Enabled:")
-                                    .size(13)
+                                    .size(body_font_size * 0.93)
                                     .style(iced::theme::Text::Color(theme.primary()))
                                     .width(Length::Fixed(100.0)),
                                 text(if details.enabled { "Yes" } else { "No" })
-                                    .size(13)
+                                    .size(body_font_size * 0.93)
                                     .style(iced::theme::Text::Color(
                                         if details.enabled {
                                             iced::Color::from_rgb(0.0, 0.8, 0.0)
@@ -451,8 +463,8 @@ impl RepoTab {
                                                 crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL
                                             })
                                             .font(material_font)
-                                            .size(16),
-                                            text(if details.enabled { " Disable" } else { " Enable" })
+                                            .size(icon_size),
+                                            text(if details.enabled { " Disable" } else { " Enable" }).size(button_font_size)
                                         ]
                                         .spacing(4)
                                         .align_items(Alignment::Center)
@@ -460,6 +472,7 @@ impl RepoTab {
                                     .on_press(Message::ToggleRepository(repo_id))
                                     .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                                         is_primary: true,
+                                        radius: settings.border_radius,
                                     })))
                                     .padding(Padding::new(10.0))
                                 }
@@ -469,41 +482,47 @@ impl RepoTab {
                         )
                         .width(Length::Fill)
                         .padding(Padding::new(16.0))
-                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                            radius: settings.border_radius,
+                        }))),
                         Space::with_height(Length::Fixed(12.0)),
                         // Base URL or Metalink
                         if let Some(ref baseurl) = details.baseurl {
                             container(
                                 column![
                                     text("Base URL")
-                                        .size(13)
+                                        .size(body_font_size * 0.93)
                                         .style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_height(Length::Fixed(4.0)),
                                     text(baseurl)
-                                        .size(12)
+                                        .size(body_font_size * 0.86)
                                         .width(Length::Fill),
                                 ]
                                 .spacing(0)
                             )
                             .width(Length::Fill)
                             .padding(Padding::new(16.0))
-                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                                radius: settings.border_radius,
+                            })))
                         } else if let Some(ref metalink) = details.metalink {
                             container(
                                 column![
                                     text("Metalink")
-                                        .size(13)
+                                        .size(body_font_size * 0.93)
                                         .style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_height(Length::Fixed(4.0)),
                                     text(metalink)
-                                        .size(12)
+                                        .size(body_font_size * 0.86)
                                         .width(Length::Fill),
                                 ]
                                 .spacing(0)
                             )
                             .width(Length::Fill)
                             .padding(Padding::new(16.0))
-                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+                            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                                radius: settings.border_radius,
+                            })))
                         } else {
                             container(Space::with_height(Length::Shrink))
                                 .width(Length::Fill)
@@ -514,40 +533,44 @@ impl RepoTab {
                         container(
                             column![
                                 text("Source File")
-                                    .size(13)
+                                    .size(body_font_size * 0.93)
                                     .style(iced::theme::Text::Color(theme.primary())),
                                 Space::with_height(Length::Fixed(4.0)),
                                 text(&details.file_path)
-                                    .size(12)
+                                    .size(body_font_size * 0.86)
                                     .width(Length::Fill),
                             ]
                             .spacing(0)
                         )
                         .width(Length::Fill)
                         .padding(Padding::new(16.0))
-                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                            radius: settings.border_radius,
+                        }))),
                         // Additional details
                         if details.gpgcheck.is_some() || details.repo_gpgcheck.is_some() || details.gpgkey.is_some() {
                             column![
                                 Space::with_height(Length::Fixed(12.0)),
                                 text("Security")
-                                    .size(14)
+                                    .size(body_font_size)
                                     .style(iced::theme::Text::Color(theme.primary())),
                                 Space::with_height(Length::Fixed(8.0)),
                                 if let Some(gpgcheck) = details.gpgcheck {
                                     container(
                                         row![
                                             text("GPG Check:")
-                                                .size(12)
+                                                .size(body_font_size * 0.86)
                                                 .width(Length::Fixed(120.0)),
                                             text(if gpgcheck { "Enabled" } else { "Disabled" })
-                                                .size(12),
+                                                .size(body_font_size * 0.86),
                                         ]
                                         .spacing(12)
                                     )
                                     .width(Length::Fill)
                                     .padding(Padding::new(12.0))
-                                    .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+                                    .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                                radius: settings.border_radius,
+                            })))
                                 } else {
                                     container(Space::with_height(Length::Shrink))
                                         .width(Length::Fill)
@@ -557,16 +580,18 @@ impl RepoTab {
                                     container(
                                         row![
                                             text("Repo GPG Check:")
-                                                .size(12)
+                                                .size(body_font_size * 0.86)
                                                 .width(Length::Fixed(120.0)),
                                             text(if repo_gpgcheck { "Enabled" } else { "Disabled" })
-                                                .size(12),
+                                                .size(body_font_size * 0.86),
                                         ]
                                         .spacing(12)
                                     )
                                     .width(Length::Fill)
                                     .padding(Padding::new(12.0))
-                                    .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+                                    .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                                radius: settings.border_radius,
+                            })))
                                 } else {
                                     container(Space::with_height(Length::Shrink))
                                         .width(Length::Fill)
@@ -576,18 +601,20 @@ impl RepoTab {
                                     container(
                                         column![
                                             text("GPG Key:")
-                                                .size(12)
+                                                .size(body_font_size * 0.86)
                                                 .style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_height(Length::Fixed(4.0)),
                                             text(gpgkey)
-                                                .size(11)
+                                                .size(body_font_size * 0.79)
                                                 .width(Length::Fill),
                                         ]
                                         .spacing(0)
                                     )
                                     .width(Length::Fill)
                                     .padding(Padding::new(12.0))
-                                    .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+                                    .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                                radius: settings.border_radius,
+                            })))
                                 } else {
                                     container(Space::with_height(Length::Shrink))
                                         .width(Length::Fill)
@@ -604,10 +631,16 @@ impl RepoTab {
                     .padding(Padding::new(25.0))
                 )
                 .height(Length::Fill)
+                .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                    Color::from(settings.background_color.clone()),
+                    settings.border_radius,
+                ))))
             )
             .width(Length::Fixed(450.0))
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(PanelStyle)))
+            .style(iced::theme::Container::Custom(Box::new(PanelStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         } else {
             container(
@@ -617,40 +650,52 @@ impl RepoTab {
                         {
                             let material_font = crate::gui::fonts::get_material_symbols_font();
                             button(
-                                text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(20)
+                                text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size)
                             )
                             .on_press(Message::ClosePanel)
-                            .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)))
+                            .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle {
+                                radius: settings.border_radius,
+                            })))
                             .padding(Padding::new(8.0))
                         },
                     ]
                     .width(Length::Fill),
                     Space::with_height(Length::Fill),
-                    text("Loading...").size(16).horizontal_alignment(iced::alignment::Horizontal::Center),
+                    text("Loading...").size(body_font_size * 1.14).horizontal_alignment(iced::alignment::Horizontal::Center),
                     Space::with_height(Length::Fill),
                 ]
                 .padding(Padding::new(20.0))
             )
             .width(Length::Fixed(400.0))
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(PanelStyle)))
+            .style(iced::theme::Container::Custom(Box::new(PanelStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         }
     }
 
-    pub fn view(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+    pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
+        
+        // Calculate font sizes from settings
+        let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let input_font_size = (settings.font_size_inputs * settings.scale_inputs).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let tab_font_size = (settings.font_size_tabs * settings.scale_tabs).round();
         
         // Header section
         let header = container(
             column![
                 text("Repositories")
-                    .size(28)
+                    .size(title_font_size)
                     .style(iced::theme::Text::Color(theme.primary()))
                     .horizontal_alignment(iced::alignment::Horizontal::Left),
                 Space::with_height(Length::Fixed(8.0)),
                 text("Manage and view DNF/YUM repository configurations")
-                    .size(14)
+                    .size(body_font_size)
                     .horizontal_alignment(iced::alignment::Horizontal::Left),
             ]
             .spacing(0)
@@ -661,16 +706,18 @@ impl RepoTab {
         // Search input
         let search_input = text_input("Search repositories...", &self.search_query)
             .on_input(Message::SearchQueryChanged)
-            .size(16)
+            .size(input_font_size)
             .width(Length::Fill)
             .padding(14)
-            .style(iced::theme::TextInput::Custom(Box::new(RoundedTextInputStyle)));
+            .style(iced::theme::TextInput::Custom(Box::new(RoundedTextInputStyle {
+                radius: settings.border_radius,
+            })));
 
         // Add Repository button
         let add_repo_button = button(
             row![
-                text(crate::gui::fonts::glyphs::ADD_SYMBOL).font(material_font),
-                text(" Add Repository")
+                text(crate::gui::fonts::glyphs::ADD_SYMBOL).font(material_font).size(icon_size),
+                text(" Add Repository").size(button_font_size)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -678,14 +725,15 @@ impl RepoTab {
         .on_press(Message::OpenAddRepoTerminal)
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: true,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(14.0));
 
         // Refresh button
         let refresh_button = button(
             row![
-                text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font),
-                text(" Refresh")
+                text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                text(" Refresh").size(button_font_size)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
@@ -693,6 +741,7 @@ impl RepoTab {
         .on_press(Message::LoadRepositories)
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: false,
+            radius: settings.border_radius,
         })))
         .padding(Padding::new(14.0));
 
@@ -701,7 +750,7 @@ impl RepoTab {
             row![
                 button(
                     text("All")
-                        .size(16)
+                        .size(tab_font_size)
                         .style(iced::theme::Text::Color(if self.current_view == RepoView::All {
                             iced::Color::WHITE
                         } else {
@@ -710,12 +759,13 @@ impl RepoTab {
                 )
                 .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
                     is_active: self.current_view == RepoView::All,
+                    radius: settings.border_radius,
                 })))
                 .on_press(Message::SwitchView(RepoView::All))
                 .padding(Padding::from([12.0, 24.0, 12.0, 24.0])),
                 button(
                     text("NVIDIA")
-                        .size(16)
+                        .size(tab_font_size)
                         .style(iced::theme::Text::Color(if self.current_view == RepoView::Nvidia {
                             iced::Color::WHITE
                         } else {
@@ -724,12 +774,13 @@ impl RepoTab {
                 )
                 .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
                     is_active: self.current_view == RepoView::Nvidia,
+                    radius: settings.border_radius,
                 })))
                 .on_press(Message::SwitchView(RepoView::Nvidia))
                 .padding(Padding::from([12.0, 24.0, 12.0, 24.0])),
                 button(
                     text("RPM Fusion")
-                        .size(16)
+                        .size(tab_font_size)
                         .style(iced::theme::Text::Color(if self.current_view == RepoView::RpmFusion {
                             iced::Color::WHITE
                         } else {
@@ -738,6 +789,7 @@ impl RepoTab {
                 )
                 .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
                     is_active: self.current_view == RepoView::RpmFusion,
+                    radius: settings.border_radius,
                 })))
                 .on_press(Message::SwitchView(RepoView::RpmFusion))
                 .padding(Padding::from([12.0, 24.0, 12.0, 24.0])),
@@ -762,9 +814,9 @@ impl RepoTab {
             // NVIDIA sub-tab content
             let nvidia_install_button = button(
                 row![
-                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(18),
+                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
                     text(" Install NVIDIA Driver Repository")
-                        .size(16)
+                        .size(button_font_size)
                 ]
                 .spacing(8)
                 .align_items(Alignment::Center)
@@ -772,21 +824,22 @@ impl RepoTab {
             .on_press(Message::InstallNvidiaRepo)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: true,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(16.0));
 
             let nvidia_info = container(
                 column![
                     text("NVIDIA Driver Repository")
-                        .size(20)
+                        .size(title_font_size * 0.71)
                         .style(iced::theme::Text::Color(theme.primary())),
                     Space::with_height(Length::Fixed(12.0)),
                     text("This will install the NVIDIA driver repository from negativo17.org")
-                        .size(14)
+                        .size(body_font_size)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     Space::with_height(Length::Fixed(8.0)),
                     text("Repository URL: https://negativo17.org/repos/fedora-nvidia.repo")
-                        .size(12)
+                        .size(body_font_size * 0.86)
                         .style(iced::theme::Text::Color(theme.secondary_text()))
                         .font(iced::Font::MONOSPACE),
                     Space::with_height(Length::Fixed(24.0)),
@@ -796,12 +849,14 @@ impl RepoTab {
                 .padding(Padding::new(24.0))
             )
             .width(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)));
+            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                radius: settings.border_radius,
+            })));
 
             let repo_list: Element<Message> = if self.filtered_repositories.is_empty() {
                 container(
                     text("No NVIDIA repositories found. Click 'Install NVIDIA Driver Repository' to add one.")
-                        .size(14)
+                        .size(body_font_size)
                         .horizontal_alignment(iced::alignment::Horizontal::Center)
                 )
                 .width(Length::Fill)
@@ -809,7 +864,9 @@ impl RepoTab {
                 .center_x()
                 .center_y()
                 .padding(20)
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
             } else {
                 scrollable(
@@ -841,18 +898,19 @@ impl RepoTab {
                                             column![
                                                 row![
                                                     text(&repo.id)
-                                                        .size(16)
+                                                        .size(body_font_size * 1.14)
                                                         .style(iced::theme::Text::Color(theme.primary()))
                                                         .width(Length::Fill),
                                                     Space::with_width(Length::Fixed(12.0)),
                                                     container(
                                                         text(if repo.enabled { "Enabled" } else { "Disabled" })
-                                                            .size(11)
+                                                            .size(body_font_size * 0.79)
                                                             .style(iced::theme::Text::Color(enabled_color))
                                                     )
                                                     .padding(Padding::new(6.0))
                                                     .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
                                                         enabled: repo.enabled,
+                                                        radius: settings.border_radius,
                                                     }))),
                                                 ]
                                                 .spacing(0)
@@ -860,12 +918,12 @@ impl RepoTab {
                                                 .width(Length::Fill),
                                                 Space::with_height(Length::Fixed(6.0)),
                                                 text(&repo.name)
-                                                    .size(14)
+                                                    .size(body_font_size)
                                                     .style(iced::theme::Text::Color(theme.text()))
                                                     .width(Length::Fill),
                                                 Space::with_height(Length::Fixed(4.0)),
                                                 text(&url_display)
-                                                    .size(12)
+                                                    .size(body_font_size * 0.86)
                                                     .style(iced::theme::Text::Color(theme.secondary_text()))
                                                     .width(Length::Fill),
                                             ]
@@ -876,7 +934,9 @@ impl RepoTab {
                                         .align_items(Alignment::Start)
                                         .padding(16)
                                     )
-                                    .style(iced::theme::Container::Custom(Box::new(RepoItemStyle)))
+                                    .style(iced::theme::Container::Custom(Box::new(RepoItemStyle {
+                                        radius: settings.border_radius,
+                                    })))
                                 )
                                 .on_press(Message::RepositorySelected(repo_id))
                                 .style(iced::theme::Button::Text)
@@ -888,6 +948,10 @@ impl RepoTab {
                     .spacing(8)
                     .padding(10),
                 )
+                .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                    Color::from(settings.background_color.clone()),
+                    settings.border_radius,
+                ))))
                 .into()
             };
 
@@ -904,9 +968,9 @@ impl RepoTab {
             // RPM Fusion sub-tab content
             let rpmfusion_install_button: Element<Message> = button(
                 row![
-                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(18),
+                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
                     text(" Install RPM Fusion Repositories")
-                        .size(16)
+                        .size(button_font_size)
                 ]
                 .spacing(8)
                 .align_items(Alignment::Center)
@@ -914,6 +978,7 @@ impl RepoTab {
             .on_press(Message::InstallRpmFusionRepos)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: true,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(16.0))
             .into();
@@ -921,15 +986,15 @@ impl RepoTab {
             let rpmfusion_info = container(
                 column![
                     text("RPM Fusion Repositories")
-                        .size(20)
+                        .size(title_font_size * 0.71)
                         .style(iced::theme::Text::Color(theme.primary())),
                     Space::with_height(Length::Fixed(12.0)),
                     text("This will install both RPM Fusion Free and Nonfree repositories")
-                        .size(14)
+                        .size(body_font_size)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     Space::with_height(Length::Fixed(8.0)),
                     text("These repositories provide additional software including NVIDIA drivers, multimedia codecs, and other packages not available in the official Fedora repositories")
-                        .size(12)
+                        .size(body_font_size * 0.86)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     Space::with_height(Length::Fixed(24.0)),
                     rpmfusion_install_button,
@@ -938,12 +1003,14 @@ impl RepoTab {
                 .padding(Padding::new(24.0))
             )
             .width(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)));
+            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                radius: settings.border_radius,
+            })));
 
             let repo_list: Element<Message> = if self.filtered_repositories.is_empty() {
                 container(
                     text("No RPM Fusion repositories found. Click 'Install RPM Fusion Repositories' to add them.")
-                        .size(14)
+                        .size(body_font_size)
                         .horizontal_alignment(iced::alignment::Horizontal::Center)
                         .style(iced::theme::Text::Color(theme.secondary_text()))
                 )
@@ -952,7 +1019,9 @@ impl RepoTab {
                 .center_x()
                 .center_y()
                 .padding(20)
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                    radius: settings.border_radius,
+                })))
                 .into()
             } else {
                 scrollable(
@@ -984,18 +1053,19 @@ impl RepoTab {
                                             column![
                                                 row![
                                                     text(&repo.id)
-                                                        .size(16)
+                                                        .size(body_font_size * 1.14)
                                                         .style(iced::theme::Text::Color(theme.primary()))
                                                         .width(Length::Fill),
                                                     Space::with_width(Length::Fixed(12.0)),
                                                     container(
                                                         text(if repo.enabled { "Enabled" } else { "Disabled" })
-                                                            .size(11)
+                                                            .size(body_font_size * 0.79)
                                                             .style(iced::theme::Text::Color(enabled_color))
                                                     )
                                                     .padding(Padding::new(6.0))
                                                     .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
                                                         enabled: repo.enabled,
+                                                        radius: settings.border_radius,
                                                     }))),
                                                 ]
                                                 .spacing(0)
@@ -1003,12 +1073,12 @@ impl RepoTab {
                                                 .width(Length::Fill),
                                                 Space::with_height(Length::Fixed(6.0)),
                                                 text(&repo.name)
-                                                    .size(14)
+                                                    .size(body_font_size)
                                                     .style(iced::theme::Text::Color(theme.text()))
                                                     .width(Length::Fill),
                                                 Space::with_height(Length::Fixed(4.0)),
                                                 text(&url_display)
-                                                    .size(12)
+                                                    .size(body_font_size * 0.86)
                                                     .style(iced::theme::Text::Color(theme.secondary_text()))
                                                     .width(Length::Fill),
                                             ]
@@ -1019,7 +1089,9 @@ impl RepoTab {
                                         .align_items(Alignment::Start)
                                         .padding(16)
                                     )
-                                    .style(iced::theme::Container::Custom(Box::new(RepoItemStyle)))
+                                    .style(iced::theme::Container::Custom(Box::new(RepoItemStyle {
+                                        radius: settings.border_radius,
+                                    })))
                                 )
                                 .on_press(Message::RepositorySelected(repo_id))
                                 .style(iced::theme::Button::Text)
@@ -1031,6 +1103,10 @@ impl RepoTab {
                     .spacing(8)
                     .padding(10),
                 )
+                .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                    Color::from(settings.background_color.clone()),
+                    settings.border_radius,
+                ))))
                 .into()
             };
 
@@ -1045,13 +1121,15 @@ impl RepoTab {
             .into()
         } else if self.is_loading {
             container(
-                text("Loading repositories...").size(16)
+                text("Loading repositories...").size(body_font_size * 1.14)
             )
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x()
             .center_y()
-            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         } else if self.filtered_repositories.is_empty() {
             container(
@@ -1062,7 +1140,7 @@ impl RepoTab {
                         format!("No repositories found matching '{}'", self.search_query)
                     };
                     text(message)
-                        .size(14)
+                        .size(body_font_size)
                         .horizontal_alignment(iced::alignment::Horizontal::Center)
                 }
             )
@@ -1071,7 +1149,9 @@ impl RepoTab {
             .center_x()
             .center_y()
             .padding(20)
-            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle)))
+            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         } else {
             scrollable(
@@ -1103,17 +1183,18 @@ impl RepoTab {
                                         column![
                                             row![
                                                 text(&repo.id)
-                                                    .size(16)
+                                                    .size(body_font_size * 1.14)
                                                     .style(iced::theme::Text::Color(theme.primary()))
                                                     .width(Length::Fill),
                                                 Space::with_width(Length::Fixed(12.0)),
                                                 container(
                                                     text(if repo.enabled { "Enabled" } else { "Disabled" })
-                                                        .size(11)
+                                                        .size(body_font_size * 0.79)
                                                         .style(iced::theme::Text::Color(enabled_color))
                                                 )
                                                 .padding(Padding::new(6.0))
                                                 .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
+                                                    radius: settings.border_radius,
                                                     enabled: repo.enabled,
                                                 }))),
                                             ]
@@ -1122,18 +1203,18 @@ impl RepoTab {
                                             .width(Length::Fill),
                                             Space::with_height(Length::Fixed(6.0)),
                                             text(&repo.name)
-                                                .size(14) // Larger size for emphasis
+                                                .size(body_font_size) // Larger size for emphasis
                                                 .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
                                                 .width(Length::Fill),
                                             Space::with_height(Length::Fixed(4.0)),
                                             row![
                                                 text(&url_display)
-                                                    .size(12)
+                                                    .size(body_font_size * 0.86)
                                                     .style(iced::theme::Text::Color(theme.secondary_text()))
                                                     .width(Length::Fill),
                                                 Space::with_width(Length::Fixed(8.0)),
                                                 text(&repo.file_path)
-                                                    .size(11)
+                                                    .size(body_font_size * 0.79)
                                                     .style(iced::theme::Text::Color(iced::Color::from_rgba(0.5, 0.5, 0.5, 1.0))),
                                             ]
                                             .spacing(0)
@@ -1147,20 +1228,26 @@ impl RepoTab {
                                     .align_items(Alignment::Start)
                                     .padding(16)
                                 )
-                                .style(iced::theme::Container::Custom(Box::new(RepoItemStyle)))
+                                .style(iced::theme::Container::Custom(Box::new(RepoItemStyle {
+                                    radius: settings.border_radius,
+                                })))
                             )
                             .on_press(Message::RepositorySelected(repo_id))
                             .style(iced::theme::Button::Text)
                             .padding(0)
                             .into()
                         })
-                        .collect::<Vec<_>>(),
+                            .collect::<Vec<_>>(),
+                    )
+                    .spacing(8)
+                    .padding(10),
                 )
-                .spacing(8)
-                .padding(10),
-            )
-            .into()
-        };
+                .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                    Color::from(settings.background_color.clone()),
+                    settings.border_radius,
+                ))))
+                .into()
+            };
 
         // Terminal UI
         let terminal_ui: Element<Message> = if self.terminal_open {
@@ -1181,7 +1268,7 @@ impl RepoTab {
                                 theme.text()
                             };
                             text(line)
-                                .size(13)
+                                .size(body_font_size * 0.93)
                                 .style(iced::theme::Text::Color(line_color))
                                 .font(iced::Font::MONOSPACE)
                                 .into()
@@ -1191,22 +1278,28 @@ impl RepoTab {
                 .spacing(2)
                 .padding(12)
             )
+            .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                Color::from(settings.background_color.clone()),
+                settings.border_radius,
+            ))))
             .width(Length::Fill)
             .height(Length::Fill);
 
             let command_input = text_input("Enter command...", &self.terminal_command)
                 .on_input(Message::TerminalCommandChanged)
                 .on_submit(Message::ExecuteTerminalCommand)
-                .size(14)
+                .size(input_font_size)
                 .width(Length::Fill)
                 .padding(12)
-                .style(iced::theme::TextInput::Custom(Box::new(TerminalInputStyle)))
+                .style(iced::theme::TextInput::Custom(Box::new(TerminalInputStyle {
+                    radius: settings.border_radius,
+                })))
                 .font(iced::Font::MONOSPACE);
 
             let execute_button = button(
                 row![
                     text("Execute")
-                        .size(14)
+                        .size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -1214,13 +1307,14 @@ impl RepoTab {
             .on_press(Message::ExecuteTerminalCommand)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: true,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(12.0));
 
             let close_button = button(
                 row![
-                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(18),
-                    text(" Close")
+                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size),
+                    text(" Close").size(button_font_size)
                 ]
                 .spacing(4)
                 .align_items(Alignment::Center)
@@ -1228,6 +1322,7 @@ impl RepoTab {
             .on_press(Message::CloseAddRepoTerminal)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: false,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(12.0));
 
@@ -1235,7 +1330,7 @@ impl RepoTab {
                 column![
                     row![
                         text("Add Repository Terminal")
-                            .size(20)
+                            .size(title_font_size * 0.71)
                             .style(iced::theme::Text::Color(theme.primary())),
                         Space::with_width(Length::Fill),
                         close_button,
@@ -1258,7 +1353,9 @@ impl RepoTab {
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(Padding::new(20.0))
-            .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle {
+                radius: settings.border_radius,
+            })))
             .into()
         } else {
             container(Space::with_width(Length::Fixed(0.0)))
@@ -1289,7 +1386,7 @@ impl RepoTab {
 
         // Create the slide-out panel
         let panel = if self.panel_open && !self.terminal_open {
-            self.view_panel(theme)
+            self.view_panel(theme, settings)
         } else {
             container(Space::with_width(Length::Fixed(0.0)))
                 .width(Length::Fixed(0.0))
@@ -1539,7 +1636,9 @@ async fn toggle_repository(repo_id: String, enable: bool) -> Result<String, Stri
 }
 
 // Style structs
-struct RoundedMessageStyle;
+struct RoundedMessageStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for RoundedMessageStyle {
     type Style = iced::Theme;
@@ -1547,7 +1646,7 @@ impl iced::widget::container::StyleSheet for RoundedMessageStyle {
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 0.0,
                 color: iced::Color::TRANSPARENT,
             },
@@ -1556,7 +1655,9 @@ impl iced::widget::container::StyleSheet for RoundedMessageStyle {
     }
 }
 
-struct RepoItemStyle;
+struct RepoItemStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for RepoItemStyle {
     type Style = iced::Theme;
@@ -1566,7 +1667,7 @@ impl iced::widget::container::StyleSheet for RepoItemStyle {
         Appearance {
             background: Some(iced::Background::Color(palette.background)),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
             },
@@ -1577,6 +1678,7 @@ impl iced::widget::container::StyleSheet for RepoItemStyle {
 
 struct SubTabButtonStyle {
     is_active: bool,
+    radius: f32,
 }
 
 impl ButtonStyleSheet for SubTabButtonStyle {
@@ -1596,7 +1698,7 @@ impl ButtonStyleSheet for SubTabButtonStyle {
                 }
             }),
             text_color: if self.is_active { iced::Color::WHITE } else { palette.text },
-            border: Border::with_radius(6.0),
+            border: Border::with_radius(self.radius * 0.375),
             shadow: Default::default(),
             shadow_offset: iced::Vector::default(),
         }
@@ -1619,6 +1721,7 @@ impl ButtonStyleSheet for SubTabButtonStyle {
 
 struct StatusBadgeStyle {
     enabled: bool,
+    radius: f32,
 }
 
 impl iced::widget::container::StyleSheet for StatusBadgeStyle {
@@ -1632,7 +1735,7 @@ impl iced::widget::container::StyleSheet for StatusBadgeStyle {
                 iced::Color::from_rgba(0.6, 0.6, 0.6, 0.15)
             })),
             border: Border {
-                radius: 8.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if self.enabled {
                     iced::Color::from_rgba(0.0, 0.8, 0.0, 0.3)
@@ -1645,7 +1748,9 @@ impl iced::widget::container::StyleSheet for StatusBadgeStyle {
     }
 }
 
-struct InfoContainerStyle;
+struct InfoContainerStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for InfoContainerStyle {
     type Style = iced::Theme;
@@ -1660,7 +1765,7 @@ impl iced::widget::container::StyleSheet for InfoContainerStyle {
                 1.0,
             ))),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
             },
@@ -1669,7 +1774,9 @@ impl iced::widget::container::StyleSheet for InfoContainerStyle {
     }
 }
 
-struct PanelStyle;
+struct PanelStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for PanelStyle {
     type Style = iced::Theme;
@@ -1684,7 +1791,7 @@ impl iced::widget::container::StyleSheet for PanelStyle {
                 1.0,
             ))),
             border: Border {
-                radius: 20.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15),
             },
@@ -1693,7 +1800,9 @@ impl iced::widget::container::StyleSheet for PanelStyle {
     }
 }
 
-struct CloseButtonStyle;
+struct CloseButtonStyle {
+    radius: f32,
+}
 
 impl ButtonStyleSheet for CloseButtonStyle {
     type Style = iced::Theme;
@@ -1703,7 +1812,7 @@ impl ButtonStyleSheet for CloseButtonStyle {
         ButtonAppearance {
             background: Some(iced::Background::Color(iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1))),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
             },
@@ -1722,6 +1831,7 @@ impl ButtonStyleSheet for CloseButtonStyle {
 
 struct RoundedButtonStyle {
     is_primary: bool,
+    radius: f32,
 }
 
 impl ButtonStyleSheet for RoundedButtonStyle {
@@ -1736,7 +1846,7 @@ impl ButtonStyleSheet for RoundedButtonStyle {
                 iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
@@ -1761,7 +1871,9 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     }
 }
 
-struct RoundedTextInputStyle;
+struct RoundedTextInputStyle {
+    radius: f32,
+}
 
 impl TextInputStyleSheet for RoundedTextInputStyle {
     type Style = iced::Theme;
@@ -1771,7 +1883,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(palette.background),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: palette.primary,
             },
@@ -1784,7 +1896,7 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
         TextInputAppearance {
             background: iced::Background::Color(palette.background),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: palette.primary,
             },
@@ -1973,7 +2085,9 @@ async fn execute_terminal_command(command: String) -> Result<(String, String, bo
     }
 }
 
-struct TerminalContainerStyle;
+struct TerminalContainerStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for TerminalContainerStyle {
     type Style = iced::Theme;
@@ -1988,7 +2102,7 @@ impl iced::widget::container::StyleSheet for TerminalContainerStyle {
                 iced::Color::from_rgba(0.95, 0.95, 0.96, 1.0).into()
             }),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if is_dark {
                     iced::Color::from_rgba(0.3, 0.3, 0.3, 1.0)
@@ -2001,7 +2115,9 @@ impl iced::widget::container::StyleSheet for TerminalContainerStyle {
     }
 }
 
-struct TerminalInputStyle;
+struct TerminalInputStyle {
+    radius: f32,
+}
 
 impl TextInputStyleSheet for TerminalInputStyle {
     type Style = iced::Theme;
@@ -2015,7 +2131,7 @@ impl TextInputStyleSheet for TerminalInputStyle {
             } else {
                 iced::Color::from_rgba(0.98, 0.98, 0.99, 1.0).into()
             },
-            border: Border::with_radius(8.0),
+            border: Border::with_radius(self.radius * 0.5),
             icon_color: palette.text,
         }
     }
@@ -2030,7 +2146,7 @@ impl TextInputStyleSheet for TerminalInputStyle {
                 iced::Color::from_rgba(0.98, 0.98, 0.99, 1.0).into()
             },
             border: Border {
-                radius: 8.0.into(),
+                radius: self.radius.into(),
                 width: 2.0,
                 color: palette.primary,
             },

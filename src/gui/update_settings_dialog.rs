@@ -51,7 +51,7 @@ impl UpdateSettings {
 
     pub fn load() -> Self {
         if let Ok(home) = std::env::var("HOME") {
-            let settings_path = PathBuf::from(&home).join(".fedoraforge").join("update_settings.json");
+            let settings_path = PathBuf::from(&home).join(".rustora").join("update_settings.json");
             if let Ok(content) = std::fs::read_to_string(&settings_path) {
                 if let Ok(settings) = serde_json::from_str::<UpdateSettings>(&content) {
                     return settings;
@@ -63,7 +63,7 @@ impl UpdateSettings {
 
     pub fn save(&self) -> Result<(), String> {
         if let Ok(home) = std::env::var("HOME") {
-            let settings_dir = PathBuf::from(&home).join(".fedoraforge");
+            let settings_dir = PathBuf::from(&home).join(".rustora");
             if let Err(e) = std::fs::create_dir_all(&settings_dir) {
                 return Err(format!("Failed to create settings directory: {}", e));
             }
@@ -239,7 +239,7 @@ impl Application for UpdateSettingsDialog {
     }
 
     fn title(&self) -> String {
-        "Update Settings - FedoraForge".to_string()
+        "Update Settings - Rustora".to_string()
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {

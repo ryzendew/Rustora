@@ -387,12 +387,12 @@ impl Application for InstallDialog {
     fn title(&self) -> String {
         if !self.package_info.is_empty() {
             if self.package_info.len() == 1 {
-                format!("Install {} - FedoraForge", self.package_info[0].name)
+                format!("Install {} - Rustora", self.package_info[0].name)
             } else {
-                format!("Install {} Packages - FedoraForge", self.package_info.len())
+                format!("Install {} Packages - Rustora", self.package_info.len())
             }
         } else {
-            "Install Package - FedoraForge".to_string()
+            "Install Package - Rustora".to_string()
         }
     }
 

@@ -49,7 +49,7 @@ impl MaintenanceTab {
                     async move {
                         use tokio::process::Command as TokioCommand;
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         TokioCommand::new(&exe_path)
                             .arg("maintenance-dialog")
                             .arg("rebuild-kernel-modules")
@@ -68,7 +68,7 @@ impl MaintenanceTab {
                     async move {
                         use tokio::process::Command as TokioCommand;
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         TokioCommand::new(&exe_path)
                             .arg("maintenance-dialog")
                             .arg("regenerate-initramfs")
@@ -87,7 +87,7 @@ impl MaintenanceTab {
                     async move {
                         use tokio::process::Command as TokioCommand;
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         TokioCommand::new(&exe_path)
                             .arg("maintenance-dialog")
                             .arg("remove-orphaned-packages")
@@ -106,7 +106,7 @@ impl MaintenanceTab {
                     async move {
                         use tokio::process::Command as TokioCommand;
                         let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("fedoraforge"));
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         TokioCommand::new(&exe_path)
                             .arg("maintenance-dialog")
                             .arg("clean-package-cache")
@@ -141,19 +141,25 @@ impl MaintenanceTab {
         }
     }
 
-    pub fn view(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+    pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
+        
+        // Calculate font sizes from settings
+        let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         
         // Header section
         let header = container(
             column![
                 text("System Maintenance")
-                    .size(28)
+                    .size(title_font_size)
                     .style(iced::theme::Text::Color(theme.primary()))
                     .horizontal_alignment(iced::alignment::Horizontal::Left),
                 Space::with_height(Length::Fixed(8.0)),
                 text("Perform system maintenance tasks to keep your Fedora system running smoothly")
-                    .size(14)
+                    .size(body_font_size)
                     .horizontal_alignment(iced::alignment::Horizontal::Left),
             ]
             .spacing(0)
@@ -162,72 +168,74 @@ impl MaintenanceTab {
         .padding(Padding::new(0.0));
 
         // Helper function to create action cards
-        fn create_action_card<'a>(
-            material_font: iced::Font,
-            theme: &crate::gui::Theme,
-            icon: &str,
-            title: &str,
-            description: &str,
-            is_running: bool,
-            message: Message,
-        ) -> Element<'a, Message> {
-            let button_widget = if is_running {
-                button(
-                    row![
-                        text(icon).font(material_font).size(20),
-                        text(" Running...")
-                    ]
-                    .spacing(8)
-                    .align_items(Alignment::Center)
-                )
-                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                    is_primary: false,
-                })))
-                .padding(Padding::new(12.0))
-            } else {
-                button(
-                    row![
-                        text(icon).font(material_font).size(20),
-                        text(title)
-                    ]
-                    .spacing(8)
-                    .align_items(Alignment::Center)
-                )
-                .on_press(message)
-                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                    is_primary: true,
-                })))
-                .padding(Padding::new(12.0))
-            };
+        let create_action_card = {
+            let material_font = material_font;
+            let icon_size = icon_size;
+            let button_font_size = button_font_size;
+            let body_font_size = body_font_size;
+            let theme = theme;
+            let settings = settings;
+            move |icon: &str, title: &str, description: &str, is_running: bool, message: Message| -> Element<'_, Message> {
+                let button_widget = if is_running {
+                    button(
+                        row![
+                            text(icon).font(material_font).size(icon_size),
+                            text(" Running...").size(button_font_size)
+                        ]
+                        .spacing(8)
+                        .align_items(Alignment::Center)
+                    )
+                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                        is_primary: false,
+                        radius: settings.border_radius,
+                    })))
+                    .padding(Padding::new(12.0))
+                } else {
+                    button(
+                        row![
+                            text(icon).font(material_font).size(icon_size),
+                            text(title).size(button_font_size)
+                        ]
+                        .spacing(8)
+                        .align_items(Alignment::Center)
+                    )
+                    .on_press(message)
+                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                        is_primary: true,
+                        radius: settings.border_radius,
+                    })))
+                    .padding(Padding::new(12.0))
+                };
 
-            container(
-                column![
-                    button_widget,
-                    Space::with_height(Length::Fixed(8.0)),
-                    text(description)
-                        .size(12)
-                        .style(iced::theme::Text::Color(theme.secondary_text()))
-                        .width(Length::Fill),
-                ]
-                .spacing(0)
-            )
-            .width(Length::Fill)
-            .padding(Padding::new(20.0))
-            .style(iced::theme::Container::Custom(Box::new(ActionCardStyle)))
-            .into()
-        }
+                container(
+                    column![
+                        button_widget,
+                        Space::with_height(Length::Fixed(8.0)),
+                        text(description)
+                            .size(body_font_size)
+                            .style(iced::theme::Text::Color(theme.secondary_text()))
+                            .width(Length::Fill),
+                    ]
+                    .spacing(0)
+                )
+                .width(Length::Fill)
+                .padding(Padding::new(20.0))
+                .style(iced::theme::Container::Custom(Box::new(ActionCardStyle {
+                    radius: settings.border_radius,
+                })))
+                .into()
+            }
+        };
 
         // Kernel maintenance section
         let kernel_section = container(
             column![
                 text("Kernel Maintenance")
-                    .size(16)
+                    .size(title_font_size * 0.6)
                     .style(iced::theme::Text::Color(theme.primary()))
                     .width(Length::Fill),
                 Space::with_height(Length::Fixed(16.0)),
                 create_action_card(
-                    material_font,
-                    theme,
                     crate::gui::fonts::glyphs::REFRESH_SYMBOL,
                     "Rebuild Kernel Modules",
                     "Rebuilds all kernel modules using akmods. Use this after kernel updates.",
@@ -236,8 +244,6 @@ impl MaintenanceTab {
                 ),
                 Space::with_height(Length::Fixed(12.0)),
                 create_action_card(
-                    material_font,
-                    theme,
                     crate::gui::fonts::glyphs::REFRESH_SYMBOL,
                     "Regenerate Initramfs",
                     "Regenerates all initramfs images using dracut. Ensures proper boot configuration.",
@@ -249,19 +255,19 @@ impl MaintenanceTab {
         )
         .width(Length::Fill)
         .padding(Padding::new(24.0))
-        .style(iced::theme::Container::Custom(Box::new(SectionCardStyle)));
+        .style(iced::theme::Container::Custom(Box::new(SectionCardStyle {
+            radius: settings.border_radius,
+        })));
 
         // Package maintenance section
         let package_section = container(
             column![
                 text("Package Maintenance")
-                    .size(16)
+                    .size(title_font_size * 0.6)
                     .style(iced::theme::Text::Color(theme.primary()))
                     .width(Length::Fill),
                 Space::with_height(Length::Fixed(16.0)),
                 create_action_card(
-                    material_font,
-                    theme,
                     crate::gui::fonts::glyphs::DELETE_SYMBOL,
                     "Remove Orphaned Packages",
                     "Removes packages that are no longer needed by any installed software.",
@@ -270,8 +276,6 @@ impl MaintenanceTab {
                 ),
                 Space::with_height(Length::Fixed(12.0)),
                 create_action_card(
-                    material_font,
-                    theme,
                     crate::gui::fonts::glyphs::SETTINGS_SYMBOL,
                     "Clean Package Cache",
                     "Removes cached package files to free up disk space.",
@@ -283,27 +287,30 @@ impl MaintenanceTab {
         )
         .width(Length::Fill)
         .padding(Padding::new(24.0))
-        .style(iced::theme::Container::Custom(Box::new(SectionCardStyle)));
+        .style(iced::theme::Container::Custom(Box::new(SectionCardStyle {
+            radius: settings.border_radius,
+        })));
 
         // Run all button
         let run_all_button = if self.is_running_all {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(20),
-                    text(" Running All Maintenance Tasks...")
+                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                    text(" Running All Maintenance Tasks...").size(button_font_size)
                 ]
                 .spacing(8)
                 .align_items(Alignment::Center)
             )
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: false,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(16.0))
         } else {
             button(
                 row![
-                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(20),
-                    text(" Run All Maintenance Tasks")
+                    text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
+                    text(" Run All Maintenance Tasks").size(button_font_size)
                 ]
                 .spacing(8)
                 .align_items(Alignment::Center)
@@ -311,6 +318,7 @@ impl MaintenanceTab {
             .on_press(Message::RunAllMaintenance)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: true,
+                radius: settings.border_radius,
             })))
             .padding(Padding::new(16.0))
         };
@@ -320,7 +328,7 @@ impl MaintenanceTab {
                 run_all_button,
                 Space::with_height(Length::Fixed(8.0)),
                 text("Execute all maintenance tasks in sequence")
-                    .size(12)
+                    .size(body_font_size)
                     .style(iced::theme::Text::Color(iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0)))
                     .width(Length::Fill),
             ]
@@ -328,7 +336,9 @@ impl MaintenanceTab {
         )
         .width(Length::Fill)
         .padding(Padding::new(24.0))
-        .style(iced::theme::Container::Custom(Box::new(SectionCardStyle)));
+        .style(iced::theme::Container::Custom(Box::new(SectionCardStyle {
+            radius: settings.border_radius,
+        })));
 
         // Actions column
         let actions_column = scrollable(
@@ -348,7 +358,7 @@ impl MaintenanceTab {
         let log_header = container(
             row![
                 text("Activity Log")
-                    .size(18)
+                    .size(title_font_size * 0.65)
                     .style(iced::theme::Text::Color(theme.primary())),
                 Space::with_width(Length::Fill),
             ]
@@ -362,11 +372,11 @@ impl MaintenanceTab {
                 column![
                     Space::with_height(Length::Fill),
                     text("No operations performed yet")
-                        .size(16)
+                        .size(body_font_size * 1.15)
                         .horizontal_alignment(iced::alignment::Horizontal::Center),
                     Space::with_height(Length::Fixed(8.0)),
                     text("Select a maintenance task to begin")
-                        .size(13)
+                        .size(body_font_size)
                         .style(iced::theme::Text::Color(theme.secondary_text()))
                         .horizontal_alignment(iced::alignment::Horizontal::Center),
                     Space::with_height(Length::Fill),
@@ -385,7 +395,7 @@ impl MaintenanceTab {
                             container(
                                 row![
                                     text(if line.starts_with("✓") { "✓" } else if line.starts_with("✗") { "✗" } else { "•" })
-                                        .size(14)
+                                        .size(icon_size)
                                         .style(iced::theme::Text::Color(
                                             if line.starts_with("✓") {
                                                 iced::Color::from_rgb(0.1, 0.5, 0.1) // Darker green
@@ -401,7 +411,7 @@ impl MaintenanceTab {
                                     } else {
                                         line
                                     })
-                                        .size(13)
+                                        .size(body_font_size)
                                         .width(Length::Fill),
                                 ]
                                 .spacing(12)
@@ -409,7 +419,9 @@ impl MaintenanceTab {
                             )
                             .width(Length::Fill)
                             .padding(Padding::new(12.0))
-                            .style(iced::theme::Container::Custom(Box::new(LogItemStyle)))
+                            .style(iced::theme::Container::Custom(Box::new(LogItemStyle {
+                                radius: settings.border_radius,
+                            })))
                             .into()
                         })
                         .collect::<Vec<_>>(),
@@ -431,7 +443,9 @@ impl MaintenanceTab {
         .width(Length::Fill)
         .height(Length::Fill)
         .padding(Padding::new(24.0))
-        .style(iced::theme::Container::Custom(Box::new(SectionCardStyle)));
+        .style(iced::theme::Container::Custom(Box::new(SectionCardStyle {
+            radius: settings.border_radius,
+        })));
 
         // Main layout
         let content = row![
@@ -796,7 +810,9 @@ async fn run_all_maintenance() -> Result<String, String> {
     Ok(results.join("\n\n"))
 }
 
-struct SectionCardStyle;
+struct SectionCardStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for SectionCardStyle {
     type Style = iced::Theme;
@@ -811,7 +827,7 @@ impl iced::widget::container::StyleSheet for SectionCardStyle {
                 1.0,
             ))),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15),
             },
@@ -820,7 +836,9 @@ impl iced::widget::container::StyleSheet for SectionCardStyle {
     }
 }
 
-struct ActionCardStyle;
+struct ActionCardStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for ActionCardStyle {
     type Style = iced::Theme;
@@ -835,7 +853,7 @@ impl iced::widget::container::StyleSheet for ActionCardStyle {
                 1.0,
             ))),
             border: Border {
-                radius: 12.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1),
             },
@@ -844,7 +862,9 @@ impl iced::widget::container::StyleSheet for ActionCardStyle {
     }
 }
 
-struct LogItemStyle;
+struct LogItemStyle {
+    radius: f32,
+}
 
 impl iced::widget::container::StyleSheet for LogItemStyle {
     type Style = iced::Theme;
@@ -859,7 +879,7 @@ impl iced::widget::container::StyleSheet for LogItemStyle {
                 1.0,
             ))),
             border: Border {
-                radius: 8.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
             },
@@ -870,6 +890,7 @@ impl iced::widget::container::StyleSheet for LogItemStyle {
 
 struct RoundedButtonStyle {
     is_primary: bool,
+    radius: f32,
 }
 
 impl ButtonStyleSheet for RoundedButtonStyle {
@@ -884,7 +905,7 @@ impl ButtonStyleSheet for RoundedButtonStyle {
                 iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: self.radius.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary

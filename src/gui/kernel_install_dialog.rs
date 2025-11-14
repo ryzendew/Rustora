@@ -73,7 +73,7 @@ impl Application for KernelInstallDialog {
     }
 
     fn title(&self) -> String {
-        format!("Installing Kernel {} - FedoraForge", self.kernel_name)
+        format!("Installing Kernel {} - Rustora", self.kernel_name)
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
