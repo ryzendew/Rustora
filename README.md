@@ -1,4 +1,4 @@
-# FedoraForge
+# Rustora
 
 A modern, GUI-based package manager for Fedora and Nobara.
 
