@@ -504,6 +504,18 @@ async fn download_with_progress(
     }
     
     writer.flush().await.map_err(|e| format!("Flush error: {}", e))?;
+    drop(writer); // Ensure writer is dropped and file is closed
+    drop(file); // Ensure file handle is closed
+    
+    // Verify file was written correctly
+    let final_metadata = std::fs::metadata(&tar_path)
+        .map_err(|e| format!("Failed to verify downloaded file: {}", e))?;
+    if final_metadata.len() == 0 {
+        return Err("Downloaded file is empty".to_string());
+    }
+    if total_size > 0 && final_metadata.len() != total_size {
+        return Err(format!("Downloaded file size mismatch: expected {} bytes, got {} bytes", total_size, final_metadata.len()));
+    }
     
     if let Ok(mut state) = progress_state.lock() {
         state.download_progress = 1.0;
@@ -524,7 +536,19 @@ async fn extract_with_progress(
     
     if let Ok(mut state) = progress_state.lock() {
         state.extraction_progress = 0.0;
-        state.extraction_message = "Opening archive...".to_string();
+        state.extraction_message = "Validating archive...".to_string();
+    }
+    
+    // Validate file exists and is not empty
+    let tar_path_buf = std::path::Path::new(&tar_path);
+    if !tar_path_buf.exists() {
+        return Err(format!("Archive file does not exist: {}", tar_path));
+    }
+    
+    let metadata = std::fs::metadata(tar_path_buf)
+        .map_err(|e| format!("Failed to read archive metadata: {}", e))?;
+    if metadata.len() == 0 {
+        return Err("Archive file is empty".to_string());
     }
     
     let home = std::env::var("HOME").unwrap_or_else(|_| "/home".to_string());
@@ -542,23 +566,152 @@ async fn extract_with_progress(
     
     if let Ok(mut state) = progress_state.lock() {
         state.extraction_progress = 0.1;
-        state.extraction_message = "Extracting files...".to_string();
+        state.extraction_message = "Opening archive...".to_string();
     }
     
     // Extract with progress tracking
     // Use unpack which doesn't require holding Archive across await
     // We'll simulate progress since tar crate doesn't support async extraction easily
+    let tar_path_clone = tar_path.clone();
     let temp_extract_clone = temp_extract.clone();
     let progress_state_clone = Arc::clone(&progress_state);
     
     // Start extraction in a blocking task with progress simulation
     let extract_handle = tokio::task::spawn_blocking(move || {
-        let file = File::open(&tar_path)
-            .map_err(|e| format!("Failed to open archive: {}", e))?;
-        let gz = GzDecoder::new(file);
-        let mut archive = Archive::new(gz);
-        archive.unpack(&temp_extract_clone)
-            .map_err(|e| format!("Failed to extract archive: {}", e))
+        // Small delay to ensure file is fully written and closed
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        
+        // Verify file exists again in blocking context
+        if !std::path::Path::new(&tar_path_clone).exists() {
+            return Err(format!("Archive file does not exist: {}", tar_path_clone));
+        }
+        
+        // Verify file is not empty and has reasonable size
+        let file_metadata = std::fs::metadata(&tar_path_clone)
+            .map_err(|e| format!("Failed to read file metadata: {}", e))?;
+        if file_metadata.len() < 100 {
+            return Err("Archive file is too small to be valid".to_string());
+        }
+        
+        let file = File::open(&tar_path_clone)
+            .map_err(|e| format!("Failed to open archive: {} ({})", e, tar_path_clone))?;
+        
+        // Try to read first few bytes to detect file format
+        use std::io::{Read, Seek, SeekFrom};
+        let mut peek_buf = [0u8; 6];
+        let mut peek_file = file.try_clone()
+            .map_err(|e| format!("Failed to clone file handle: {}", e))?;
+        
+        if peek_file.read_exact(&mut peek_buf).is_err() {
+            return Err("Archive file appears to be corrupted or incomplete".to_string());
+        }
+        
+        // Check file format by magic bytes
+        let is_gzip = peek_buf[0] == 0x1f && peek_buf[1] == 0x8b;
+        // Zstd format signature: 28 B5 2F FD (bytes 0-3)
+        let is_zstd = peek_buf[0] == 0x28 && peek_buf[1] == 0xb5 && peek_buf[2] == 0x2f && peek_buf[3] == 0xfd;
+        // XZ format signature: FD 37 7A 58 5A 00 (bytes 0-5)
+        let is_xz = peek_buf[0] == 0xfd && peek_buf[1] == 0x37 && peek_buf[2] == 0x7a && peek_buf[3] == 0x58 && peek_buf[4] == 0x5a && peek_buf[5] == 0x00;
+        // 7z format signature: 37 7A BC AF 27 1C (bytes 0-5)
+        let is_7z = peek_buf[0] == 0x37 && peek_buf[1] == 0x7a && peek_buf[2] == 0xbc && peek_buf[3] == 0xaf && peek_buf[4] == 0x27 && peek_buf[5] == 0x1c;
+        // ZIP format signature: 50 4B (PK) followed by 03, 05, or 07
+        let is_zip = peek_buf[0] == 0x50 && peek_buf[1] == 0x4b && (peek_buf[2] == 0x03 || peek_buf[2] == 0x05 || peek_buf[2] == 0x07);
+        
+        eprintln!("[DEBUG] File magic bytes: {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}", 
+            peek_buf[0], peek_buf[1], peek_buf[2], peek_buf[3], peek_buf[4], peek_buf[5]);
+        eprintln!("[DEBUG] Format detection: gzip={}, zstd={}, xz={}, 7z={}, zip={}", is_gzip, is_zstd, is_xz, is_7z, is_zip);
+        
+        if is_7z {
+            // Use system's 7z command to extract
+            eprintln!("[DEBUG] Detected 7z archive format");
+            let output = std::process::Command::new("7z")
+                .arg("x")
+                .arg(&tar_path_clone)
+                .arg(format!("-o{}", temp_extract_clone.to_string_lossy()))
+                .arg("-y") // Assume yes to all prompts
+                .output()
+                .map_err(|e| format!("Failed to execute 7z command. Is p7zip installed? Error: {}", e))?;
+            
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("7z extraction failed: {}", stderr));
+            }
+            
+            return Ok(());
+        } else if is_zip {
+            // Use system's unzip command
+            eprintln!("[DEBUG] Detected ZIP archive format");
+            let output = std::process::Command::new("unzip")
+                .arg("-q") // Quiet mode
+                .arg("-o") // Overwrite files
+                .arg(&tar_path_clone)
+                .arg("-d")
+                .arg(&temp_extract_clone)
+                .output()
+                .map_err(|e| format!("Failed to execute unzip command. Is unzip installed? Error: {}", e))?;
+            
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("unzip extraction failed: {}", stderr));
+            }
+            
+            return Ok(());
+        } else if !is_gzip && !is_zstd && !is_xz {
+            return Err(format!("Unsupported archive format (magic bytes: {:02x} {:02x} {:02x} {:02x}). Expected gzip (.tar.gz), zstd (.tar.zst), xz (.tar.xz), 7z, or zip format.", 
+                peek_buf[0], peek_buf[1], peek_buf[2], peek_buf[3]));
+        }
+        
+        // Reset file position for actual extraction
+        let mut file = File::open(&tar_path_clone)
+            .map_err(|e| format!("Failed to reopen archive: {}", e))?;
+        file.seek(SeekFrom::Start(0))
+            .map_err(|e| format!("Failed to seek file: {}", e))?;
+        
+        // Create appropriate decoder and extract based on format
+        if is_gzip {
+            let gz = GzDecoder::new(file);
+            let mut archive = Archive::new(gz);
+            archive.unpack(&temp_extract_clone)
+                .map_err(|e| {
+                    let error_msg = format!("Failed to extract gzip archive: {}", e);
+                    if error_msg.contains("failed to iterate") {
+                        format!("Archive appears to be corrupted or in an unsupported format. Please try downloading again. Original error: {}", e)
+                    } else {
+                        error_msg
+                    }
+                })?;
+        } else if is_zstd {
+            // zstd
+            use zstd::stream::Decoder;
+            let decoder = Decoder::new(file)
+                .map_err(|e| format!("Failed to create zstd decoder: {}", e))?;
+            let mut archive = Archive::new(decoder);
+            archive.unpack(&temp_extract_clone)
+                .map_err(|e| {
+                    let error_msg = format!("Failed to extract zstd archive: {}", e);
+                    if error_msg.contains("failed to iterate") {
+                        format!("Archive appears to be corrupted or in an unsupported format. Please try downloading again. Original error: {}", e)
+                    } else {
+                        error_msg
+                    }
+                })?;
+        } else {
+            // xz
+            use xz2::read::XzDecoder;
+            let xz = XzDecoder::new(file);
+            let mut archive = Archive::new(xz);
+            archive.unpack(&temp_extract_clone)
+                .map_err(|e| {
+                    let error_msg = format!("Failed to extract xz archive: {}", e);
+                    if error_msg.contains("failed to iterate") {
+                        format!("Archive appears to be corrupted or in an unsupported format. Please try downloading again. Original error: {}", e)
+                    } else {
+                        error_msg
+                    }
+                })?;
+        }
+        
+        Ok(())
     });
     
     // Simulate progress while extraction happens

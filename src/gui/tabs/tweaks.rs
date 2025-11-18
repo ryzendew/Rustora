@@ -300,13 +300,19 @@ impl TweaksTab {
                 }
                 // Load Proton builds and detect launchers when switching to that tab
                 if view == TweaksView::Proton {
-                    if self.proton_runners.is_empty() && !self.is_loading_proton_builds {
-                        self.is_loading_proton_builds = true;
-                        self.proton_builds_error = None;
-                        return iced::Command::batch(vec![
-                            iced::Command::perform(detect_launchers(), Message::LaunchersDetected),
-                            iced::Command::perform(load_proton_builds(), Message::ProtonBuildsLoaded),
-                        ]);
+                    // Always reload if not currently loading and either empty or error exists
+                    if !self.is_loading_proton_builds {
+                        if self.proton_runners.is_empty() || self.proton_builds_error.is_some() {
+                            eprintln!("[DEBUG] Loading Proton builds (empty: {}, has_error: {})", 
+                                self.proton_runners.is_empty(), 
+                                self.proton_builds_error.is_some());
+                            self.is_loading_proton_builds = true;
+                            self.proton_builds_error = None;
+                            return iced::Command::batch(vec![
+                                iced::Command::perform(detect_launchers(), Message::LaunchersDetected),
+                                iced::Command::perform(load_proton_builds(), Message::ProtonBuildsLoaded),
+                            ]);
+                        }
                     }
                     if self.detected_launchers.is_empty() && !self.is_detecting_launchers {
                         self.is_detecting_launchers = true;
@@ -541,9 +547,20 @@ impl TweaksTab {
             }
             Message::ProtonBuildsLoaded(result) => {
                 self.is_loading_proton_builds = false;
+                eprintln!("[DEBUG] ========== ProtonBuildsLoaded START ==========");
                 match result {
                     Ok(runners) => {
                         eprintln!("[DEBUG] ProtonBuildsLoaded: received {} runners", runners.len());
+                        for (idx, runner) in runners.iter().enumerate() {
+                            eprintln!("[DEBUG] Runner {}: {} (type: {})", idx, runner.title, runner.compat_layer_type);
+                            eprintln!("[DEBUG]   Description: {}", runner.description);
+                            eprintln!("[DEBUG]   Endpoint: {}", runner.endpoint);
+                            eprintln!("[DEBUG]   Has {} builds", runner.builds.len());
+                            for (build_idx, build) in runner.builds.iter().enumerate() {
+                                eprintln!("[DEBUG]     Build {}: {} (installed: {}, latest: {})", 
+                                    build_idx, build.title, build.is_installed, build.is_latest);
+                            }
+                        }
                         self.proton_runners = runners;
                         self.proton_builds_error = None;
                         // Auto-select first runner if none selected
@@ -553,18 +570,21 @@ impl TweaksTab {
                         }
                         // Update installation status if launchers are already detected
                         if !self.detected_launchers.is_empty() {
-                            eprintln!("[DEBUG] Launchers detected, updating installation status");
+                            eprintln!("[DEBUG] Launchers detected ({}), updating installation status", self.detected_launchers.len());
                             self.update_proton_installation_status();
                             // Check usage counts
+                            eprintln!("[DEBUG] Checking Proton usage counts...");
                             return iced::Command::perform(check_proton_usage(self.proton_runners.clone(), self.detected_launchers.clone()), Message::ProtonUsageChecked);
                         } else {
                             eprintln!("[DEBUG] No launchers detected yet, installation status will be updated when launchers are detected");
                         }
                         eprintln!("[DEBUG] UI should now show {} runners", self.proton_runners.len());
+                        eprintln!("[DEBUG] ========== ProtonBuildsLoaded END ==========");
                     }
                     Err(e) => {
                         eprintln!("[DEBUG] ProtonBuildsLoaded error: {}", e);
                         self.proton_builds_error = Some(e);
+                        eprintln!("[DEBUG] ========== ProtonBuildsLoaded END (ERROR) ==========");
                     }
                 }
                 iced::Command::none()
@@ -970,9 +990,24 @@ impl TweaksTab {
     }
 
     fn update_proton_installation_status(&mut self) {
+        eprintln!("[DEBUG] ========== update_proton_installation_status START ==========");
+        eprintln!("[DEBUG] Total runners: {}", self.proton_runners.len());
+        eprintln!("[DEBUG] Detected launchers: {}", self.detected_launchers.len());
+        for launcher in &self.detected_launchers {
+            eprintln!("[DEBUG]   - {} at {} ({})", launcher.title, launcher.directory, launcher.installation_type);
+        }
+        
         // Update installation status for all builds based on detected launchers
         for runner in &mut self.proton_runners {
+            eprintln!("[DEBUG] Checking runner: {} (type: {})", runner.title, runner.compat_layer_type);
+            eprintln!("[DEBUG]   Has {} builds", runner.builds.len());
+            eprintln!("[DEBUG]   Has {} directory_name_formats", runner.directory_name_formats.len());
+            for format in &runner.directory_name_formats {
+                eprintln!("[DEBUG]     Format for {}: {}", format.launcher, format.directory_name_format);
+            }
+            
             for build in &mut runner.builds {
+                let was_installed = build.is_installed;
                 build.is_installed = check_proton_installed(
                     &runner.title,
                     &build.title,
@@ -980,8 +1015,19 @@ impl TweaksTab {
                     &self.detected_launchers,
                     &runner.compat_layer_type,
                 );
+                if was_installed != build.is_installed {
+                    eprintln!("[DEBUG]   Build {} {}: {} -> {}", 
+                        runner.title, build.title, 
+                        if was_installed { "installed" } else { "not installed" },
+                        if build.is_installed { "installed" } else { "not installed" });
+                } else {
+                    eprintln!("[DEBUG]   Build {} {}: {} (unchanged)", 
+                        runner.title, build.title,
+                        if build.is_installed { "installed" } else { "not installed" });
+                }
             }
         }
+        eprintln!("[DEBUG] ========== update_proton_installation_status END ==========");
     }
 
     pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
@@ -4167,39 +4213,52 @@ async fn load_proton_builds() -> Result<Vec<ProtonRunner>, String> {
     // Try to load from cache first
     if let Some(cached_runners) = load_proton_cache() {
         eprintln!("[DEBUG] Using cached Proton builds ({} runners)", cached_runners.len());
-        // Still fetch in background to check for updates, but return cached immediately
-        // We'll update the cache if new builds are found, and the UI will refresh on next load
-        let cached_runners_clone = cached_runners.clone();
-        tokio::spawn(async move {
-            eprintln!("[DEBUG] Background: Checking for new builds...");
-            if let Ok(new_runners) = fetch_proton_builds_from_github().await {
-                eprintln!("[DEBUG] Background: Fetched {} runners from GitHub", new_runners.len());
-                if has_new_builds(&cached_runners_clone, &new_runners) {
-                    eprintln!("[DEBUG] Background: New builds detected, updating cache");
-                    if let Err(e) = save_proton_cache(&new_runners) {
-                        eprintln!("[DEBUG] Background: Failed to save cache: {}", e);
+        
+        // If cache is empty, force a fresh fetch
+        if cached_runners.is_empty() {
+            eprintln!("[DEBUG] Cache is empty, forcing fresh fetch");
+        } else {
+            // Still fetch in background to check for updates, but return cached immediately
+            // We'll update the cache if new builds are found, and the UI will refresh on next load
+            let cached_runners_clone = cached_runners.clone();
+            tokio::spawn(async move {
+                eprintln!("[DEBUG] Background: Checking for new builds...");
+                if let Ok(new_runners) = fetch_proton_builds_from_github().await {
+                    eprintln!("[DEBUG] Background: Fetched {} runners from GitHub", new_runners.len());
+                    if has_new_builds(&cached_runners_clone, &new_runners) {
+                        eprintln!("[DEBUG] Background: New builds detected, updating cache");
+                        if let Err(e) = save_proton_cache(&new_runners) {
+                            eprintln!("[DEBUG] Background: Failed to save cache: {}", e);
+                        } else {
+                            eprintln!("[DEBUG] Background: Cache updated successfully");
+                        }
                     } else {
-                        eprintln!("[DEBUG] Background: Cache updated successfully");
+                        eprintln!("[DEBUG] Background: No new builds found");
                     }
                 } else {
-                    eprintln!("[DEBUG] Background: No new builds found");
+                    eprintln!("[DEBUG] Background: Failed to fetch from GitHub");
                 }
-            } else {
-                eprintln!("[DEBUG] Background: Failed to fetch from GitHub");
-            }
-        });
-        eprintln!("[DEBUG] Returning {} cached runners immediately", cached_runners.len());
-        return Ok(cached_runners);
+            });
+            eprintln!("[DEBUG] Returning {} cached runners immediately", cached_runners.len());
+            return Ok(cached_runners);
+        }
     }
     
-    // Cache miss or expired, fetch from GitHub
-    eprintln!("[DEBUG] Cache miss or expired, fetching from GitHub");
+    // Cache miss, expired, or empty - fetch from GitHub
+    eprintln!("[DEBUG] Cache miss/expired/empty, fetching from GitHub");
     let runners = fetch_proton_builds_from_github().await?;
     eprintln!("[DEBUG] Fetched {} runners from GitHub", runners.len());
     
-    // Save to cache
-    save_proton_cache(&runners)?;
-    eprintln!("[DEBUG] Saved {} runners to cache", runners.len());
+    // Only save to cache if we got some runners
+    if !runners.is_empty() {
+        if let Err(e) = save_proton_cache(&runners) {
+            eprintln!("[DEBUG] Warning: Failed to save cache: {}", e);
+        } else {
+            eprintln!("[DEBUG] Saved {} runners to cache", runners.len());
+        }
+    } else {
+        eprintln!("[DEBUG] Warning: Fetched 0 runners from GitHub");
+    }
     
     Ok(runners)
 }
@@ -4407,9 +4466,29 @@ async fn process_runners_json(json: serde_json::Value) -> Result<Vec<ProtonRunne
                                                                         eprintln!("[DEBUG] Release {}: {}", release_idx, tag_name);
                                                                         if let Some(assets) = release.get("assets").and_then(|v| v.as_array()) {
                                                                             eprintln!("[DEBUG] Release {} has {} assets", tag_name, assets.len());
-                                                                            if assets.len() > asset_position {
-                                                                                if let Some(asset) = assets.get(asset_position) {
-                                                                                    if let Some(download_url) = asset.get("browser_download_url").and_then(|v| v.as_str()) {
+                                                                            
+                                                                            // Try to find tar.gz file first, fall back to asset_position
+                                                                            let mut selected_asset: Option<&serde_json::Value> = None;
+                                                                            
+                                                                            // First, try to find a .tar.gz file
+                                                                            for asset in assets.iter() {
+                                                                                if let Some(download_url) = asset.get("browser_download_url").and_then(|v| v.as_str()) {
+                                                                                    if download_url.ends_with(".tar.gz") || download_url.ends_with(".tar.gz?") {
+                                                                                        eprintln!("[DEBUG] Found tar.gz asset: {}", download_url);
+                                                                                        selected_asset = Some(asset);
+                                                                                        break;
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                            
+                                                                            // If no tar.gz found, use asset_position
+                                                                            if selected_asset.is_none() && assets.len() > asset_position {
+                                                                                selected_asset = assets.get(asset_position);
+                                                                                eprintln!("[DEBUG] Using asset at position {} (no tar.gz found)", asset_position);
+                                                                            }
+                                                                            
+                                                                            if let Some(asset) = selected_asset {
+                                                                                if let Some(download_url) = asset.get("browser_download_url").and_then(|v| v.as_str()) {
                                                                                         let description = release.get("body")
                                                                                             .and_then(|v| v.as_str())
                                                                                             .unwrap_or("")
@@ -4446,14 +4525,11 @@ async fn process_runners_json(json: serde_json::Value) -> Result<Vec<ProtonRunne
                                                                                         });
                                                                                         eprintln!("[DEBUG] Added build: {} {}", runner_title, tag_name);
                                                                                     } else {
-                                                                                        eprintln!("[DEBUG] Asset {} for {} has no browser_download_url", asset_position, tag_name);
+                                                                                        eprintln!("[DEBUG] Selected asset for {} has no browser_download_url", tag_name);
                                                                                     }
                                                                                 } else {
-                                                                                    eprintln!("[DEBUG] Could not get asset at position {} for {}", asset_position, tag_name);
+                                                                                    eprintln!("[DEBUG] No suitable asset found for {}", tag_name);
                                                                                 }
-                                                                            } else {
-                                                                                eprintln!("[DEBUG] Not enough assets for {} (need {}, have {})", tag_name, asset_position + 1, assets.len());
-                                                                            }
                                                                         } else {
                                                                             eprintln!("[DEBUG] Release {} has no assets array", tag_name);
                                                                         }
@@ -4532,7 +4608,11 @@ async fn process_runners_json(json: serde_json::Value) -> Result<Vec<ProtonRunne
         eprintln!("[DEBUG] JSON has no compat_layers array");
     }
     
+    eprintln!("[DEBUG] ========== process_runners_json COMPLETE ==========");
     eprintln!("[DEBUG] Total runners found: {}", proton_runners.len());
+    for (idx, runner) in proton_runners.iter().enumerate() {
+        eprintln!("[DEBUG] Final runner {}: {} with {} builds", idx, runner.title, runner.builds.len());
+    }
     Ok(proton_runners)
 }
 
@@ -4617,31 +4697,68 @@ async fn detect_launchers() -> Result<Vec<DetectedLauncher>, String> {
 }
 
 fn check_proton_installed(runner_title: &str, release_name: &str, directory_name_formats: &[DirectoryNameFormat], detected_launchers: &[DetectedLauncher], compat_layer_type: &str) -> bool {
-    eprintln!("[DEBUG] check_proton_installed({}, {}, type: {})", runner_title, release_name, compat_layer_type);
+    eprintln!("[DEBUG] ========== check_proton_installed START ==========");
+    eprintln!("[DEBUG] runner_title: {}", runner_title);
+    eprintln!("[DEBUG] release_name: {}", release_name);
+    eprintln!("[DEBUG] compat_layer_type: {}", compat_layer_type);
+    eprintln!("[DEBUG] directory_name_formats count: {}", directory_name_formats.len());
+    for (idx, format) in directory_name_formats.iter().enumerate() {
+        eprintln!("[DEBUG]   Format {}: launcher={}, format={}", idx, format.launcher, format.directory_name_format);
+    }
+    eprintln!("[DEBUG] detected_launchers count: {}", detected_launchers.len());
+    for (idx, launcher) in detected_launchers.iter().enumerate() {
+        eprintln!("[DEBUG]   Launcher {}: {} at {} ({})", idx, launcher.title, launcher.directory, launcher.installation_type);
+    }
     
     // Get directory name format for each detected launcher
     for launcher in detected_launchers {
+        eprintln!("[DEBUG] Checking launcher: {}", launcher.title);
         let format = directory_name_formats.iter()
             .find(|f| f.launcher == launcher.title)
             .or_else(|| directory_name_formats.iter().find(|f| f.launcher == "default"));
         
         if let Some(format) = format {
+            eprintln!("[DEBUG]   Found format for {}: {}", launcher.title, format.directory_name_format);
             let dir_name = format_directory_name(&format.directory_name_format, runner_title, release_name);
-            eprintln!("[DEBUG] Using directory name format for {}: {} -> {}", launcher.title, format.directory_name_format, dir_name);
+            eprintln!("[DEBUG]   Formatted directory name: {} -> {}", format.directory_name_format, dir_name);
             
             // Get the directory path based on launcher type and compat layer type
             let compat_dir = get_launcher_compat_directory_for_type(&launcher.title, &launcher.directory, compat_layer_type);
+            eprintln!("[DEBUG]   Compat directory for {} (type: {}): {}", launcher.title, compat_layer_type, compat_dir);
             let full_path = format!("{}/{}", compat_dir, dir_name);
             
-            eprintln!("[DEBUG] Checking path: {}", full_path);
-            if std::path::Path::new(&full_path).exists() {
-                eprintln!("[DEBUG] Found installed at: {}", full_path);
-                return true;
+            eprintln!("[DEBUG]   Checking full path: {}", full_path);
+            let path_exists = std::path::Path::new(&full_path).exists();
+            eprintln!("[DEBUG]   Path exists: {}", path_exists);
+            
+            if path_exists {
+                // Verify it's actually a directory and has some content
+                if let Ok(metadata) = std::fs::metadata(&full_path) {
+                    eprintln!("[DEBUG]   Path metadata: is_dir={}, is_file={}", metadata.is_dir(), metadata.is_file());
+                    if metadata.is_dir() {
+                        // Check if directory has content (at least one file/dir)
+                        if let Ok(entries) = std::fs::read_dir(&full_path) {
+                            let entry_count = entries.count();
+                            eprintln!("[DEBUG]   Directory has {} entries", entry_count);
+                            if entry_count > 0 {
+                                eprintln!("[DEBUG] ========== check_proton_installed END: FOUND ==========");
+                                return true;
+                            } else {
+                                eprintln!("[DEBUG]   Directory exists but is empty, continuing search...");
+                            }
+                        }
+                    }
+                }
+            } else {
+                eprintln!("[DEBUG]   Path does not exist, continuing search...");
             }
+        } else {
+            eprintln!("[DEBUG]   No format found for launcher {}", launcher.title);
         }
     }
     
     eprintln!("[DEBUG] {} {} not found in any launcher directory", runner_title, release_name);
+    eprintln!("[DEBUG] ========== check_proton_installed END: NOT FOUND ==========");
     false
 }
 
@@ -4700,6 +4817,7 @@ fn has_proton_update(runner: &ProtonRunner, build: &ProtonBuild, detected_launch
 }
 
 fn format_directory_name(format: &str, runner_title: &str, release_name: &str) -> String {
+    eprintln!("[DEBUG] format_directory_name: format='{}', runner_title='{}', release_name='{}'", format, runner_title, release_name);
     let mut result = format.to_string();
     result = result.replace("$release_name", release_name);
     result = result.replace("$title", runner_title);
@@ -4707,6 +4825,7 @@ fn format_directory_name(format: &str, runner_title: &str, release_name: &str) -
     // Handle special prefixes like ProtonPlus does
     if result.starts_with('_') {
         result = result[1..].to_lowercase();
+        eprintln!("[DEBUG]   Applied '_' prefix, result: '{}'", result);
     } else if result.starts_with('!') {
         // Format: !$release_name:v:vkd3d-lutris-
         // Replace v with vkd3d-lutris- in release_name
@@ -4714,7 +4833,9 @@ fn format_directory_name(format: &str, runner_title: &str, release_name: &str) -
         if parts.len() == 3 {
             let search = parts[1];
             let replace = parts[2];
-            result = parts[0].replace(search, replace);
+            let new_result = parts[0].replace(search, replace);
+            eprintln!("[DEBUG]   Applied '!' prefix, search='{}', replace='{}', result: '{}'", search, replace, new_result);
+            result = new_result;
         }
     } else if result.starts_with('&') {
         // Format: &$release_name:.:Proton-$release_name:$release_name
@@ -4722,13 +4843,18 @@ fn format_directory_name(format: &str, runner_title: &str, release_name: &str) -
         let parts: Vec<&str> = result[1..].split(':').collect();
         if parts.len() == 4 {
             if release_name.contains(parts[1]) {
-                result = parts[2].replace("$release_name", release_name);
+                let new_result = parts[2].replace("$release_name", release_name);
+                eprintln!("[DEBUG]   Applied '&' prefix (contains '{}'), using parts[2], result: '{}'", parts[1], new_result);
+                result = new_result;
             } else {
-                result = parts[3].replace("$release_name", release_name);
+                let new_result = parts[3].replace("$release_name", release_name);
+                eprintln!("[DEBUG]   Applied '&' prefix (doesn't contain '{}'), using parts[3], result: '{}'", parts[1], new_result);
+                result = new_result;
             }
         }
     }
     
+    eprintln!("[DEBUG] format_directory_name result: '{}'", result);
     result
 }
 
@@ -4921,40 +5047,64 @@ async fn install_proton_build(runner_title: String, title: String, tar_path: Str
     
     eprintln!("[DEBUG] Using compatibilitytools.d directory: {}", compat_dir);
     
-    // Extract tar.gz
+    // Extract archive (detect format)
     eprintln!("[DEBUG] Opening archive: {}", tar_path);
-    let file = File::open(&tar_path)
+    let mut file = File::open(&tar_path)
         .map_err(|e| {
             eprintln!("[DEBUG] Failed to open archive: {}", e);
             format!("Failed to open archive: {}", e)
         })?;
-    let gz = GzDecoder::new(file);
-    let mut archive = Archive::new(gz);
+    
+    // Read first 6 bytes to detect compression format (xz needs 6 bytes)
+    use std::io::{Read, Seek, SeekFrom};
+    let mut magic_buf = [0u8; 6];
+    if file.read_exact(&mut magic_buf).is_err() {
+        return Err("Archive file appears to be corrupted or incomplete".to_string());
+    }
+    
+    // Reset file position for actual extraction
+    file.seek(SeekFrom::Start(0))
+        .map_err(|e| format!("Failed to seek file: {}", e))?;
+    
+    // Detect compression format
+    let is_gzip = magic_buf[0] == 0x1f && magic_buf[1] == 0x8b;
+    let is_zstd = magic_buf[0] == 0x28 && magic_buf[1] == 0xb5 && magic_buf[2] == 0x2f && magic_buf[3] == 0xfd;
+    let is_xz = magic_buf[0] == 0xfd && magic_buf[1] == 0x37 && magic_buf[2] == 0x7a && magic_buf[3] == 0x58 && magic_buf[4] == 0x5a && magic_buf[5] == 0x00;
+    
+    eprintln!("[DEBUG] File magic bytes: {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}", 
+        magic_buf[0], magic_buf[1], magic_buf[2], magic_buf[3], magic_buf[4], magic_buf[5]);
+    eprintln!("[DEBUG] Format detection: gzip={}, zstd={}, xz={}", is_gzip, is_zstd, is_xz);
+    
+    if !is_gzip && !is_zstd && !is_xz {
+        return Err(format!("Unsupported archive format (magic bytes: {:02x} {:02x} {:02x} {:02x}). Expected gzip (.tar.gz), zstd (.tar.zst), or xz (.tar.xz).", 
+            magic_buf[0], magic_buf[1], magic_buf[2], magic_buf[3]));
+    }
     
     // Extract to temp directory first
     let temp_extract = std::env::temp_dir().join(format!("proton_extract_{}", title));
-    eprintln!("[DEBUG] Temp extract directory: {}", temp_extract.display());
-    if temp_extract.exists() {
-        eprintln!("[DEBUG] Temp extract directory exists, removing...");
-        std::fs::remove_dir_all(&temp_extract)
-            .map_err(|e| {
-                eprintln!("[DEBUG] Failed to clean temp extract: {}", e);
-                format!("Failed to clean temp extract: {}", e)
-            })?;
-    }
-    eprintln!("[DEBUG] Creating temp extract directory...");
-    std::fs::create_dir_all(&temp_extract)
-        .map_err(|e| {
-            eprintln!("[DEBUG] Failed to create temp extract: {}", e);
-            format!("Failed to create temp extract: {}", e)
-        })?;
     
-    eprintln!("[DEBUG] Extracting archive...");
-    archive.unpack(&temp_extract)
-        .map_err(|e| {
-            eprintln!("[DEBUG] Failed to extract archive: {}", e);
-            format!("Failed to extract archive: {}", e)
-        })?;
+    // Create appropriate decoder and extract based on format
+    if is_gzip {
+        let gz = GzDecoder::new(file);
+        let mut archive = Archive::new(gz);
+        archive.unpack(&temp_extract)
+            .map_err(|e| format!("Failed to extract gzip archive: {}", e))?;
+    } else if is_zstd {
+        // zstd
+        use zstd::stream::Decoder;
+        let decoder = Decoder::new(file)
+            .map_err(|e| format!("Failed to create zstd decoder: {}", e))?;
+        let mut archive = Archive::new(decoder);
+        archive.unpack(&temp_extract)
+            .map_err(|e| format!("Failed to extract zstd archive: {}", e))?;
+    } else {
+        // xz
+        use xz2::read::XzDecoder;
+        let xz = XzDecoder::new(file);
+        let mut archive = Archive::new(xz);
+        archive.unpack(&temp_extract)
+            .map_err(|e| format!("Failed to extract xz archive: {}", e))?;
+    }
     eprintln!("[DEBUG] Archive extracted successfully");
     
     // Find the extracted directory (usually the first directory in the archive)
@@ -5093,15 +5243,38 @@ async fn install_proton_build_with_launcher(
     std::fs::create_dir_all(&compat_dir)
         .map_err(|e| format!("Failed to create compatibility directory: {}", e))?;
     
-    // Extract tar.gz
+    // Extract archive (detect format)
     eprintln!("[DEBUG] Opening archive: {}", tar_path);
-    let file = File::open(&tar_path)
+    let mut file = File::open(&tar_path)
         .map_err(|e| {
             eprintln!("[DEBUG] Failed to open archive: {}", e);
             format!("Failed to open archive: {}", e)
         })?;
-    let gz = GzDecoder::new(file);
-    let mut archive = Archive::new(gz);
+    
+    // Read first 6 bytes to detect compression format (xz needs 6 bytes)
+    use std::io::{Read, Seek, SeekFrom};
+    let mut magic_buf = [0u8; 6];
+    if file.read_exact(&mut magic_buf).is_err() {
+        return Err("Archive file appears to be corrupted or incomplete".to_string());
+    }
+    
+    // Reset file position for actual extraction
+    file.seek(SeekFrom::Start(0))
+        .map_err(|e| format!("Failed to seek file: {}", e))?;
+    
+    // Detect compression format
+    let is_gzip = magic_buf[0] == 0x1f && magic_buf[1] == 0x8b;
+    let is_zstd = magic_buf[0] == 0x28 && magic_buf[1] == 0xb5 && magic_buf[2] == 0x2f && magic_buf[3] == 0xfd;
+    let is_xz = magic_buf[0] == 0xfd && magic_buf[1] == 0x37 && magic_buf[2] == 0x7a && magic_buf[3] == 0x58 && magic_buf[4] == 0x5a && magic_buf[5] == 0x00;
+    
+    eprintln!("[DEBUG] File magic bytes: {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}", 
+        magic_buf[0], magic_buf[1], magic_buf[2], magic_buf[3], magic_buf[4], magic_buf[5]);
+    eprintln!("[DEBUG] Format detection: gzip={}, zstd={}, xz={}", is_gzip, is_zstd, is_xz);
+    
+    if !is_gzip && !is_zstd && !is_xz {
+        return Err(format!("Unsupported archive format (magic bytes: {:02x} {:02x} {:02x} {:02x}). Expected gzip (.tar.gz), zstd (.tar.zst), or xz (.tar.xz).", 
+            magic_buf[0], magic_buf[1], magic_buf[2], magic_buf[3]));
+    }
     
     // Extract to temp directory in user's home folder (to avoid cross-device issues)
     let home = std::env::var("HOME").unwrap_or_else(|_| "/home".to_string());
@@ -5112,28 +5285,44 @@ async fn install_proton_build_with_launcher(
             format!("Failed to create temp directory: {}", e)
         })?;
     let temp_extract = home_tmp.join(format!("proton_extract_{}", title));
-    eprintln!("[DEBUG] Temp extract directory: {}", temp_extract.display());
     if temp_extract.exists() {
         eprintln!("[DEBUG] Temp extract directory exists, removing...");
         std::fs::remove_dir_all(&temp_extract)
             .map_err(|e| {
-                eprintln!("[DEBUG] Failed to clean temp extract: {}", e);
+                eprintln!("[DEBUG] Failed to remove existing temp extract: {}", e);
                 format!("Failed to clean temp extract: {}", e)
             })?;
     }
-    eprintln!("[DEBUG] Creating temp extract directory...");
     std::fs::create_dir_all(&temp_extract)
-        .map_err(|e| {
-            eprintln!("[DEBUG] Failed to create temp extract: {}", e);
-            format!("Failed to create temp extract: {}", e)
-        })?;
+        .map_err(|e| format!("Failed to create temp extract: {}", e))?;
     
-    eprintln!("[DEBUG] Extracting archive...");
-    archive.unpack(&temp_extract)
-        .map_err(|e| {
-            eprintln!("[DEBUG] Failed to extract archive: {}", e);
-            format!("Failed to extract archive: {}", e)
-        })?;
+    // Create appropriate decoder and extract based on format
+    if is_gzip {
+        let gz = GzDecoder::new(file);
+        let mut archive = Archive::new(gz);
+        archive.unpack(&temp_extract)
+            .map_err(|e| format!("Failed to extract gzip archive: {}", e))?;
+    } else if is_zstd {
+        // zstd
+        use zstd::stream::Decoder;
+        let decoder = Decoder::new(file)
+            .map_err(|e| format!("Failed to create zstd decoder: {}", e))?;
+        let mut archive = Archive::new(decoder);
+        archive.unpack(&temp_extract)
+            .map_err(|e| format!("Failed to extract zstd archive: {}", e))?;
+    } else {
+        // xz
+        use xz2::read::XzDecoder;
+        let xz = XzDecoder::new(file);
+        let mut archive = Archive::new(xz);
+        archive.unpack(&temp_extract)
+            .map_err(|e| format!("Failed to extract xz archive: {}", e))?;
+    }
+    
+    // Get the temp extract directory (same for both formats)
+    let home_tmp = std::path::Path::new(&home).join(".tmp");
+    let temp_extract = home_tmp.join(format!("proton_extract_{}", title));
+    eprintln!("[DEBUG] Temp extract directory: {}", temp_extract.display());
     eprintln!("[DEBUG] Archive extracted successfully");
     
     // Find the extracted directory (usually the first directory in the archive)
