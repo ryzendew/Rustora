@@ -434,7 +434,7 @@ impl RepoTab {
                         row![
                             text("Repository Details")
                                 .size(title_font_size * 0.64)
-                                .style(iced::theme::Text::Color(theme.primary())),
+                                .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                             Space::with_width(Length::Fill),
                             button(
                                 text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size)
@@ -453,7 +453,7 @@ impl RepoTab {
                             column![
                                 text("Repository ID")
                                     .size(body_font_size * 0.93)
-                                    .style(iced::theme::Text::Color(theme.primary())),
+                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                 Space::with_height(Length::Fixed(4.0)),
                                 text(&details.id)
                                     .size(body_font_size * 1.07)
@@ -472,11 +472,11 @@ impl RepoTab {
                             column![
                                 text("Name")
                                     .size(body_font_size * 0.93)
-                                    .style(iced::theme::Text::Color(theme.primary())),
+                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                 Space::with_height(Length::Fixed(4.0)),
                                 text(&details.name)
                                     .size(body_font_size * 1.14) // Larger size for emphasis
-                                    .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
+                                    .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))) // Darker for better visibility
                                     .width(Length::Fill),
                             ]
                             .spacing(0)
@@ -492,7 +492,7 @@ impl RepoTab {
                             row![
                                 text("Enabled:")
                                     .size(body_font_size * 0.93)
-                                    .style(iced::theme::Text::Color(theme.primary()))
+                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                                     .width(Length::Fixed(100.0)),
                                 text(if details.enabled { "Yes" } else { "No" })
                                     .size(body_font_size * 0.93)
@@ -543,7 +543,7 @@ impl RepoTab {
                                 column![
                                     text("Base URL")
                                         .size(body_font_size * 0.93)
-                                        .style(iced::theme::Text::Color(theme.primary())),
+                                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     Space::with_height(Length::Fixed(4.0)),
                                     text(baseurl)
                                         .size(body_font_size * 0.86)
@@ -561,7 +561,7 @@ impl RepoTab {
                                 column![
                                     text("Metalink")
                                         .size(body_font_size * 0.93)
-                                        .style(iced::theme::Text::Color(theme.primary())),
+                                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     Space::with_height(Length::Fixed(4.0)),
                                     text(metalink)
                                         .size(body_font_size * 0.86)
@@ -585,7 +585,7 @@ impl RepoTab {
                             column![
                                 text("Source File")
                                     .size(body_font_size * 0.93)
-                                    .style(iced::theme::Text::Color(theme.primary())),
+                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                 Space::with_height(Length::Fixed(4.0)),
                                 text(&details.file_path)
                                     .size(body_font_size * 0.86)
@@ -604,7 +604,7 @@ impl RepoTab {
                                 Space::with_height(Length::Fixed(12.0)),
                                 text("Security")
                                     .size(body_font_size)
-                                    .style(iced::theme::Text::Color(theme.primary())),
+                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                 Space::with_height(Length::Fixed(8.0)),
                                 if let Some(gpgcheck) = details.gpgcheck {
                                     container(
@@ -653,7 +653,7 @@ impl RepoTab {
                                         column![
                                             text("GPG Key:")
                                                 .size(body_font_size * 0.86)
-                                                .style(iced::theme::Text::Color(theme.primary())),
+                                                .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                             Space::with_height(Length::Fixed(4.0)),
                                             text(gpgkey)
                                                 .size(body_font_size * 0.79)
@@ -742,7 +742,7 @@ impl RepoTab {
             column![
                 text("Repositories")
                     .size(title_font_size)
-                    .style(iced::theme::Text::Color(theme.primary()))
+                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                     .horizontal_alignment(iced::alignment::Horizontal::Left),
                 Space::with_height(Length::Fixed(8.0)),
                 text("Manage and view DNF/YUM repository configurations")
@@ -805,7 +805,7 @@ impl RepoTab {
                         .style(iced::theme::Text::Color(if self.current_view == RepoView::All {
                             iced::Color::WHITE
                         } else {
-                            theme.text()
+                            theme.text_with_settings(Some(settings))
                         }))
                 )
                 .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
@@ -820,7 +820,7 @@ impl RepoTab {
                         .style(iced::theme::Text::Color(if self.current_view == RepoView::Nvidia {
                             iced::Color::WHITE
                         } else {
-                            theme.text()
+                            theme.text_with_settings(Some(settings))
                         }))
                 )
                 .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
@@ -835,7 +835,7 @@ impl RepoTab {
                         .style(iced::theme::Text::Color(if self.current_view == RepoView::RpmFusion {
                             iced::Color::WHITE
                         } else {
-                            theme.text()
+                            theme.text_with_settings(Some(settings))
                         }))
                 )
                 .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
@@ -883,15 +883,15 @@ impl RepoTab {
                 column![
                     text("NVIDIA Driver Repository")
                         .size(title_font_size * 0.71)
-                        .style(iced::theme::Text::Color(theme.primary())),
+                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                     Space::with_height(Length::Fixed(12.0)),
                     text("This will install the NVIDIA driver repository from negativo17.org")
                         .size(body_font_size)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                     Space::with_height(Length::Fixed(8.0)),
                     text("Repository URL: https://negativo17.org/repos/fedora-nvidia.repo")
                         .size(body_font_size * 0.86)
-                        .style(iced::theme::Text::Color(theme.secondary_text()))
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                         .font(iced::Font::MONOSPACE),
                     Space::with_height(Length::Fixed(24.0)),
                     nvidia_install_button,
@@ -950,7 +950,7 @@ impl RepoTab {
                                                 row![
                                                     text(&repo.id)
                                                         .size(body_font_size * 1.14)
-                                                        .style(iced::theme::Text::Color(theme.primary()))
+                                                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                                                         .width(Length::Fill),
                                                     Space::with_width(Length::Fixed(12.0)),
                                                     container(
@@ -970,12 +970,12 @@ impl RepoTab {
                                                 Space::with_height(Length::Fixed(6.0)),
                                                 text(&repo.name)
                                                     .size(body_font_size)
-                                                    .style(iced::theme::Text::Color(theme.text()))
+                                                    .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
                                                     .width(Length::Fill),
                                                 Space::with_height(Length::Fixed(4.0)),
                                                 text(&url_display)
                                                     .size(body_font_size * 0.86)
-                                                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                                                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                                                     .width(Length::Fill),
                                             ]
                                             .spacing(0)
@@ -1038,15 +1038,15 @@ impl RepoTab {
                 column![
                     text("RPM Fusion Repositories")
                         .size(title_font_size * 0.71)
-                        .style(iced::theme::Text::Color(theme.primary())),
+                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                     Space::with_height(Length::Fixed(12.0)),
                     text("This will install both RPM Fusion Free and Nonfree repositories")
                         .size(body_font_size)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                     Space::with_height(Length::Fixed(8.0)),
                     text("These repositories provide additional software including NVIDIA drivers, multimedia codecs, and other packages not available in the official Fedora repositories")
                         .size(body_font_size * 0.86)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                     Space::with_height(Length::Fixed(24.0)),
                     rpmfusion_install_button,
                 ]
@@ -1063,7 +1063,7 @@ impl RepoTab {
                     text("No RPM Fusion repositories found. Click 'Install RPM Fusion Repositories' to add them.")
                         .size(body_font_size)
                         .horizontal_alignment(iced::alignment::Horizontal::Center)
-                        .style(iced::theme::Text::Color(theme.secondary_text()))
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                 )
                 .width(Length::Fill)
                 .height(Length::Fill)
@@ -1105,7 +1105,7 @@ impl RepoTab {
                                                 row![
                                                     text(&repo.id)
                                                         .size(body_font_size * 1.14)
-                                                        .style(iced::theme::Text::Color(theme.primary()))
+                                                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                                                         .width(Length::Fill),
                                                     Space::with_width(Length::Fixed(12.0)),
                                                     container(
@@ -1125,12 +1125,12 @@ impl RepoTab {
                                                 Space::with_height(Length::Fixed(6.0)),
                                                 text(&repo.name)
                                                     .size(body_font_size)
-                                                    .style(iced::theme::Text::Color(theme.text()))
+                                                    .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
                                                     .width(Length::Fill),
                                                 Space::with_height(Length::Fixed(4.0)),
                                                 text(&url_display)
                                                     .size(body_font_size * 0.86)
-                                                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                                                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                                                     .width(Length::Fill),
                                             ]
                                             .spacing(0)
@@ -1235,7 +1235,7 @@ impl RepoTab {
                                             row![
                                                 text(&repo.id)
                                                     .size(body_font_size * 1.14)
-                                                    .style(iced::theme::Text::Color(theme.primary()))
+                                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                                                     .width(Length::Fill),
                                                 Space::with_width(Length::Fixed(12.0)),
                                                 container(
@@ -1255,13 +1255,13 @@ impl RepoTab {
                                             Space::with_height(Length::Fixed(6.0)),
                                             text(&repo.name)
                                                 .size(body_font_size) // Larger size for emphasis
-                                                .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
+                                                .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))) // Darker for better visibility
                                                 .width(Length::Fill),
                                             Space::with_height(Length::Fixed(4.0)),
                                             row![
                                                 text(&url_display)
                                                     .size(body_font_size * 0.86)
-                                                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                                                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                                                     .width(Length::Fill),
                                                 Space::with_width(Length::Fixed(8.0)),
                                                 text(&repo.file_path)
@@ -1308,9 +1308,9 @@ impl RepoTab {
                         .iter()
                         .map(|line| {
                             let line_color = if line.starts_with('#') {
-                                theme.secondary_text()
+                                theme.secondary_text_with_settings(Some(settings))
                             } else if line.starts_with('$') {
-                                theme.primary()
+                                theme.primary_with_settings(Some(settings))
                             } else if line.starts_with("✓") {
                                 iced::Color::from_rgb(0.1, 0.5, 0.1)
                             } else if line.starts_with("✗") || line.starts_with("[stderr]") {
@@ -1318,7 +1318,7 @@ impl RepoTab {
                             } else if line.starts_with("[Prompt detected:") || line.starts_with("[User responded:") {
                                 iced::Color::from_rgb(0.9, 0.7, 0.1)
                             } else {
-                                theme.text()
+                                theme.text_with_settings(Some(settings))
                             };
                             text(line)
                                 .size(body_font_size * 0.93)
@@ -1413,7 +1413,7 @@ impl RepoTab {
                     row![
                         text("Add Repository Terminal")
                             .size(title_font_size * 0.71)
-                            .style(iced::theme::Text::Color(theme.primary())),
+                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                         Space::with_width(Length::Fill),
                         close_button,
                     ]

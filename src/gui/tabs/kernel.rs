@@ -663,7 +663,7 @@ impl KernelTab {
             row![
                 text("Kernel Manager")
                     .size(title_font_size)
-                    .style(iced::theme::Text::Color(theme.primary()))
+                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                     .width(Length::Fill),
                 button(
                     text(crate::gui::fonts::glyphs::REFRESH_SYMBOL)
@@ -691,7 +691,7 @@ impl KernelTab {
                         .style(iced::theme::Text::Color(if self.current_view == KernelView::Kernels {
                             iced::Color::WHITE
                         } else {
-                            theme.text()
+                            theme.text_with_settings(Some(settings))
                         }))
                 )
                 .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
@@ -706,7 +706,7 @@ impl KernelTab {
                         .style(iced::theme::Text::Color(if self.current_view == KernelView::Scheduler {
                             iced::Color::WHITE
                         } else {
-                            theme.text()
+                            theme.text_with_settings(Some(settings))
                         }))
                 )
                 .style(iced::theme::Button::Custom(Box::new(SubTabButtonStyle {
@@ -729,7 +729,7 @@ impl KernelTab {
                 row![
                     text("Branch:")
                         .size(body_font_size * 1.29)
-                        .style(iced::theme::Text::Color(theme.primary())),
+                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                     Space::with_width(Length::Fixed(16.0)),
                     scrollable(
                         row(
@@ -778,7 +778,7 @@ impl KernelTab {
                 text(crate::gui::fonts::glyphs::SEARCH_SYMBOL)
                     .font(material_font)
                     .size(icon_size * 1.22)
-                    .style(iced::theme::Text::Color(theme.text())),
+                    .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                 text_input("Search kernels...", &self.search_query)
                     .on_input(Message::SearchQueryChanged)
                     .style(iced::theme::TextInput::Custom(Box::new(SearchInputStyle {
@@ -803,7 +803,7 @@ impl KernelTab {
                     Space::with_height(Length::Fill),
                     text(if self.is_loading_branches { "Loading branches..." } else { "Loading kernels..." })
                         .size(body_font_size * 1.29)
-                        .style(iced::theme::Text::Color(theme.text()))
+                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
                         .width(Length::Shrink),
                     Space::with_height(Length::Fill),
                 ]
@@ -824,7 +824,7 @@ impl KernelTab {
                     Space::with_height(Length::Fill),
                     text(message)
                         .size(body_font_size * 1.29)
-                        .style(iced::theme::Text::Color(theme.text()))
+                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
                         .width(Length::Shrink),
                     Space::with_height(Length::Fill),
                 ]
@@ -931,7 +931,7 @@ impl KernelTab {
             container(
                 text("AVAILABLE")
                     .size(body_font_size * 0.71)
-                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
             )
             .padding(Padding::from([4.0, 8.0, 4.0, 8.0]))
             .style(iced::theme::Container::Custom(Box::new(AvailableBadgeStyle {
@@ -1026,7 +1026,7 @@ impl KernelTab {
                         // Left: Title
                         text(&kernel.name)
                             .size(package_name_size)
-                            .style(iced::theme::Text::Color(theme.primary()))
+                            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                             .width(Length::Fill),
                         // Right: Badges and action button
                         row![
@@ -1044,7 +1044,7 @@ impl KernelTab {
                     // Description
                     text(&kernel.description)
                         .size(package_detail_size)
-                        .style(iced::theme::Text::Color(theme.text()))
+                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
                         .width(Length::Fill)
                         .shaping(iced::widget::text::Shaping::Advanced),
                     Space::with_height(Length::Fixed(12.0)),
@@ -1054,11 +1054,11 @@ impl KernelTab {
                         column![
                             text("Package")
                                 .size(package_detail_size * 0.77)
-                                .style(iced::theme::Text::Color(theme.secondary_text())),
+                                .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                             Space::with_height(Length::Fixed(2.0)),
                             text(&kernel.main_package)
                                 .size(package_detail_size)
-                                .style(iced::theme::Text::Color(theme.text())),
+                                .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                         ]
                         .spacing(0)
                         .width(Length::FillPortion(2)),
@@ -1066,11 +1066,11 @@ impl KernelTab {
                         column![
                             text("Version")
                                 .size(package_detail_size * 0.77)
-                                .style(iced::theme::Text::Color(theme.secondary_text())),
+                                .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                             Space::with_height(Length::Fixed(2.0)),
                             text(&kernel.version)
                                 .size(package_detail_size)
-                                .style(iced::theme::Text::Color(theme.text())),
+                                .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                         ]
                         .spacing(0)
                         .width(Length::FillPortion(2)),
@@ -1078,11 +1078,11 @@ impl KernelTab {
                         column![
                             text("Vendor")
                                 .size(package_detail_size * 0.77)
-                                .style(iced::theme::Text::Color(theme.secondary_text())),
+                                .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                             Space::with_height(Length::Fixed(2.0)),
                             text(&vendor_text)
                                 .size(package_detail_size)
-                                .style(iced::theme::Text::Color(theme.text()))
+                                .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
                                 .shaping(iced::widget::text::Shaping::Advanced),
                         ]
                         .spacing(0)
@@ -1121,7 +1121,7 @@ impl KernelTab {
                     row![
                         text("Kernel Details")
                             .size(title_font_size * 0.86)
-                            .style(iced::theme::Text::Color(theme.primary()))
+                            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                             .width(Length::Fill),
                         button(
                             text(crate::gui::fonts::glyphs::CLOSE_SYMBOL)
@@ -1143,7 +1143,7 @@ impl KernelTab {
                                 column![
                                     text("Name")
                                         .size(body_font_size)
-                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                                     Space::with_height(Length::Fixed(6.0)),
                                     text(&details.name)
                                         .size(body_font_size * 1.29),
@@ -1159,11 +1159,11 @@ impl KernelTab {
                                 column![
                                     text("Version")
                                         .size(body_font_size)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                                     Space::with_height(Length::Fixed(6.0)),
                                     text(&details.version)
                                         .size(body_font_size * 1.29)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                                 ]
                                 .spacing(0)
                             )
@@ -1176,11 +1176,11 @@ impl KernelTab {
                                 column![
                                     text("Summary")
                                         .size(body_font_size)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                                     Space::with_height(Length::Fixed(6.0)),
                                     text(&details.summary)
                                         .size(body_font_size * 1.14)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                                 ]
                                 .spacing(0)
                             )
@@ -1193,11 +1193,11 @@ impl KernelTab {
                                 column![
                                     text("Description")
                                         .size(body_font_size)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                                     Space::with_height(Length::Fixed(6.0)),
                                     text(&details.description)
                                         .size(body_font_size)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                                 ]
                                 .spacing(0)
                             )
@@ -1294,7 +1294,7 @@ impl KernelTab {
                     Space::with_height(Length::Fixed(100.0)),
                     text("Loading schedulers...")
                         .size(body_font_size * 1.14)
-                        .style(iced::theme::Text::Color(theme.secondary_text()))
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                 ]
                 .align_items(Alignment::Center)
             )
@@ -1333,7 +1333,7 @@ impl KernelTab {
                                             row![
                                                 text(&scheduler.name)
                                                     .size(body_font_size)
-                                                    .style(iced::theme::Text::Color(theme.primary()))
+                                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                                                     .width(Length::Fill),
                                                 if is_current {
                                                     container(
@@ -1373,7 +1373,7 @@ impl KernelTab {
                                                                             .style(iced::theme::Text::Color(if is_mode_current {
                                                                                 iced::Color::from_rgb(1.0, 1.0, 1.0) // White text for current mode
                                                                             } else {
-                                                                                theme.primary()
+                                                                                theme.primary_with_settings(Some(settings))
                                                                             })),
                                                                         Space::with_width(Length::Fill),
                                                                         text(&mode.flags)
@@ -1490,7 +1490,7 @@ impl KernelTab {
                     column![
                         text("Current Scheduler")
                             .size(body_font_size * 1.14)
-                            .style(iced::theme::Text::Color(theme.primary())),
+                            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                         Space::with_height(Length::Fixed(8.0)),
                         container(
                             text(&current_sched_text)
@@ -1514,7 +1514,7 @@ impl KernelTab {
                     column![
                         text("Available Schedulers")
                             .size(body_font_size * 1.14)
-                            .style(iced::theme::Text::Color(theme.primary())),
+                            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                         Space::with_height(Length::Fixed(8.0)),
                         scheduler_list,
                     ]
@@ -1531,7 +1531,7 @@ impl KernelTab {
                     column![
                         text("Extra Flags")
                             .size(body_font_size)
-                            .style(iced::theme::Text::Color(theme.primary())),
+                            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                         Space::with_height(Length::Fixed(8.0)),
                         extra_flags_input,
                     ]
@@ -1584,7 +1584,7 @@ impl KernelTab {
 }
 
 #[allow(dead_code)]
-fn create_info_badge<'a>(label: &'a str, value: &'a str, theme: &'a crate::gui::Theme) -> Element<'a, Message> {
+fn create_info_badge<'a>(label: &'a str, value: &'a str, theme: &'a crate::gui::Theme, settings: &'a crate::gui::settings::AppSettings) -> Element<'a, Message> {
     container(
         column![
             text(label)
@@ -1592,7 +1592,7 @@ fn create_info_badge<'a>(label: &'a str, value: &'a str, theme: &'a crate::gui::
                 .style(iced::theme::Text::Color(iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0))),
             text(value)
                 .size(16)
-                .style(iced::theme::Text::Color(theme.primary())),
+                .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
         ]
         .spacing(4)
     )

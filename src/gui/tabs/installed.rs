@@ -231,7 +231,7 @@ impl InstalledTab {
                     column![
                         // Header with close button
                         row![
-                            text("Package Details").size(title_font_size).style(iced::theme::Text::Color(theme.primary())),
+                            text("Package Details").size(title_font_size).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                             Space::with_width(Length::Fill),
                             {
                                 let material_font = crate::gui::fonts::get_material_symbols_font();
@@ -252,38 +252,38 @@ impl InstalledTab {
                         // Package name
                         text(&details.name)
                             .size(title_font_size * 1.2)
-                            .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
+                            .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))) // Darker for better visibility
                             .horizontal_alignment(iced::alignment::Horizontal::Center),
                         Space::with_height(Length::Fixed(20.0)),
                         // Package details
                         container(
                             column![
                                 row![
-                                    text("Version:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Version:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(&details.version).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12),
                                 Space::with_height(Length::Fixed(8.0)),
                                 row![
-                                    text("Release:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Release:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(&details.release).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12),
                                 Space::with_height(Length::Fixed(8.0)),
                                 row![
-                                    text("Architecture:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Architecture:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(&details.arch).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12),
                                 Space::with_height(Length::Fixed(8.0)),
                                 row![
-                                    text("Repository:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Repository:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(&details.repository).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12),
                                 Space::with_height(Length::Fixed(8.0)),
                                 row![
-                                    text("Size:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Size:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(&details.size).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12),
@@ -294,12 +294,12 @@ impl InstalledTab {
                         .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
                         Space::with_height(Length::Fixed(20.0)),
                         // Summary
-                        text("Summary").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                        text("Summary").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                         Space::with_height(Length::Fixed(8.0)),
                         text(&details.summary).size(package_detail_size),
                         Space::with_height(Length::Fixed(20.0)),
                         // Description
-                        text("Description").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                        text("Description").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                         Space::with_height(Length::Fixed(8.0)),
                         text(&details.description).size(package_detail_size).width(Length::Fill),
                     ]
@@ -463,7 +463,7 @@ impl InstalledTab {
                                             checkbox_widget,
                                             text(&pkg.name)
                                                 .size(package_name_size)
-                                                .style(iced::theme::Text::Color(theme.text())) // Darker for better visibility
+                                                .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))) // Darker for better visibility
                                                 .width(Length::FillPortion(3)),
                                             text(&pkg.version).size(package_detail_size).width(Length::FillPortion(2)),
                                             text(&pkg.repository).size(package_detail_size).width(Length::FillPortion(2)),

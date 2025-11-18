@@ -278,7 +278,7 @@ impl SearchTab {
                                     row![
                                         text("Version:")
                                             .size(package_detail_size)
-                                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                                         text(&version_text)
                                             .size(package_detail_size),
                                     ]
@@ -294,7 +294,7 @@ impl SearchTab {
                                         row![
                                             text(&pkg.name)
                                                 .size(package_name_size)
-                                                .style(iced::theme::Text::Color(theme.primary()))
+                                                .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                                                 .width(Length::Fill),
                                         ]
                                         .width(Length::Fill)
@@ -339,7 +339,7 @@ impl SearchTab {
                                     row![
                                         text("Arch:")
                                             .size(package_detail_size * 0.85)
-                                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                                         text(&pkg.arch)
                                             .size(package_detail_size * 0.85),
                                     ]
@@ -353,7 +353,7 @@ impl SearchTab {
                                     row![
                                         text("Size:")
                                             .size(package_detail_size * 0.85)
-                                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                                         text(&pkg.size)
                                             .size(package_detail_size * 0.85),
                                     ]

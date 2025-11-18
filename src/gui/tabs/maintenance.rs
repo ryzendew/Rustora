@@ -155,7 +155,7 @@ impl MaintenanceTab {
             column![
                 text("System Maintenance")
                     .size(title_font_size)
-                    .style(iced::theme::Text::Color(theme.primary()))
+                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                     .horizontal_alignment(iced::alignment::Horizontal::Left),
                 Space::with_height(Length::Fixed(8.0)),
                 text("Perform system maintenance tasks to keep your Fedora system running smoothly")
@@ -213,7 +213,7 @@ impl MaintenanceTab {
                         Space::with_height(Length::Fixed(8.0)),
                         text(description)
                             .size(body_font_size)
-                            .style(iced::theme::Text::Color(theme.secondary_text()))
+                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                             .width(Length::Fill),
                     ]
                     .spacing(0)
@@ -232,7 +232,7 @@ impl MaintenanceTab {
             column![
                 text("Kernel Maintenance")
                     .size(title_font_size * 0.6)
-                    .style(iced::theme::Text::Color(theme.primary()))
+                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                     .width(Length::Fill),
                 Space::with_height(Length::Fixed(16.0)),
                 create_action_card(
@@ -264,7 +264,7 @@ impl MaintenanceTab {
             column![
                 text("Package Maintenance")
                     .size(title_font_size * 0.6)
-                    .style(iced::theme::Text::Color(theme.primary()))
+                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                     .width(Length::Fill),
                 Space::with_height(Length::Fixed(16.0)),
                 create_action_card(
@@ -359,7 +359,7 @@ impl MaintenanceTab {
             row![
                 text("Activity Log")
                     .size(title_font_size * 0.65)
-                    .style(iced::theme::Text::Color(theme.primary())),
+                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                 Space::with_width(Length::Fill),
             ]
             .align_items(Alignment::Center)
@@ -377,7 +377,7 @@ impl MaintenanceTab {
                     Space::with_height(Length::Fixed(8.0)),
                     text("Select a maintenance task to begin")
                         .size(body_font_size)
-                        .style(iced::theme::Text::Color(theme.secondary_text()))
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                         .horizontal_alignment(iced::alignment::Horizontal::Center),
                     Space::with_height(Length::Fill),
                 ]
@@ -402,7 +402,7 @@ impl MaintenanceTab {
                                             } else if line.starts_with("✗") {
                                                 iced::Color::from_rgb(0.9, 0.2, 0.2)
                                             } else {
-                                                theme.primary()
+                                                theme.primary_with_settings(Some(settings))
                                             }
                                         ))
                                         .width(Length::Fixed(20.0)),

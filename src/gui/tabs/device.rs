@@ -5,6 +5,7 @@ use iced::widget::{button, column, container, row, scrollable, text, Space};
 use iced::{Alignment, Element, Length, Padding, Border, Color};
 use crate::gui::app::CustomScrollableStyle;
 use iced::widget::container::Appearance;
+use iced::widget::scrollable::{Appearance as ScrollableAppearance, StyleSheet as ScrollableStyleSheet};
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
 use std::collections::HashMap;
@@ -935,7 +936,7 @@ impl DeviceTab {
                 column![
                     text("Loading device manager...").size(body_font_size * 1.14),
                     Space::with_height(Length::Fixed(10.0)),
-                    text(&self.loading_message).size(body_font_size).style(iced::theme::Text::Color(theme.secondary_text())),
+                    text(&self.loading_message).size(body_font_size).style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                 ]
                 .spacing(10)
                 .align_items(Alignment::Center)
@@ -1014,17 +1015,8 @@ impl DeviceTab {
         container(
             row![
                 container(sidebar)
-                    .width(Length::Fixed(280.0))
+                    .width(Length::Fixed(360.0))
                     .height(Length::Fill),
-                container(
-                    Space::with_width(Length::Fixed(1.0))
-                        .height(Length::Fill)
-                )
-                .style(iced::theme::Container::Custom(Box::new(SidebarDividerStyle {
-                    color: theme.secondary_text(),
-                })))
-                .width(Length::Fixed(1.0))
-                .height(Length::Fill),
                 container(content)
                     .width(Length::Fill)
                     .height(Length::Fill),
@@ -1091,7 +1083,7 @@ impl DeviceTab {
             container(
                 text("PCI Devices")
                     .size(section_font_size)
-                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
             )
             .padding(Padding::from([8.0, 12.0, 8.0, 12.0]))
             .width(Length::Fill)
@@ -1129,7 +1121,7 @@ impl DeviceTab {
             container(
                 text("USB Devices")
                     .size(section_font_size)
-                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
             )
             .padding(Padding::from([8.0, 12.0, 8.0, 12.0]))
             .width(Length::Fill)
@@ -1161,13 +1153,18 @@ impl DeviceTab {
         }
 
         container(
-            scrollable(sidebar_items)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
-                    Color::from(settings.background_color.clone()),
-                    settings.border_radius,
-                ))))
+            scrollable(
+                container(sidebar_items)
+                    .width(Length::Fill)
+                    .padding(Padding::from([16.0, 12.0, 16.0, 12.0]))
+            )
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(iced::theme::Scrollable::Custom(Box::new(SidebarScrollableStyle {
+                background_color: Color::from(settings.background_color.clone()),
+                border_radius: settings.border_radius,
+                _theme: *theme,
+            })))
         )
         .width(Length::Fill)
         .height(Length::Fill)
@@ -1193,11 +1190,11 @@ impl DeviceTab {
             let body_font_size = (settings.font_size_body * settings.scale_body).round();
             container(
                 column![
-                    text("Device Manager").size(title_font_size * 0.86).style(iced::theme::Text::Color(theme.primary())),
+                    text("Device Manager").size(title_font_size * 0.86).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                     Space::with_height(Length::Fixed(10.0)),
                     text("Select a device category from the sidebar to get started.")
                         .size(body_font_size)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                 ]
                 .spacing(10)
                 .align_items(Alignment::Center)
@@ -1223,7 +1220,7 @@ impl DeviceTab {
                     return container(
                         text("No devices found in this category")
                             .size(body_font_size)
-                            .style(iced::theme::Text::Color(theme.secondary_text()))
+                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                     )
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -1240,7 +1237,7 @@ impl DeviceTab {
                         let bus_id = &d.sysfs_busid;
 
                         let status_color = match status {
-                            DeviceStatus::ActiveEnabled => theme.primary(),
+                            DeviceStatus::ActiveEnabled => theme.primary_with_settings(Some(settings)),
                             DeviceStatus::ActiveDisabled => iced::Color::from_rgb(0.2, 0.5, 0.9),
                             DeviceStatus::InactiveEnabled => iced::Color::from_rgb(0.2, 0.9, 0.2),
                             DeviceStatus::InactiveDisabled => theme.danger(),
@@ -1266,7 +1263,7 @@ impl DeviceTab {
                                     Space::with_height(Length::Fixed(10.0)),
                                     text(format!("Bus ID: {}", bus_id))
                                         .size(body_font_size * 0.95)
-                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                                 ]
                                 .spacing(6)
                                 .padding(Padding::from([18.0, 20.0, 18.0, 20.0]))
@@ -1308,7 +1305,7 @@ impl DeviceTab {
                     return container(
                         text("No devices found in this category")
                             .size(body_font_size)
-                            .style(iced::theme::Text::Color(theme.secondary_text()))
+                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                     )
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -1325,7 +1322,7 @@ impl DeviceTab {
                         let bus_id = &d.sysfs_busid;
 
                         let status_color = match status {
-                            DeviceStatus::ActiveEnabled => theme.primary(),
+                            DeviceStatus::ActiveEnabled => theme.primary_with_settings(Some(settings)),
                             DeviceStatus::ActiveDisabled => iced::Color::from_rgb(0.2, 0.5, 0.9),
                             DeviceStatus::InactiveEnabled => iced::Color::from_rgb(0.2, 0.9, 0.2),
                             DeviceStatus::InactiveDisabled => theme.danger(),
@@ -1351,7 +1348,7 @@ impl DeviceTab {
                                     Space::with_height(Length::Fixed(10.0)),
                                     text(format!("Bus ID: {}", bus_id))
                                         .size(body_font_size * 0.95)
-                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                                 ]
                                 .spacing(6)
                                 .padding(Padding::from([18.0, 20.0, 18.0, 20.0]))
@@ -1466,12 +1463,12 @@ impl DeviceTab {
         // Device title - larger and more prominent
         let device_title = text(&device_name)
             .size(title_font_size)
-            .style(iced::theme::Text::Color(theme.primary()))
+            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
             .width(Length::Fill);
 
         // Status indicator
         let status_color = match status {
-            DeviceStatus::ActiveEnabled => theme.primary(),
+            DeviceStatus::ActiveEnabled => theme.primary_with_settings(Some(settings)),
             DeviceStatus::ActiveDisabled => iced::Color::from_rgb(0.2, 0.5, 0.9),
             DeviceStatus::InactiveEnabled => iced::Color::from_rgb(0.2, 0.9, 0.2),
             DeviceStatus::InactiveDisabled => theme.danger(),
@@ -1633,11 +1630,11 @@ impl DeviceTab {
             row![
                 text(label)
                     .size(body_font_size)
-                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                     .width(Length::Fixed(140.0)),
                 text(value)
                     .size(body_font_size)
-                    .style(iced::theme::Text::Color(if is_positive { theme.primary() } else { theme.danger() })),
+                    .style(iced::theme::Text::Color(if is_positive { theme.primary_with_settings(Some(settings)) } else { theme.danger() })),
             ]
             .spacing(12)
             .align_items(Alignment::Center)
@@ -1658,7 +1655,7 @@ impl DeviceTab {
             row![
                 text(label)
                     .size(body_font_size)
-                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                     .width(Length::Fixed(140.0)),
                 text(value)
                     .size(body_font_size),
@@ -1788,7 +1785,7 @@ impl DeviceTab {
             return container(
                 text("No profiles available for this device")
                     .size(body_font_size)
-                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
             )
             .width(Length::Fill)
             .padding(20)
@@ -1968,7 +1965,7 @@ impl DeviceTab {
                         Space::with_width(Length::Fixed(14.0)),
                         text(&display_name)
                             .size(body_font_size * 1.25)
-                            .style(iced::theme::Text::Color(theme.primary()))
+                            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                             .width(Length::Fill),
                         Space::with_width(Length::Fixed(14.0)),
                         {
@@ -1978,7 +1975,7 @@ impl DeviceTab {
                                         .height(Length::Fixed(12.0))
                                 )
                                 .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
-                                    color: theme.primary(),
+                                    color: theme.primary_with_settings(Some(settings)),
                                     radius: settings.border_radius,
                                 })))
                                 .into()
@@ -1994,7 +1991,7 @@ impl DeviceTab {
                     Space::with_height(Length::Fixed(10.0)),
                     text(&profile_data.codename)
                         .size(body_font_size * 0.9)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                     {
                         // Use cached driver version (loaded asynchronously) - extract clean version
                         let driver_version_display = if let Some(driver_version) = profile.driver_version() {
@@ -2147,7 +2144,7 @@ impl DeviceTab {
                             info_rows = info_rows.push(
                                 text(format!("Driver Version: {}", drv_ver))
                                     .size(body_font_size * 0.95)
-                                    .style(iced::theme::Text::Color(theme.primary()))
+                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                             );
                         }
                         
@@ -2156,7 +2153,7 @@ impl DeviceTab {
                             info_rows = info_rows.push(
                                 text(format!("Repository: {}", repo))
                                     .size(body_font_size * 0.95)
-                                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                             );
                         }
                         
@@ -2165,7 +2162,7 @@ impl DeviceTab {
                             info_rows = info_rows.push(
                                 text(format!("Total Size: {}", size))
                                     .size(body_font_size * 0.95)
-                                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                             );
                         }
                         
@@ -2175,7 +2172,7 @@ impl DeviceTab {
                                 info_rows = info_rows.push(
                                     text(format!("Dependencies: {} packages", deps.len()))
                                         .size(body_font_size * 0.95)
-                                        .style(iced::theme::Text::Color(theme.secondary_text()))
+                                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                                 );
                             }
                         }
@@ -2186,7 +2183,7 @@ impl DeviceTab {
                     row![
                         text(format!("License: {}", profile_data.license))
                             .size(body_font_size * 0.95)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                         Space::with_width(Length::Fill),
                         experimental_badge,
                     ]
@@ -2223,7 +2220,7 @@ impl DeviceTab {
                 row![
                     text("Available Profiles")
                         .size(title_font_size)
-                        .style(iced::theme::Text::Color(theme.primary()))
+                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                         .width(Length::Fill),
                     install_selected_section,
                 ]
@@ -2252,7 +2249,7 @@ impl DeviceTab {
             return container(
                 text("No profiles available for this device")
                     .size(body_font_size)
-                    .style(iced::theme::Text::Color(theme.secondary_text()))
+                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
             )
             .width(Length::Fill)
             .padding(20)
@@ -2374,7 +2371,7 @@ impl DeviceTab {
                         Space::with_width(Length::Fixed(14.0)),
                         text(&display_name)
                             .size(body_font_size * 1.25)
-                            .style(iced::theme::Text::Color(theme.primary()))
+                            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                             .width(Length::Fill),
                         Space::with_width(Length::Fixed(14.0)),
                         {
@@ -2384,7 +2381,7 @@ impl DeviceTab {
                                         .height(Length::Fixed(12.0))
                                 )
                                 .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
-                                    color: theme.primary(),
+                                    color: theme.primary_with_settings(Some(settings)),
                                     radius: settings.border_radius,
                                 })))
                                 .into()
@@ -2400,7 +2397,7 @@ impl DeviceTab {
                     Space::with_height(Length::Fixed(10.0)),
                     text(&profile_data.codename)
                         .size(body_font_size * 0.9)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                     {
                         // Use cached driver version (loaded asynchronously)
                         if let Some(driver_version) = profile.driver_version() {
@@ -2408,7 +2405,7 @@ impl DeviceTab {
                                 row![
                                     text(format!("Driver Version: {}", driver_version))
                                         .size(body_font_size * 0.79)
-                                        .style(iced::theme::Text::Color(theme.primary())),
+                                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                 ]
                                 .spacing(8)
                                 .align_items(Alignment::Center)
@@ -2424,7 +2421,7 @@ impl DeviceTab {
                     row![
                         text(format!("License: {}", profile_data.license))
                             .size(body_font_size * 0.95)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                         Space::with_width(Length::Fill),
                         experimental_badge,
                     ]
@@ -2457,7 +2454,7 @@ impl DeviceTab {
             column![
                 text("Available Profiles")
                     .size(title_font_size)
-                    .style(iced::theme::Text::Color(theme.primary()))
+                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                     .width(Length::Fill),
                 Space::with_height(Length::Fixed(10.0)),
                 profile_cards,
@@ -4860,19 +4857,64 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     }
 }
 
-struct SidebarDividerStyle {
-    color: iced::Color,
+struct SidebarScrollableStyle {
+    background_color: iced::Color,
+    border_radius: f32,
+    _theme: crate::gui::Theme,
 }
 
-impl iced::widget::container::StyleSheet for SidebarDividerStyle {
+impl ScrollableStyleSheet for SidebarScrollableStyle {
     type Style = iced::Theme;
 
-    fn appearance(&self, _style: &Self::Style) -> Appearance {
-        Appearance {
-            background: Some(iced::Background::Color(self.color)),
-            border: Border::default(),
-            ..Default::default()
+    fn active(&self, _style: &Self::Style) -> ScrollableAppearance {
+        let is_dark = self.background_color.r < 0.5;
+        let divider_color = if is_dark {
+            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3)
+        } else {
+            iced::Color::from_rgba(0.3, 0.3, 0.3, 0.2)
+        };
+        let scroller_color = if is_dark {
+            iced::Color::from_rgba(0.4, 0.4, 0.4, 0.6)
+        } else {
+            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.5)
+        };
+        
+        ScrollableAppearance {
+            container: Appearance {
+                background: None,
+                border: Border::default(),
+                ..Default::default()
+            },
+            scrollbar: iced::widget::scrollable::Scrollbar {
+                background: Some(iced::Background::Color(divider_color)),
+                border: Border {
+                    radius: 0.0.into(),
+                    width: 0.0,
+                    color: iced::Color::TRANSPARENT,
+                },
+                scroller: iced::widget::scrollable::Scroller {
+                    color: scroller_color,
+                    border: Border {
+                        radius: (self.border_radius * 0.3).into(),
+                        width: 0.0,
+                        color: iced::Color::TRANSPARENT,
+                    },
+                },
+            },
+            gap: None,
         }
+    }
+
+    fn hovered(&self, style: &Self::Style, _is_mouse_over_scrollbar: bool) -> ScrollableAppearance {
+        let mut appearance = self.active(style);
+        let is_dark = self.background_color.r < 0.5;
+        let scroller_color = if is_dark {
+            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.8)
+        } else {
+            iced::Color::from_rgba(0.4, 0.4, 0.4, 0.7)
+        };
+        appearance.scrollbar.scroller.color = scroller_color;
+        appearance
     }
 }
 

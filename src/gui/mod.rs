@@ -19,6 +19,8 @@ pub mod gaming_meta_dialog;
 pub mod cachyos_kernel_dialog;
 pub mod hyprland_dialog;
 pub mod hyprland_dotfiles_dialog;
+pub mod proton_install_dialog;
+pub mod proton_changelog_dialog;
 
 pub use app::RustoraApp;
 pub use theme::Theme;

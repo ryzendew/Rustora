@@ -96,6 +96,34 @@ enum Commands {
     },
     /// Show update settings dialog (internal use)
     UpdateSettingsDialog,
+    /// Show Proton/Wine install dialog (internal use)
+    #[command(name = "proton-install-dialog")]
+    ProtonInstallDialog {
+        /// Runner title
+        runner_title: String,
+        /// Build title
+        build_title: String,
+        /// Download URL
+        download_url: String,
+        /// Selected launcher (optional)
+        #[arg(long)]
+        launcher: Option<String>,
+        /// Runner info JSON (optional)
+        #[arg(long)]
+        runner_info: Option<String>,
+    },
+    /// Show Proton/Wine changelog dialog (internal use)
+    #[command(name = "proton-changelog-dialog")]
+    ProtonChangelogDialog {
+        /// Runner title
+        runner_title: String,
+        /// Build title
+        build_title: String,
+        /// Description
+        description: String,
+        /// Page URL
+        page_url: String,
+    },
     /// Show maintenance dialog (internal use)
     MaintenanceDialog {
         /// Maintenance task to perform
@@ -436,6 +464,30 @@ async fn main() -> Result<()> {
             HyprlandDotfilesDialog::run_separate_window()?;
             Ok(())
         }
+        Some(Commands::ProtonInstallDialog { runner_title, build_title, download_url, launcher, runner_info }) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            use crate::gui::proton_install_dialog::ProtonInstallDialog;
+            ProtonInstallDialog::run_separate_window(runner_title, build_title, download_url, launcher, runner_info)?;
+            Ok(())
+        }
+        Some(Commands::ProtonChangelogDialog { runner_title, build_title, description, page_url }) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            use crate::gui::proton_changelog_dialog::ProtonChangelogDialog;
+            ProtonChangelogDialog::run_separate_window(runner_title, build_title, description, page_url)?;
+            Ok(())
+        }
         Some(Commands::MaintenanceDialog { task }) => {
             // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
@@ -626,6 +678,8 @@ async fn main() -> Result<()> {
                 Commands::CachyosKernelDialog => unreachable!(),
                 Commands::HyprlandDialog => unreachable!(),
                 Commands::HyprlandDotfilesDialog => unreachable!(),
+                Commands::ProtonInstallDialog { .. } => unreachable!(),
+                Commands::ProtonChangelogDialog { .. } => unreachable!(),
                 Commands::MaintenanceDialog { .. } => unreachable!(),
                 Commands::KernelInstallDialog { .. } => unreachable!(),
                 Commands::KernelRemoveDialog { .. } => unreachable!(),

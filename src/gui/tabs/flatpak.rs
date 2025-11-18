@@ -637,7 +637,7 @@ impl FlatpakTab {
                     column![
                         // Header with close button
                         row![
-                            text("Flatpak Details").size(title_font_size).style(iced::theme::Text::Color(theme.primary())),
+                            text("Flatpak Details").size(title_font_size).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                             Space::with_width(Length::Fill),
                             button(
                                 text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size)
@@ -652,7 +652,7 @@ impl FlatpakTab {
                         // Package name
                         text(&details.name)
                             .size(title_font_size * 1.1)
-                            .style(iced::theme::Text::Color(theme.primary()))
+                            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                             .horizontal_alignment(iced::alignment::Horizontal::Center),
                         Space::with_height(Length::Fixed(10.0)),
                         text(&details.application_id)
@@ -663,42 +663,42 @@ impl FlatpakTab {
                         container({
                             let mut items: Vec<Element<Message>> = vec![
                                 row![
-                                    text("Version:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Version:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(&details.version).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
                                 Space::with_height(Length::Fixed(8.0)).into(),
                                 row![
-                                    text("Branch:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Branch:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(&details.branch).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
                                 Space::with_height(Length::Fixed(8.0)).into(),
                                 row![
-                                    text("Architecture:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Architecture:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(&details.arch).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
                                 Space::with_height(Length::Fixed(8.0)).into(),
                                 row![
-                                    text("Size:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Size:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(&details.size).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
                                 Space::with_height(Length::Fixed(8.0)).into(),
                                 row![
-                                    text("Runtime:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Runtime:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(&details.runtime).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
                                 .into(),
                                 Space::with_height(Length::Fixed(8.0)).into(),
                                 row![
-                                    text("Remote:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text("Remote:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                     text(details.remote.as_deref().unwrap_or("N/A")).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12)
@@ -709,7 +709,7 @@ impl FlatpakTab {
                                 items.push(Space::with_height(Length::Fixed(8.0)).into());
                                 items.push(
                                     row![
-                                        text("License:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                        text("License:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                                         text(&details.license).size(package_detail_size).width(Length::Fill),
                                     ]
                                     .spacing(12)
@@ -725,12 +725,12 @@ impl FlatpakTab {
                         }))),
                         Space::with_height(Length::Fixed(20.0)),
                         // Summary
-                        text("Summary").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                        text("Summary").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                         Space::with_height(Length::Fixed(8.0)),
                         text(&details.summary).size(package_detail_size),
                         Space::with_height(Length::Fixed(20.0)),
                         // Description
-                        text("Description").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                        text("Description").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                         Space::with_height(Length::Fixed(8.0)),
                         text(&details.description).size(package_detail_size).width(Length::Fill),
                     ]

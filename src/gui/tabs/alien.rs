@@ -203,7 +203,7 @@ impl AlienTab {
         let title = container(
             text("Package Converter (Alien)")
                 .size(title_font_size)
-                .style(iced::theme::Text::Color(theme.primary()))
+                .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
         )
         .width(Length::Fill)
         .padding(Padding::new(20.0));
@@ -213,7 +213,7 @@ impl AlienTab {
             column![
                 text("Convert packages from other Linux distributions to RPM format for Fedora")
                     .size(body_font_size)
-                    .style(iced::theme::Text::Color(theme.secondary_text())),
+                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                 Space::with_height(Length::Fixed(10.0)),
                 container(
                     column![
@@ -223,19 +223,19 @@ impl AlienTab {
                         Space::with_height(Length::Fixed(5.0)),
                         text("• Alien has NO options to prevent file conflicts with system packages")
                             .size(body_font_size * 0.86)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                         text("• Some packages may not install due to directory conflicts (/usr/bin, /usr/lib, etc.)")
                             .size(body_font_size * 0.86)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                         text("• The --fixperms option only works for DEB packages, not RPM")
                             .size(body_font_size * 0.86)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                         text("• Always check for native RPM versions first when possible")
                             .size(body_font_size * 0.86)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                         text("• Alien version: 8.95 (known limitations with modern packages)")
                             .size(body_font_size * 0.86)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                     ]
                     .spacing(4)
                 )
@@ -299,13 +299,13 @@ impl AlienTab {
                 column![
                     text("Conversion in Progress")
                         .size(title_font_size * 0.75)
-                        .style(iced::theme::Text::Color(theme.primary())),
+                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                     Space::with_height(Length::Fixed(15.0)),
                     progress_bar(0.0..=1.0, 0.7).width(Length::Fill),
                     Space::with_height(Length::Fixed(10.0)),
                     text(&self.conversion_progress)
                         .size(body_font_size)
-                        .style(iced::theme::Text::Color(theme.text())),
+                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                     Space::with_height(Length::Fixed(15.0)),
                     {
                         let output_lines: Vec<Element<Message>> = if !self.conversion_output.is_empty() {
@@ -314,7 +314,7 @@ impl AlienTab {
                                 .map(|line| {
                                     text(line)
                                         .size(body_font_size * 0.86)
-                                        .style(iced::theme::Text::Color(theme.secondary_text()))
+                                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                                         .shaping(iced::widget::text::Shaping::Advanced)
                                         .into()
                                 })
@@ -322,7 +322,7 @@ impl AlienTab {
                         } else {
                             vec![text("Waiting for conversion output...")
                                 .size(body_font_size * 0.86)
-                                .style(iced::theme::Text::Color(theme.secondary_text()))
+                                .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                                 .into()]
                         };
                         scrollable(
@@ -367,11 +367,11 @@ impl AlienTab {
                     Space::with_height(Length::Fixed(10.0)),
                     text(format!("Converted package: {}", rpm_path.file_name().unwrap_or_default().to_string_lossy()))
                         .size(body_font_size)
-                        .style(iced::theme::Text::Color(theme.text())),
+                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))),
                     Space::with_height(Length::Fixed(10.0)),
                     text("The installation dialog should open automatically.")
                         .size(body_font_size * 0.86)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                 ]
                 .spacing(10)
             )

@@ -268,5 +268,8 @@ pub mod glyphs {
     pub const DELETE_SYMBOL: &str = "\u{E872}";
     pub const CHECK_SYMBOL: &str = "\u{E5CA}";
     pub const ADD_SYMBOL: &str = "\u{E145}";
+    pub const SYNC_SYMBOL: &str = "\u{E5D5}"; // sync/refresh
+    pub const FOLDER_SYMBOL: &str = "\u{E2C7}"; // folder
+    pub const INFO_SYMBOL: &str = "\u{E88E}"; // info
 }
 

@@ -1,5 +1,6 @@
 use iced::theme::Theme as IcedTheme;
 use iced::Color;
+use crate::gui::settings::AppSettings;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Theme {
@@ -15,7 +16,26 @@ impl Theme {
         }
     }
 
+    // Helper to check if a color is appropriate for the current theme
+    fn is_color_appropriate_for_theme(&self, color: &Color) -> bool {
+        let is_dark_color = color.r < 0.5;
+        match self {
+            Theme::Light => !is_dark_color, // Light theme needs light colors
+            Theme::Dark => is_dark_color,  // Dark theme needs dark colors
+        }
+    }
+
     pub fn background(&self) -> Color {
+        self.background_with_settings(None)
+    }
+
+    pub fn background_with_settings(&self, settings: Option<&AppSettings>) -> Color {
+        if let Some(settings) = settings {
+            let custom_bg = Color::from(settings.background_color.clone());
+            if self.is_color_appropriate_for_theme(&custom_bg) {
+                return custom_bg;
+            }
+        }
         match self {
             Theme::Light => Color::from_rgb(0.94, 0.94, 0.96), // Soft warm gray instead of bright white
             Theme::Dark => Color::from_rgb(0.12, 0.12, 0.12),
@@ -31,6 +51,21 @@ impl Theme {
     }
 
     pub fn text(&self) -> Color {
+        self.text_with_settings(None)
+    }
+
+    pub fn text_with_settings(&self, settings: Option<&AppSettings>) -> Color {
+        if let Some(settings) = settings {
+            let custom_text = Color::from(settings.text_color.clone());
+            // For text, check if it contrasts well with background
+            let bg = self.background_with_settings(Some(settings));
+            let text_is_dark = custom_text.r < 0.5;
+            let bg_is_dark = bg.r < 0.5;
+            // Use custom text if it contrasts with background
+            if text_is_dark != bg_is_dark {
+                return custom_text;
+            }
+        }
         match self {
             Theme::Light => Color::from_rgb(0.05, 0.05, 0.05), // Near black for better readability
             Theme::Dark => Color::from_rgb(0.95, 0.95, 0.95),
@@ -38,6 +73,21 @@ impl Theme {
     }
 
     pub fn secondary_text(&self) -> Color {
+        self.secondary_text_with_settings(None)
+    }
+
+    pub fn secondary_text_with_settings(&self, settings: Option<&AppSettings>) -> Color {
+        if let Some(settings) = settings {
+            let custom_secondary = Color::from(settings.secondary_text_color.clone());
+            // For secondary text, check if it contrasts well with background
+            let bg = self.background_with_settings(Some(settings));
+            let text_is_dark = custom_secondary.r < 0.5;
+            let bg_is_dark = bg.r < 0.5;
+            // Use custom secondary text if it contrasts with background
+            if text_is_dark != bg_is_dark {
+                return custom_secondary;
+            }
+        }
         match self {
             Theme::Light => Color::from_rgb(0.35, 0.35, 0.4), // Muted dark gray for secondary text
             Theme::Dark => Color::from_rgb(0.7, 0.7, 0.7),
@@ -45,6 +95,21 @@ impl Theme {
     }
 
     pub fn primary(&self) -> Color {
+        self.primary_with_settings(None)
+    }
+
+    pub fn primary_with_settings(&self, settings: Option<&AppSettings>) -> Color {
+        if let Some(settings) = settings {
+            let custom_primary = Color::from(settings.primary_color.clone());
+            // Primary colors can be any brightness, but we'll use them if they're reasonable
+            // Check if primary color has reasonable saturation (not too gray)
+            let saturation = ((custom_primary.r - custom_primary.g).abs() + 
+                             (custom_primary.g - custom_primary.b).abs() + 
+                             (custom_primary.b - custom_primary.r).abs()) / 3.0;
+            if saturation > 0.1 {
+                return custom_primary;
+            }
+        }
         match self {
             Theme::Light => Color::from_rgb(0.15, 0.45, 0.65), // Calmer, softer blue
             Theme::Dark => Color::from_rgb(0.2, 0.6, 0.9),
