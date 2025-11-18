@@ -183,6 +183,10 @@ enum Commands {
     GamingMetaDialog,
     /// Show Cachyos kernel installation dialog (internal use)
     CachyosKernelDialog,
+    /// Show Hyprland installation dialog (internal use)
+    HyprlandDialog,
+    /// Show Hyprland dotfiles installation dialog (internal use)
+    HyprlandDotfilesDialog,
 }
 
 #[tokio::main]
@@ -408,6 +412,30 @@ async fn main() -> Result<()> {
             CachyosKernelDialog::run_separate_window()?;
             Ok(())
         }
+        Some(Commands::HyprlandDialog) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            use crate::gui::hyprland_dialog::HyprlandDialog;
+            HyprlandDialog::run_separate_window()?;
+            Ok(())
+        }
+        Some(Commands::HyprlandDotfilesDialog) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            use crate::gui::hyprland_dotfiles_dialog::HyprlandDotfilesDialog;
+            HyprlandDotfilesDialog::run_separate_window()?;
+            Ok(())
+        }
         Some(Commands::MaintenanceDialog { task }) => {
             // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
@@ -596,6 +624,8 @@ async fn main() -> Result<()> {
                 Commands::Settings => unreachable!(),
                 Commands::GamingMetaDialog => unreachable!(),
                 Commands::CachyosKernelDialog => unreachable!(),
+                Commands::HyprlandDialog => unreachable!(),
+                Commands::HyprlandDotfilesDialog => unreachable!(),
                 Commands::MaintenanceDialog { .. } => unreachable!(),
                 Commands::KernelInstallDialog { .. } => unreachable!(),
                 Commands::KernelRemoveDialog { .. } => unreachable!(),

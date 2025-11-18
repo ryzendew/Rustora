@@ -17,6 +17,8 @@ pub mod settings_dialog;
 pub mod settings;
 pub mod gaming_meta_dialog;
 pub mod cachyos_kernel_dialog;
+pub mod hyprland_dialog;
+pub mod hyprland_dotfiles_dialog;
 
 pub use app::RustoraApp;
 pub use theme::Theme;

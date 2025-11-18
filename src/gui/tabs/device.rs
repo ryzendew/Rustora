@@ -198,6 +198,8 @@ pub enum Message {
     DownloadProfilesForce,
     ProfilesDownloaded(Result<(), String>),
     BackToDeviceList,
+    ToggleProfileSelection(#[allow(dead_code)] DeviceType, #[allow(dead_code)] String, #[allow(dead_code)] usize, String), // type, class, device_idx, profile_codename
+    InstallSelectedProfiles(DeviceType, String, usize), // type, class, device_idx
     StartDevice(DeviceType, String, usize),
     StopDevice(DeviceType, String, usize),
     EnableDevice(DeviceType, String, usize),
@@ -268,6 +270,7 @@ pub struct DeviceTab {
     // UI state
     selected_category: Option<(CategoryType, String)>,
     selected_device: Option<(DeviceType, String, usize)>,
+    selected_profiles: std::collections::HashSet<String>, // Track selected profile codenames for bulk install
     
     // Error state
     error: Option<String>,
@@ -284,6 +287,7 @@ impl DeviceTab {
             usb_profiles: Vec::new(),
             selected_category: None,
             selected_device: None,
+            selected_profiles: std::collections::HashSet::new(),
             error: None,
         }
     }
@@ -406,7 +410,35 @@ impl DeviceTab {
             }
             Message::BackToDeviceList => {
                 self.selected_device = None;
+                self.selected_profiles.clear();
                 iced::Command::none()
+            }
+            Message::ToggleProfileSelection(_, _, _, profile_codename) => {
+                if self.selected_profiles.contains(&profile_codename) {
+                    self.selected_profiles.remove(&profile_codename);
+                } else {
+                    self.selected_profiles.insert(profile_codename);
+                }
+                iced::Command::none()
+            }
+            Message::InstallSelectedProfiles(dev_type, class, device_idx) => {
+                if self.selected_profiles.is_empty() {
+                    return iced::Command::none();
+                }
+                
+                // Install all selected profiles sequentially
+                // Clone the first profile before clearing the set
+                let first_profile = self.selected_profiles.iter().next().cloned();
+                self.selected_profiles.clear();
+                
+                // Start with the first profile
+                if let Some(profile) = first_profile {
+                    iced::Command::perform(async {}, move |_| {
+                        Message::InstallProfile(dev_type, class, device_idx, profile)
+                    })
+                } else {
+                    iced::Command::none()
+                }
             }
             Message::ClearError => {
                 self.error = None;
@@ -973,7 +1005,7 @@ impl DeviceTab {
     fn view_main(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
-        // Sidebar with categories
+        // Sidebar with categories - wider and cleaner
         let sidebar = self.view_sidebar(theme, &material_font, settings);
         
         // Main content area
@@ -981,49 +1013,61 @@ impl DeviceTab {
 
         container(
             row![
-                container(sidebar).width(Length::Fixed(250.0)),
-                Space::with_width(Length::Fixed(1.0)),
-                container(content).width(Length::Fill),
+                container(sidebar)
+                    .width(Length::Fixed(280.0))
+                    .height(Length::Fill),
+                container(
+                    Space::with_width(Length::Fixed(1.0))
+                        .height(Length::Fill)
+                )
+                .style(iced::theme::Container::Custom(Box::new(SidebarDividerStyle {
+                    color: theme.secondary_text(),
+                })))
+                .width(Length::Fixed(1.0))
+                .height(Length::Fill),
+                container(content)
+                    .width(Length::Fill)
+                    .height(Length::Fill),
             ]
             .spacing(0)
         )
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(20)
+        .padding(Padding::from([16.0, 16.0, 16.0, 16.0]))
         .into()
     }
 
     fn view_sidebar(&self, theme: &crate::gui::Theme, material_font: &iced::Font, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
         
-        // Calculate font sizes from settings
-        let body_font_size = (settings.font_size_body * settings.scale_body).round();
-        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
-        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        // Calculate font sizes from settings - larger for better readability
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.15).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.2).round();
+        let section_font_size = (settings.font_size_body * settings.scale_body * 1.05).round();
         
-        let mut sidebar_items = column![].spacing(4);
+        let mut sidebar_items = column![].spacing(8);
 
-        // Download Profiles Button
+        // Download Profiles Button - larger and more prominent
         let download_button_text = if self.is_loading && self.loading_message.contains("Downloading") {
             row![
                 text(glyphs::REFRESH_SYMBOL).font(*material_font).size(icon_size),
                 text(" Downloading...").size(button_font_size),
             ]
-            .spacing(8)
+            .spacing(10)
             .align_items(Alignment::Center)
         } else {
             row![
                 text(glyphs::DOWNLOAD_SYMBOL).font(*material_font).size(icon_size),
                 text(" Download Profiles").size(button_font_size),
             ]
-            .spacing(8)
+            .spacing(10)
             .align_items(Alignment::Center)
         };
         
         let download_button = if self.is_loading && self.loading_message.contains("Downloading") {
             button(download_button_text)
                 .width(Length::Fill)
-                .padding(Padding::new(10.0))
+                .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
                     radius: settings.border_radius,
@@ -1032,7 +1076,7 @@ impl DeviceTab {
             button(download_button_text)
                 .on_press(Message::DownloadProfiles)
                 .width(Length::Fill)
-                .padding(Padding::new(10.0))
+                .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: true,
                     radius: settings.border_radius,
@@ -1040,14 +1084,17 @@ impl DeviceTab {
         };
 
         sidebar_items = sidebar_items.push(download_button);
-        sidebar_items = sidebar_items.push(Space::with_height(Length::Fixed(20.0)));
+        sidebar_items = sidebar_items.push(Space::with_height(Length::Fixed(24.0)));
 
         // PCI Devices Section
         sidebar_items = sidebar_items.push(
-            text("PCI Devices")
-                .size(body_font_size)
-                .style(iced::theme::Text::Color(theme.secondary_text()))
-                .width(Length::Fill)
+            container(
+                text("PCI Devices")
+                    .size(section_font_size)
+                    .style(iced::theme::Text::Color(theme.secondary_text()))
+            )
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]))
+            .width(Length::Fill)
         );
 
         for (class, _devices) in &self.pci_devices {
@@ -1058,15 +1105,15 @@ impl DeviceTab {
             
             let class_button = button(
                 row![
-                    text(glyphs::SETTINGS_SYMBOL).font(*material_font).size(icon_size),
+                    text(glyphs::SETTINGS_SYMBOL).font(*material_font).size(icon_size * 0.9),
                     text(&class_name).size(button_font_size),
                 ]
-                .spacing(8)
+                .spacing(10)
                 .align_items(Alignment::Center)
             )
             .on_press(Message::SelectCategory(CategoryType::Pci, class.clone()))
             .width(Length::Fill)
-            .padding(Padding::new(10.0))
+            .padding(Padding::from([12.0, 16.0, 12.0, 16.0]))
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: is_selected,
                 radius: settings.border_radius,
@@ -1075,14 +1122,17 @@ impl DeviceTab {
             sidebar_items = sidebar_items.push(class_button);
         }
 
-        sidebar_items = sidebar_items.push(Space::with_height(Length::Fixed(20.0)));
+        sidebar_items = sidebar_items.push(Space::with_height(Length::Fixed(24.0)));
 
         // USB Devices Section
         sidebar_items = sidebar_items.push(
-            text("USB Devices")
-                .size(body_font_size)
-                .style(iced::theme::Text::Color(theme.secondary_text()))
-                .width(Length::Fill)
+            container(
+                text("USB Devices")
+                    .size(section_font_size)
+                    .style(iced::theme::Text::Color(theme.secondary_text()))
+            )
+            .padding(Padding::from([8.0, 12.0, 8.0, 12.0]))
+            .width(Length::Fill)
         );
 
         for (class, _devices) in &self.usb_devices {
@@ -1093,15 +1143,15 @@ impl DeviceTab {
             
             let class_button = button(
                 row![
-                    text(glyphs::SETTINGS_SYMBOL).font(*material_font).size(icon_size),
+                    text(glyphs::SETTINGS_SYMBOL).font(*material_font).size(icon_size * 0.9),
                     text(&class_name).size(button_font_size),
                 ]
-                .spacing(8)
+                .spacing(10)
                 .align_items(Alignment::Center)
             )
             .on_press(Message::SelectCategory(CategoryType::Usb, class.clone()))
             .width(Length::Fill)
-            .padding(Padding::new(10.0))
+            .padding(Padding::from([12.0, 16.0, 12.0, 16.0]))
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                 is_primary: is_selected,
                 radius: settings.border_radius,
@@ -1124,7 +1174,7 @@ impl DeviceTab {
         .style(iced::theme::Container::Custom(Box::new(SidebarStyle {
             radius: settings.border_radius,
         })))
-        .padding(10)
+        .padding(Padding::from([16.0, 12.0, 16.0, 12.0]))
         .into()
     }
 
@@ -1161,7 +1211,7 @@ impl DeviceTab {
     }
 
     fn view_device_list(&self, theme: &crate::gui::Theme, _material_font: &iced::Font, cat_type: CategoryType, class: &str, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
-        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
         match cat_type {
             CategoryType::Pci => {
                 let devices: Vec<_> = self.pci_devices.iter()
@@ -1200,26 +1250,26 @@ impl DeviceTab {
                             container(
                                 column![
                                     row![
-                                        text(&name).size(body_font_size * 1.14).width(Length::Fill),
+                                        text(&name).size(body_font_size * 1.25).width(Length::Fill),
                                         container(
-                                            Space::with_width(Length::Fixed(12.0))
-                                                .height(Length::Fixed(12.0))
+                                            Space::with_width(Length::Fixed(14.0))
+                                                .height(Length::Fixed(14.0))
                                         )
                                         .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
                                             color: status_color,
                                             radius: settings.border_radius,
                                         }))),
                                     ]
-                                    .spacing(10)
+                                    .spacing(12)
                                     .width(Length::Fill)
                                     .align_items(Alignment::Center),
-                                    Space::with_height(Length::Fixed(8.0)),
+                                    Space::with_height(Length::Fixed(10.0)),
                                     text(format!("Bus ID: {}", bus_id))
-                                        .size(body_font_size * 0.86)
+                                        .size(body_font_size * 0.95)
                                         .style(iced::theme::Text::Color(theme.secondary_text())),
                                 ]
-                                .spacing(4)
-                                .padding(16)
+                                .spacing(6)
+                                .padding(Padding::from([18.0, 20.0, 18.0, 20.0]))
                                 .width(Length::Fill)
                             )
                             .style(iced::theme::Container::Custom(Box::new(DeviceCardStyle {
@@ -1285,26 +1335,26 @@ impl DeviceTab {
                             container(
                                 column![
                                     row![
-                                        text(&name).size(body_font_size * 1.14).width(Length::Fill),
+                                        text(&name).size(body_font_size * 1.25).width(Length::Fill),
                                         container(
-                                            Space::with_width(Length::Fixed(12.0))
-                                                .height(Length::Fixed(12.0))
+                                            Space::with_width(Length::Fixed(14.0))
+                                                .height(Length::Fixed(14.0))
                                         )
                                         .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
                                             color: status_color,
                                             radius: settings.border_radius,
                                         }))),
                                     ]
-                                    .spacing(10)
+                                    .spacing(12)
                                     .width(Length::Fill)
                                     .align_items(Alignment::Center),
-                                    Space::with_height(Length::Fixed(8.0)),
+                                    Space::with_height(Length::Fixed(10.0)),
                                     text(format!("Bus ID: {}", bus_id))
-                                        .size(body_font_size * 0.86)
+                                        .size(body_font_size * 0.95)
                                         .style(iced::theme::Text::Color(theme.secondary_text())),
                                 ]
-                                .spacing(4)
-                                .padding(16)
+                                .spacing(6)
+                                .padding(Padding::from([18.0, 20.0, 18.0, 20.0]))
                                 .width(Length::Fill)
                             )
                             .style(iced::theme::Container::Custom(Box::new(DeviceCardStyle {
@@ -1337,11 +1387,10 @@ impl DeviceTab {
     }
 
     fn view_device_details(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
-        // Calculate font sizes from settings
-        let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
-        let _body_font_size = (settings.font_size_body * settings.scale_body).round();
-        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
-        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        // Calculate font sizes from settings - larger for better readability
+        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
         use crate::gui::fonts::glyphs;
         
         // Get the device
@@ -1398,13 +1447,13 @@ impl DeviceTab {
             }
         };
 
-        // Back button
+        // Back button - larger and better styled
         let back_button = button(
             row![
-                text(glyphs::CLOSE_SYMBOL).font(*material_font).size(icon_size),
+                text(glyphs::CLOSE_SYMBOL).font(*material_font).size(icon_size * 0.85),
                 text(" Back").size(button_font_size),
             ]
-            .spacing(4)
+            .spacing(10)
             .align_items(Alignment::Center)
         )
         .on_press(Message::BackToDeviceList)
@@ -1412,11 +1461,11 @@ impl DeviceTab {
             is_primary: false,
             radius: settings.border_radius,
         })))
-        .padding(Padding::new(10.0));
+        .padding(Padding::from([14.0, 20.0, 14.0, 20.0]));
 
-        // Device title
+        // Device title - larger and more prominent
         let device_title = text(&device_name)
-            .size(title_font_size * 0.71)
+            .size(title_font_size)
             .style(iced::theme::Text::Color(theme.primary()))
             .width(Length::Fill);
 
@@ -1429,8 +1478,8 @@ impl DeviceTab {
         };
 
         let status_indicator = container(
-            Space::with_width(Length::Fixed(16.0))
-                .height(Length::Fixed(16.0))
+            Space::with_width(Length::Fixed(18.0))
+                .height(Length::Fixed(18.0))
         )
         .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
             color: status_color,
@@ -1453,31 +1502,68 @@ impl DeviceTab {
         container(
             scrollable(
                 column![
-                    row![
-                        back_button,
-                        Space::with_width(Length::Fill),
-                    ]
-                    .spacing(10)
-                    .align_items(Alignment::Center)
-                    .width(Length::Fill),
+                    // Header with back button
+                    container(
+                        row![
+                            back_button,
+                            Space::with_width(Length::Fill),
+                        ]
+                        .spacing(0)
+                        .align_items(Alignment::Center)
+                        .width(Length::Fill)
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
+                    
                     Space::with_height(Length::Fixed(20.0)),
-                    row![
-                        device_title,
-                        status_indicator,
-                    ]
-                    .spacing(10)
-                    .align_items(Alignment::Center)
-                    .width(Length::Fill),
+                    
+                    // Device title and status - larger and more prominent
+                    container(
+                        row![
+                            device_title,
+                            Space::with_width(Length::Fixed(12.0)),
+                            status_indicator,
+                        ]
+                        .spacing(0)
+                        .align_items(Alignment::Center)
+                        .width(Length::Fill)
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
+                    
                     Space::with_height(Length::Fixed(20.0)),
-                    status_badges,
-                    Space::with_height(Length::Fixed(20.0)),
-                    control_buttons,
-                    Space::with_height(Length::Fixed(20.0)),
-                    profiles_section,
+                    
+                    // Two-column layout: Status badges on left, Control buttons on right
+                    container(
+                        row![
+                            // Left column: Status badges
+                            container(status_badges)
+                                .width(Length::FillPortion(2)),
+                            Space::with_width(Length::Fixed(20.0)),
+                            // Right column: Control buttons
+                            container(
+                                control_buttons
+                            )
+                            .width(Length::FillPortion(1))
+                            .center_x(),
+                        ]
+                        .spacing(0)
+                        .align_items(Alignment::Start)
+                        .width(Length::Fill)
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
+                    
+                    Space::with_height(Length::Fixed(24.0)),
+                    
+                    // Profiles section - full width
+                    container(profiles_section)
+                        .width(Length::Fill)
+                        .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
                 ]
-                .spacing(10)
-                .padding(20)
+                .spacing(0)
                 .width(Length::Fill)
+                .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
             )
             .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
                 Color::from(settings.background_color.clone()),
@@ -1503,7 +1589,7 @@ impl DeviceTab {
 
     fn view_status_badges(&self, theme: &crate::gui::Theme, device_info: &DeviceInfo, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let _body_font_size = (settings.font_size_body * settings.scale_body).round();
-        let mut badges = column![].spacing(10);
+        let mut badges = column![].spacing(6);
 
         match device_info {
             DeviceInfo::Pci { started, enabled, driver, driver_version, bus_id, vendor_id, device_id, .. } => {
@@ -1534,7 +1620,7 @@ impl DeviceTab {
             badges
         )
         .width(Length::Fill)
-        .padding(16)
+        .padding(Padding::from([10.0, 12.0, 10.0, 12.0]))
         .style(iced::theme::Container::Custom(Box::new(StatusBadgeContainerStyle {
             radius: settings.border_radius,
         })))
@@ -1542,22 +1628,22 @@ impl DeviceTab {
     }
 
     fn create_status_badge(&self, theme: &crate::gui::Theme, label: &str, value: &str, is_positive: bool, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
-        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
         container(
             row![
                 text(label)
-                    .size(body_font_size * 0.86)
+                    .size(body_font_size)
                     .style(iced::theme::Text::Color(theme.secondary_text()))
-                    .width(Length::Fixed(100.0)),
+                    .width(Length::Fixed(140.0)),
                 text(value)
-                    .size(body_font_size * 0.86)
+                    .size(body_font_size)
                     .style(iced::theme::Text::Color(if is_positive { theme.primary() } else { theme.danger() })),
             ]
-            .spacing(10)
+            .spacing(12)
             .align_items(Alignment::Center)
             .width(Length::Fill)
         )
-        .padding(12)
+        .padding(Padding::from([12.0, 14.0, 12.0, 14.0]))
         .style(iced::theme::Container::Custom(Box::new(BadgeStyle {
             is_positive,
             radius: settings.border_radius,
@@ -1567,21 +1653,21 @@ impl DeviceTab {
     }
 
     fn create_info_badge(&self, theme: &crate::gui::Theme, label: &str, value: &str, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
-        let body_font_size = (settings.font_size_body * settings.scale_body).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
         container(
             row![
                 text(label)
-                    .size(body_font_size * 0.86)
+                    .size(body_font_size)
                     .style(iced::theme::Text::Color(theme.secondary_text()))
-                    .width(Length::Fixed(100.0)),
+                    .width(Length::Fixed(140.0)),
                 text(value)
-                    .size(body_font_size * 0.86),
+                    .size(body_font_size),
             ]
-            .spacing(10)
+            .spacing(12)
             .align_items(Alignment::Center)
             .width(Length::Fill)
         )
-        .padding(12)
+        .padding(Padding::from([12.0, 14.0, 12.0, 14.0]))
         .style(iced::theme::Container::Custom(Box::new(InfoBadgeStyle {
             radius: settings.border_radius,
         })))
@@ -1592,71 +1678,99 @@ impl DeviceTab {
     fn view_control_buttons(&self, _theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, device_info: &DeviceInfo, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
         
-        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.4).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.1).round();
         let (_started, _enabled) = match device_info {
             DeviceInfo::Pci { started, enabled, .. } => (*started, *enabled),
             DeviceInfo::Usb { started, enabled, .. } => (*started, *enabled),
         };
 
         let start_button = button(
-            text(glyphs::REFRESH_SYMBOL).font(*material_font).size(icon_size * 1.11)
+            column![
+                text(glyphs::REFRESH_SYMBOL).font(*material_font).size(icon_size),
+                text("Start").size(button_font_size * 0.85),
+            ]
+            .spacing(4)
+            .align_items(Alignment::Center)
         )
         .on_press(Message::StartDevice(dev_type, class.to_string(), device_idx))
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: false,
             radius: settings.border_radius,
         })))
-        .padding(Padding::new(12.0))
-        .width(Length::Fixed(50.0))
-        .height(Length::Fixed(50.0));
+        .padding(Padding::from([14.0, 16.0, 14.0, 16.0]))
+        .width(Length::Fixed(80.0));
 
         let stop_button = button(
-            text(glyphs::CLOSE_SYMBOL).font(*material_font).size(icon_size * 1.11)
+            column![
+                text(glyphs::CLOSE_SYMBOL).font(*material_font).size(icon_size),
+                text("Stop").size(button_font_size * 0.85),
+            ]
+            .spacing(4)
+            .align_items(Alignment::Center)
         )
         .on_press(Message::StopDevice(dev_type, class.to_string(), device_idx))
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: false,
             radius: settings.border_radius,
         })))
-        .padding(Padding::new(12.0))
-        .width(Length::Fixed(50.0))
-        .height(Length::Fixed(50.0));
+        .padding(Padding::from([14.0, 16.0, 14.0, 16.0]))
+        .width(Length::Fixed(80.0));
 
         let enable_button = button(
-            text(glyphs::CHECK_SYMBOL).font(*material_font).size(icon_size * 1.11)
+            column![
+                text(glyphs::CHECK_SYMBOL).font(*material_font).size(icon_size),
+                text("Enable").size(button_font_size * 0.85),
+            ]
+            .spacing(4)
+            .align_items(Alignment::Center)
         )
         .on_press(Message::EnableDevice(dev_type, class.to_string(), device_idx))
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: true,
             radius: settings.border_radius,
         })))
-        .padding(Padding::new(12.0))
-        .width(Length::Fixed(50.0))
-        .height(Length::Fixed(50.0));
+        .padding(Padding::from([14.0, 16.0, 14.0, 16.0]))
+        .width(Length::Fixed(80.0));
 
         let disable_button = button(
-            text(glyphs::CANCEL_SYMBOL).font(*material_font).size(icon_size * 1.11)
+            column![
+                text(glyphs::CANCEL_SYMBOL).font(*material_font).size(icon_size),
+                text("Disable").size(button_font_size * 0.85),
+            ]
+            .spacing(4)
+            .align_items(Alignment::Center)
         )
         .on_press(Message::DisableDevice(dev_type, class.to_string(), device_idx))
         .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
             is_primary: false,
             radius: settings.border_radius,
         })))
-        .padding(Padding::new(12.0))
-        .width(Length::Fixed(50.0))
-        .height(Length::Fixed(50.0));
+        .padding(Padding::from([14.0, 16.0, 14.0, 16.0]))
+        .width(Length::Fixed(80.0));
 
         container(
-            row![
-                start_button,
-                stop_button,
-                enable_button,
-                disable_button,
+            column![
+                row![
+                    start_button,
+                    Space::with_width(Length::Fixed(10.0)),
+                    stop_button,
+                ]
+                .spacing(0)
+                .align_items(Alignment::Center),
+                Space::with_height(Length::Fixed(10.0)),
+                row![
+                    enable_button,
+                    Space::with_width(Length::Fixed(10.0)),
+                    disable_button,
+                ]
+                .spacing(0)
+                .align_items(Alignment::Center),
             ]
-            .spacing(10)
+            .spacing(0)
             .align_items(Alignment::Center)
         )
-        .width(Length::Fill)
+        .width(Length::Shrink)
         .center_x()
         .into()
     }
@@ -1664,9 +1778,11 @@ impl DeviceTab {
     fn view_profiles_section_pci(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedPciProfile>], settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
         
-        let body_font_size = (settings.font_size_body * settings.scale_body).round();
-        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
-        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        // Larger font sizes for better readability
+        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
+        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.1).round();
         
         if profiles.is_empty() {
             return container(
@@ -1708,9 +1824,62 @@ impl DeviceTab {
             }
         });
 
+        // Install Selected button - only show if there are uninstalled profiles
+        let has_uninstalled = sorted_profiles.iter().any(|p| !p.installed());
+        let selected_count = sorted_profiles.iter()
+            .filter(|p| self.selected_profiles.contains(&p.profile().codename))
+            .count();
+        
+        let install_selected_section: Element<Message> = if has_uninstalled && selected_count > 0 {
+            container(
+                row![
+                    Space::with_width(Length::Fill),
+                    button(
+                        row![
+                            text(glyphs::DOWNLOAD_SYMBOL).font(*material_font).size(icon_size),
+                            text(&format!("Install Selected ({})", selected_count)).size(button_font_size),
+                        ]
+                        .spacing(10)
+                        .align_items(Alignment::Center)
+                    )
+                    .on_press(Message::InstallSelectedProfiles(dev_type, class.to_string(), device_idx))
+                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                        is_primary: true,
+                        radius: settings.border_radius,
+                    })))
+                    .padding(Padding::from([14.0, 20.0, 14.0, 20.0])),
+                ]
+                .spacing(0)
+                .align_items(Alignment::Center)
+                .width(Length::Fill)
+            )
+            .width(Length::Fill)
+            .padding(Padding::from([0.0, 0.0, 0.0, 0.0]))
+            .into()
+        } else {
+            Space::with_width(Length::Shrink).into()
+        };
+
         for (_profile_idx, profile) in sorted_profiles.iter().enumerate() {
             let profile_data = profile.profile();
             let is_installed = profile.installed();
+            let is_selected = self.selected_profiles.contains(&profile_data.codename);
+            
+            // Checkbox for selection (only show for uninstalled profiles)
+            let codename_clone = profile_data.codename.clone();
+            let class_clone = class.to_string();
+            let checkbox: Element<Message> = if !is_installed {
+                use iced::widget::checkbox;
+                checkbox("", is_selected)
+                    .on_toggle(move |_| {
+                        Message::ToggleProfileSelection(dev_type, class_clone.clone(), device_idx, codename_clone.clone())
+                    })
+                    .size(body_font_size)
+                    .spacing(8)
+                    .into()
+            } else {
+                Space::with_width(Length::Fixed(24.0)).into()
+            };
             
             let install_button = if is_installed {
                 button(
@@ -1718,21 +1887,21 @@ impl DeviceTab {
                         text(glyphs::CHECK_SYMBOL).font(*material_font).size(icon_size),
                         text(" Installed").size(button_font_size),
                     ]
-                    .spacing(4)
+                    .spacing(8)
                     .align_items(Alignment::Center)
                 )
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
                     radius: settings.border_radius,
                 })))
-                .padding(Padding::new(10.0))
+                .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
             } else {
                 button(
                     row![
                         text(glyphs::DOWNLOAD_SYMBOL).font(*material_font).size(icon_size),
                         text(" Install").size(button_font_size),
                     ]
-                    .spacing(4)
+                    .spacing(8)
                     .align_items(Alignment::Center)
                 )
                 .on_press(Message::InstallProfile(dev_type, class.to_string(), device_idx, profile_data.codename.clone()))
@@ -1740,16 +1909,16 @@ impl DeviceTab {
                     is_primary: true,
                     radius: settings.border_radius,
                 })))
-                .padding(Padding::new(10.0))
+                .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
             };
 
-            let remove_button = if profile_data.removable && is_installed {
+            let remove_button: Element<Message> = if profile_data.removable && is_installed {
                 button(
                     row![
                         text(glyphs::DELETE_SYMBOL).font(*material_font).size(icon_size),
                         text(" Remove").size(button_font_size),
                     ]
-                    .spacing(4)
+                    .spacing(8)
                     .align_items(Alignment::Center)
                 )
                 .on_press(Message::RemoveProfile(dev_type, class.to_string(), device_idx, profile_data.codename.clone()))
@@ -1757,30 +1926,19 @@ impl DeviceTab {
                     is_primary: false,
                     radius: settings.border_radius,
                 })))
-                .padding(Padding::new(10.0))
+                .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
+                .into()
             } else {
-                button(
-                    row![
-                        text(glyphs::DELETE_SYMBOL).font(*material_font).size(icon_size),
-                        text(" Remove").size(button_font_size),
-                    ]
-                    .spacing(4)
-                    .align_items(Alignment::Center)
-                )
-                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                    is_primary: false,
-                    radius: settings.border_radius,
-                })))
-                .padding(Padding::new(10.0))
+                Space::with_width(Length::Shrink).into()
             };
 
             let experimental_badge: Element<Message> = if profile_data.experimental {
                 container(
                     text("Experimental")
-                        .size(body_font_size * 0.79)
+                        .size(body_font_size * 0.9)
                         .style(iced::theme::Text::Color(theme.danger()))
                 )
-                .padding(Padding::from([4.0, 8.0, 4.0, 8.0]))
+                .padding(Padding::from([6.0, 10.0, 6.0, 10.0]))
                 .style(iced::theme::Container::Custom(Box::new(ExperimentalBadgeStyle {
                     radius: settings.border_radius,
                 })))
@@ -1788,19 +1946,36 @@ impl DeviceTab {
             } else {
                 Space::with_width(Length::Shrink).into()
             };
+            
+            // Format profile name properly - capitalize NVIDIA, etc.
+            let display_name = if profile_data.i18n_desc.contains("NVIDIA") {
+                profile_data.i18n_desc.clone()
+            } else if profile_data.codename.starts_with("nvidia-") {
+                // Extract version and format as "NVIDIA Graphics Driver X.X.X"
+                if let Some(version) = profile_data.codename.strip_prefix("nvidia-") {
+                    format!("NVIDIA Graphics Driver {}", version)
+                } else {
+                    profile_data.i18n_desc.clone()
+                }
+            } else {
+                profile_data.i18n_desc.clone()
+            };
 
             let profile_card = container(
                 column![
                     row![
-                        text(&profile_data.i18n_desc)
-                            .size(body_font_size * 1.14)
+                        checkbox,
+                        Space::with_width(Length::Fixed(14.0)),
+                        text(&display_name)
+                            .size(body_font_size * 1.25)
                             .style(iced::theme::Text::Color(theme.primary()))
                             .width(Length::Fill),
+                        Space::with_width(Length::Fixed(14.0)),
                         {
                             let indicator: Element<Message> = if is_installed {
                                 container(
-                                    Space::with_width(Length::Fixed(8.0))
-                                        .height(Length::Fixed(8.0))
+                                    Space::with_width(Length::Fixed(12.0))
+                                        .height(Length::Fixed(12.0))
                                 )
                                 .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
                                     color: theme.primary(),
@@ -1813,12 +1988,12 @@ impl DeviceTab {
                             indicator
                         },
                     ]
-                    .spacing(10)
+                    .spacing(0)
                     .align_items(Alignment::Center)
                     .width(Length::Fill),
-                    Space::with_height(Length::Fixed(8.0)),
+                    Space::with_height(Length::Fixed(10.0)),
                     text(&profile_data.codename)
-                        .size(body_font_size * 0.86)
+                        .size(body_font_size * 0.9)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     {
                         // Use cached driver version (loaded asynchronously) - extract clean version
@@ -1971,7 +2146,7 @@ impl DeviceTab {
                         if let Some(drv_ver) = driver_version_display {
                             info_rows = info_rows.push(
                                 text(format!("Driver Version: {}", drv_ver))
-                                    .size(body_font_size * 0.79)
+                                    .size(body_font_size * 0.95)
                                     .style(iced::theme::Text::Color(theme.primary()))
                             );
                         }
@@ -1980,7 +2155,7 @@ impl DeviceTab {
                         if let Some(repo) = profile.repository() {
                             info_rows = info_rows.push(
                                 text(format!("Repository: {}", repo))
-                                    .size(body_font_size * 0.79)
+                                    .size(body_font_size * 0.95)
                                     .style(iced::theme::Text::Color(theme.secondary_text()))
                             );
                         }
@@ -1989,7 +2164,7 @@ impl DeviceTab {
                         if let Some(size) = profile.package_size() {
                             info_rows = info_rows.push(
                                 text(format!("Total Size: {}", size))
-                                    .size(body_font_size * 0.79)
+                                    .size(body_font_size * 0.95)
                                     .style(iced::theme::Text::Color(theme.secondary_text()))
                             );
                         }
@@ -1999,7 +2174,7 @@ impl DeviceTab {
                             if !deps.is_empty() {
                                 info_rows = info_rows.push(
                                     text(format!("Dependencies: {} packages", deps.len()))
-                                        .size(body_font_size * 0.79)
+                                        .size(body_font_size * 0.95)
                                         .style(iced::theme::Text::Color(theme.secondary_text()))
                                 );
                             }
@@ -2007,27 +2182,32 @@ impl DeviceTab {
                         
                         info_rows.width(Length::Fill)
                     },
-                    Space::with_height(Length::Fixed(8.0)),
+                    Space::with_height(Length::Fixed(12.0)),
                     row![
                         text(format!("License: {}", profile_data.license))
-                            .size(body_font_size * 0.79)
+                            .size(body_font_size * 0.95)
                             .style(iced::theme::Text::Color(theme.secondary_text())),
                         Space::with_width(Length::Fill),
                         experimental_badge,
                     ]
-                    .spacing(8)
+                    .spacing(10)
                     .align_items(Alignment::Center)
                     .width(Length::Fill),
-                    Space::with_height(Length::Fixed(12.0)),
-                    row![
-                        install_button,
-                        remove_button,
-                    ]
-                    .spacing(10)
-                    .align_items(Alignment::Center),
+                    Space::with_height(Length::Fixed(16.0)),
+                    {
+                        let mut button_row = row![install_button];
+                        if profile_data.removable && is_installed {
+                            button_row = button_row.push(Space::with_width(Length::Fixed(12.0)));
+                            button_row = button_row.push(remove_button);
+                        }
+                        button_row
+                            .spacing(0)
+                            .align_items(Alignment::Center)
+                            .width(Length::Fill)
+                    },
                 ]
-                .spacing(4)
-                .padding(16)
+                .spacing(8)
+                .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
                 .width(Length::Fill)
             )
             .style(iced::theme::Container::Custom(Box::new(ProfileCardStyle {
@@ -2040,14 +2220,20 @@ impl DeviceTab {
 
         container(
             column![
-                text("Available Profiles")
-                    .size(body_font_size * 1.29)
-                    .style(iced::theme::Text::Color(theme.primary()))
-                    .width(Length::Fill),
-                Space::with_height(Length::Fixed(10.0)),
+                row![
+                    text("Available Profiles")
+                        .size(title_font_size)
+                        .style(iced::theme::Text::Color(theme.primary()))
+                        .width(Length::Fill),
+                    install_selected_section,
+                ]
+                .spacing(0)
+                .align_items(Alignment::Center)
+                .width(Length::Fill),
+                Space::with_height(Length::Fixed(20.0)),
                 profile_cards,
             ]
-            .spacing(10)
+            .spacing(0)
             .width(Length::Fill)
         )
         .width(Length::Fill)
@@ -2057,9 +2243,10 @@ impl DeviceTab {
     fn view_profiles_section_usb(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedUsbProfile>], settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
         
-        let body_font_size = (settings.font_size_body * settings.scale_body).round();
-        let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
-        let icon_size = (settings.font_size_icons * settings.scale_icons).round();
+        // Larger font sizes for better readability
+        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
         
         if profiles.is_empty() {
             return container(
@@ -2082,6 +2269,23 @@ impl DeviceTab {
         for (_profile_idx, profile) in sorted_profiles.iter().enumerate() {
             let profile_data = profile.profile();
             let is_installed = profile.installed();
+            let is_selected = self.selected_profiles.contains(&profile_data.codename);
+            
+            // Checkbox for selection (only show for uninstalled profiles)
+            let codename_clone = profile_data.codename.clone();
+            let class_clone = class.to_string();
+            let checkbox: Element<Message> = if !is_installed {
+                use iced::widget::checkbox;
+                checkbox("", is_selected)
+                    .on_toggle(move |_| {
+                        Message::ToggleProfileSelection(dev_type, class_clone.clone(), device_idx, codename_clone.clone())
+                    })
+                    .size(body_font_size)
+                    .spacing(8)
+                    .into()
+            } else {
+                Space::with_width(Length::Fixed(24.0)).into()
+            };
             
             let install_button = if is_installed {
                 button(
@@ -2089,21 +2293,21 @@ impl DeviceTab {
                         text(glyphs::CHECK_SYMBOL).font(*material_font).size(icon_size),
                         text(" Installed").size(button_font_size),
                     ]
-                    .spacing(4)
+                    .spacing(8)
                     .align_items(Alignment::Center)
                 )
                 .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
                     is_primary: false,
                     radius: settings.border_radius,
                 })))
-                .padding(Padding::new(10.0))
+                .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
             } else {
                 button(
                     row![
                         text(glyphs::DOWNLOAD_SYMBOL).font(*material_font).size(icon_size),
                         text(" Install").size(button_font_size),
                     ]
-                    .spacing(4)
+                    .spacing(8)
                     .align_items(Alignment::Center)
                 )
                 .on_press(Message::InstallProfile(dev_type, class.to_string(), device_idx, profile_data.codename.clone()))
@@ -2111,16 +2315,16 @@ impl DeviceTab {
                     is_primary: true,
                     radius: settings.border_radius,
                 })))
-                .padding(Padding::new(10.0))
+                .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
             };
 
-            let remove_button = if profile_data.removable && is_installed {
+            let remove_button: Element<Message> = if profile_data.removable && is_installed {
                 button(
                     row![
                         text(glyphs::DELETE_SYMBOL).font(*material_font).size(icon_size),
                         text(" Remove").size(button_font_size),
                     ]
-                    .spacing(4)
+                    .spacing(8)
                     .align_items(Alignment::Center)
                 )
                 .on_press(Message::RemoveProfile(dev_type, class.to_string(), device_idx, profile_data.codename.clone()))
@@ -2128,30 +2332,19 @@ impl DeviceTab {
                     is_primary: false,
                     radius: settings.border_radius,
                 })))
-                .padding(Padding::new(10.0))
+                .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
+                .into()
             } else {
-                button(
-                    row![
-                        text(glyphs::DELETE_SYMBOL).font(*material_font).size(icon_size),
-                        text(" Remove").size(button_font_size),
-                    ]
-                    .spacing(4)
-                    .align_items(Alignment::Center)
-                )
-                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                    is_primary: false,
-                    radius: settings.border_radius,
-                })))
-                .padding(Padding::new(10.0))
+                Space::with_width(Length::Shrink).into()
             };
 
             let experimental_badge: Element<Message> = if profile_data.experimental {
                 container(
                     text("Experimental")
-                        .size(body_font_size * 0.79)
+                        .size(body_font_size * 0.9)
                         .style(iced::theme::Text::Color(theme.danger()))
                 )
-                .padding(Padding::from([4.0, 8.0, 4.0, 8.0]))
+                .padding(Padding::from([6.0, 10.0, 6.0, 10.0]))
                 .style(iced::theme::Container::Custom(Box::new(ExperimentalBadgeStyle {
                     radius: settings.border_radius,
                 })))
@@ -2159,19 +2352,36 @@ impl DeviceTab {
             } else {
                 Space::with_width(Length::Shrink).into()
             };
+            
+            // Format profile name properly - capitalize NVIDIA, etc.
+            let display_name = if profile_data.i18n_desc.contains("NVIDIA") {
+                profile_data.i18n_desc.clone()
+            } else if profile_data.codename.starts_with("nvidia-") {
+                // Extract version and format as "NVIDIA Graphics Driver X.X.X"
+                if let Some(version) = profile_data.codename.strip_prefix("nvidia-") {
+                    format!("NVIDIA Graphics Driver {}", version)
+                } else {
+                    profile_data.i18n_desc.clone()
+                }
+            } else {
+                profile_data.i18n_desc.clone()
+            };
 
             let profile_card = container(
                 column![
                     row![
-                        text(&profile_data.i18n_desc)
-                            .size(body_font_size * 1.14)
+                        checkbox,
+                        Space::with_width(Length::Fixed(14.0)),
+                        text(&display_name)
+                            .size(body_font_size * 1.25)
                             .style(iced::theme::Text::Color(theme.primary()))
                             .width(Length::Fill),
+                        Space::with_width(Length::Fixed(14.0)),
                         {
                             let indicator: Element<Message> = if is_installed {
                                 container(
-                                    Space::with_width(Length::Fixed(8.0))
-                                        .height(Length::Fixed(8.0))
+                                    Space::with_width(Length::Fixed(12.0))
+                                        .height(Length::Fixed(12.0))
                                 )
                                 .style(iced::theme::Container::Custom(Box::new(StatusIndicatorStyle {
                                     color: theme.primary(),
@@ -2184,12 +2394,12 @@ impl DeviceTab {
                             indicator
                         },
                     ]
-                    .spacing(10)
+                    .spacing(0)
                     .align_items(Alignment::Center)
                     .width(Length::Fill),
-                    Space::with_height(Length::Fixed(8.0)),
+                    Space::with_height(Length::Fixed(10.0)),
                     text(&profile_data.codename)
-                        .size(body_font_size * 0.86)
+                        .size(body_font_size * 0.9)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     {
                         // Use cached driver version (loaded asynchronously)
@@ -2210,18 +2420,18 @@ impl DeviceTab {
                             row![Space::with_width(Length::Shrink)]
                         }
                     },
-                    Space::with_height(Length::Fixed(8.0)),
+                    Space::with_height(Length::Fixed(12.0)),
                     row![
                         text(format!("License: {}", profile_data.license))
-                            .size(body_font_size * 0.79)
+                            .size(body_font_size * 0.95)
                             .style(iced::theme::Text::Color(theme.secondary_text())),
                         Space::with_width(Length::Fill),
                         experimental_badge,
                     ]
-                    .spacing(8)
+                    .spacing(10)
                     .align_items(Alignment::Center)
                     .width(Length::Fill),
-                    Space::with_height(Length::Fixed(12.0)),
+                    Space::with_height(Length::Fixed(16.0)),
                     row![
                         install_button,
                         remove_button,
@@ -2241,10 +2451,12 @@ impl DeviceTab {
             profile_cards = profile_cards.push(profile_card);
         }
 
+        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.1).round();
+        
         container(
             column![
                 text("Available Profiles")
-                    .size(body_font_size * 1.29)
+                    .size(title_font_size)
                     .style(iced::theme::Text::Color(theme.primary()))
                     .width(Length::Fill),
                 Space::with_height(Length::Fixed(10.0)),
@@ -2828,16 +3040,25 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                 }
                 
                 // Query from RPM Fusion non-free repositories
-                if let Ok(output) = Command::new("dnf")
-                    .args(&["repoquery", "--available", "--quiet", "--qf", "%{name}|%{version}|%{repoid}", "--enablerepo=rpmfusion-nonfree*"])
-                    .arg(pattern)
-                    .output()
-                {
-                    if output.status.success() {
-                        if let Ok(stdout) = String::from_utf8(output.stdout) {
-                            results.extend(stdout.lines()
-                                .map(|l| l.trim().to_string())
-                                .filter(|l| !l.is_empty()));
+                // Query each repo separately to ensure we get all packages
+                let rpmfusion_nonfree_repos = vec![
+                    "rpmfusion-nonfree",
+                    "rpmfusion-nonfree-updates",
+                    "rpmfusion-nonfree-nvidia-driver",
+                ];
+                
+                for repo in rpmfusion_nonfree_repos {
+                    if let Ok(output) = Command::new("dnf")
+                        .args(&["repoquery", "--available", "--quiet", "--qf", "%{name}|%{version}|%{repoid}", "--enablerepo", repo])
+                        .arg(pattern)
+                        .output()
+                    {
+                        if output.status.success() {
+                            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                                results.extend(stdout.lines()
+                                    .map(|l| l.trim().to_string())
+                                    .filter(|l| !l.is_empty()));
+                            }
                         }
                     }
                 }
@@ -2862,41 +3083,82 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
             .collect();
         
         // Process the combined results
-        let packages: Vec<NvidiaDriverPackage> = all_packages
-            .into_iter()
-            .filter_map(|line| {
-                let parts: Vec<&str> = line.split('|').collect();
-                if parts.len() >= 3 {
-                    let name = parts[0].to_string();
-                    let version = parts[1].to_string();
-                    let repo = parts[2].to_string();
-                    
-                    // Include packages from:
-                    // - RPM Fusion free repositories (rpmfusion-free, rpmfusion-free-updates)
-                    // - RPM Fusion non-free repositories (rpmfusion-nonfree, rpmfusion-nonfree-updates)
-                    // - negativo17/fedora-nvidia repositories
-                    let is_rpmfusion_free = repo.contains("rpmfusion-free");
-                    let is_rpmfusion_nonfree = repo.contains("rpmfusion-nonfree");
-                    let is_negativo17 = repo.contains("negativo17") || repo.contains("negativo") || repo.contains("fedora-nvidia");
-                    
-                    if is_rpmfusion_free || is_rpmfusion_nonfree || is_negativo17 {
-                        // Extract driver version from package name or version
-                        let driver_version = extract_nvidia_version(&name, &version);
-                        
-                        Some(NvidiaDriverPackage {
-                            name,
-                            version,
-                            repo,
-                            driver_version,
-                        })
-                    } else {
-                        None
-                    }
-                } else {
-                    None
+        // Note: dnf repoquery --quiet outputs all results on one line without newlines
+        // Format: name|version|repoidname|version|repoid...
+        // We need to split on package name patterns to separate entries
+        let mut packages: Vec<NvidiaDriverPackage> = Vec::new();
+        
+        // Join all lines (they're already on one line from --quiet)
+        let all_text = all_packages.join("");
+        
+        // Split by finding package name patterns
+        // Package names start with: akmod-nvidia, nvidia-driver, or xorg-x11-drv-nvidia
+        let package_patterns = vec!["akmod-nvidia", "nvidia-driver", "xorg-x11-drv-nvidia"];
+        
+        // Find all package name positions
+        let mut positions = Vec::new();
+        for pattern in &package_patterns {
+            let mut search_pos = 0;
+            while let Some(pos) = all_text[search_pos..].find(pattern) {
+                let absolute_pos = search_pos + pos;
+                // Check if this is at the start or after a pipe (new entry)
+                if absolute_pos == 0 || all_text.chars().nth(absolute_pos - 1) == Some('|') {
+                    positions.push(absolute_pos);
                 }
-            })
-            .collect();
+                search_pos = absolute_pos + 1;
+            }
+        }
+        positions.sort();
+        positions.dedup();
+        
+        // Parse each entry
+        for i in 0..positions.len() {
+            let start = positions[i];
+            let end = if i + 1 < positions.len() {
+                positions[i + 1]
+            } else {
+                all_text.len()
+            };
+            
+            let entry = &all_text[start..end];
+            let parts: Vec<&str> = entry.split('|').collect();
+            
+            if parts.len() >= 3 {
+                let name = parts[0].to_string();
+                let version = parts[1].to_string();
+                // The repo might be concatenated with the next package name, so extract just the repo part
+                let repo_full = parts[2];
+                // Find where the repo name ends (before the next package name pattern)
+                let repo = if let Some(next_pkg_pos) = package_patterns.iter()
+                    .filter_map(|pattern| repo_full.find(pattern))
+                    .min()
+                {
+                    repo_full[..next_pkg_pos].to_string()
+                } else {
+                    repo_full.to_string()
+                };
+                
+                // Include packages from:
+                // - RPM Fusion free repositories (rpmfusion-free, rpmfusion-free-updates)
+                // - RPM Fusion non-free repositories (rpmfusion-nonfree, rpmfusion-nonfree-updates, rpmfusion-nonfree-nvidia-driver)
+                // - negativo17/fedora-nvidia repositories
+                let is_rpmfusion_free = repo.contains("rpmfusion-free");
+                let is_rpmfusion_nonfree = repo.contains("rpmfusion-nonfree");
+                let is_negativo17 = repo.contains("negativo17") || repo.contains("negativo") || repo.contains("fedora-nvidia");
+                
+                if is_rpmfusion_free || is_rpmfusion_nonfree || is_negativo17 {
+                    // Extract driver version from package name or version
+                    let driver_version = extract_nvidia_version(&name, &version);
+                    
+                    packages.push(NvidiaDriverPackage {
+                        name,
+                        version,
+                        repo,
+                        driver_version,
+                    });
+                }
+            }
+        }
         
         Ok(packages)
     })
@@ -2925,8 +3187,35 @@ struct MesaDriverPackage {
 }
 
 fn extract_nvidia_version(package_name: &str, package_version: &str) -> String {
-    // Try to extract from akmod-nvidia package version first (most accurate)
-    if package_name.contains("akmod-nvidia") {
+    // Handle legacy driver series like akmod-nvidia-470xx and akmod-nvidia-390xx
+    // These packages have the series in the name (e.g., "470xx") and full version in package_version
+    if package_name.starts_with("akmod-nvidia-") {
+        // Check for legacy series like "470xx" or "390xx"
+        if let Some(suffix) = package_name.strip_prefix("akmod-nvidia-") {
+            // Check if it's a legacy series (ends with "xx")
+            if suffix.ends_with("xx") {
+                // Extract the major version number (e.g., "470" from "470xx")
+                if let Some(major_version) = suffix.strip_suffix("xx") {
+                    // Use the package version which contains the full version (e.g., "470.256.02")
+                    if let Some(version) = package_version.split('-').next() {
+                        // Verify it starts with the major version
+                        if version.starts_with(&format!("{}.", major_version)) {
+                            return version.to_string();
+                        }
+                        // If version doesn't match, still return it as it's the actual driver version
+                        if version.matches('.').count() >= 1 && version.chars().any(|c| c.is_ascii_digit()) {
+                            return version.to_string();
+                        }
+                    }
+                    // Fallback: return major version
+                    return major_version.to_string();
+                }
+            }
+        }
+    }
+    
+    // Try to extract from akmod-nvidia package version (for standard packages like akmod-nvidia)
+    if package_name == "akmod-nvidia" || (package_name.contains("akmod-nvidia") && !package_name.contains("-")) {
         // akmod-nvidia version format is usually like "580.95.05-1.fc40"
         // Extract the version part before the first dash
         if let Some(version) = package_version.split('-').next() {
@@ -3154,6 +3443,26 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
     profiles
 }
 
+// Compare version strings (e.g., "580.105.08" vs "580.95.05")
+// Returns Ordering::Greater if a > b, Ordering::Less if a < b, Ordering::Equal if a == b
+fn version_compare(a: &str, b: &str) -> std::cmp::Ordering {
+    let a_parts: Vec<u32> = a.split('.').filter_map(|s| s.parse().ok()).collect();
+    let b_parts: Vec<u32> = b.split('.').filter_map(|s| s.parse().ok()).collect();
+    
+    let max_len = a_parts.len().max(b_parts.len());
+    for i in 0..max_len {
+        let a_val = a_parts.get(i).copied().unwrap_or(0);
+        let b_val = b_parts.get(i).copied().unwrap_or(0);
+        
+        match a_val.cmp(&b_val) {
+            std::cmp::Ordering::Equal => continue,
+            other => return other,
+        }
+    }
+    
+    std::cmp::Ordering::Equal
+}
+
 // Create NVIDIA profiles from repository packages
 // Returns (profile, repository_name, package_names)
 fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<(CfhdbPciProfile, String, Vec<String>)> {
@@ -3163,19 +3472,35 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
     // Don't query dnf here to avoid blocking - full versions will be extracted later if needed
     let mut version_groups: HashMap<String, Vec<NvidiaDriverPackage>> = HashMap::new();
     for pkg in packages {
+        eprintln!("[DEBUG] Grouping package: {} | Extracted driver version: {}", pkg.name, pkg.driver_version);
         // Use the driver version as-is (it should already be extracted from package name/version)
         // If it's only a major version, that's fine - we'll display it as "XXX Series" or extract full version later
         version_groups.entry(pkg.driver_version.clone())
             .or_insert_with(Vec::new)
             .push(pkg);
     }
+    eprintln!("[DEBUG] Version groups: {:?}", version_groups.keys().collect::<Vec<_>>());
     
     // Create a profile for each driver version
-    for (driver_version, pkgs) in version_groups {
+    // Sort by version to ensure consistent ordering (newer versions first)
+    let mut version_groups_vec: Vec<(String, Vec<NvidiaDriverPackage>)> = version_groups.into_iter().collect();
+    version_groups_vec.sort_by(|a, b| {
+        // Compare versions numerically (e.g., 580.105.08 > 580.95.05)
+        version_compare(&b.0, &a.0)
+    });
+    
+    for (driver_version, pkgs) in version_groups_vec {
         // Determine repository (prefer negativo17/fedora-nvidia, then rpmfusion)
+        // For RPM Fusion, prefer rpmfusion-nonfree-nvidia-driver if available (newer driver repo)
         let repo = pkgs.iter()
             .find(|p| p.repo.contains("negativo17") || p.repo.contains("negativo") || p.repo.contains("fedora-nvidia"))
             .map(|p| p.repo.clone())
+            .or_else(|| {
+                // Prefer rpmfusion-nonfree-nvidia-driver over rpmfusion-nonfree for newer drivers
+                pkgs.iter()
+                    .find(|p| p.repo.contains("rpmfusion-nonfree-nvidia-driver"))
+                    .map(|p| p.repo.clone())
+            })
             .or_else(|| pkgs.first().map(|p| p.repo.clone()))
             .unwrap_or_default();
         
@@ -3199,7 +3524,8 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
         
         // Build install script with removal of old NVIDIA drivers first
         // Use || true to continue even if packages don't exist (graceful removal)
-        let removal_commands = "(dnf remove -y nvidia* || true) && (dnf remove -y kmod-nvidia* || true) && (dnf remove -y akmod-nvidia || true) && (dnf remove -y dkms-nvidia || true) && (dnf remove -y xorg-x11-drv-nvidia* || true) && (rm -rf /var/lib/dkms/nvidia* || true)";
+        // Include legacy driver series in removal (akmod-nvidia-470xx, akmod-nvidia-390xx, etc.)
+        let removal_commands = "(dnf remove -y nvidia* || true) && (dnf remove -y kmod-nvidia* || true) && (dnf remove -y akmod-nvidia* || true) && (dnf remove -y dkms-nvidia || true) && (dnf remove -y xorg-x11-drv-nvidia* || true) && (rm -rf /var/lib/dkms/nvidia* || true)";
         
         // Determine package list based on repository
         // negativo17 uses: nvidia-driver, nvidia-settings
@@ -3213,9 +3539,9 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             // We avoid nvidia-persistenced (not needed for normal use) and nvidia-xconfig (not required with modular X.org)
             // nvidia-gpu-firmware is NOT needed - firmware is in nvidia-kmod-common
             let packages = vec![
-                "nvidia-driver",
-                "nvidia-driver-cuda",
-                "nvidia-settings",
+                "nvidia-driver".to_string(),
+                "nvidia-driver-cuda".to_string(),
+                "nvidia-settings".to_string(),
             ];
             let install_packages = packages.join(" ");
             let script = format!(
@@ -3227,12 +3553,17 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
         } else if repo.contains("rpmfusion-nonfree") {
             // RPM Fusion non-free repository
             // According to rpmfusion.org/Howto/NVIDIA, minimal installation is:
-            // dnf install akmod-nvidia
+            // dnf install akmod-nvidia (or akmod-nvidia-470xx, akmod-nvidia-390xx for legacy drivers)
             // This will automatically pull in xorg-x11-drv-nvidia and all required dependencies
             // CUDA support is optional via xorg-x11-drv-nvidia-cuda (not installed by default)
-            let packages = vec![
-                "akmod-nvidia",
-            ];
+            
+            // Find the actual akmod-nvidia package name (could be akmod-nvidia, akmod-nvidia-470xx, etc.)
+            let akmod_pkg = pkgs.iter()
+                .find(|p| p.name.starts_with("akmod-nvidia"))
+                .map(|p| p.name.as_str())
+                .unwrap_or("akmod-nvidia");
+            
+            let packages = vec![akmod_pkg.to_string()];
             let install_packages = packages.join(" ");
             let script = format!(
                 "{} && dnf install -y --enablerepo=rpmfusion-nonfree-updates {}",
@@ -3242,9 +3573,13 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             (packages, script)
         } else if repo.contains("rpmfusion-free") {
             // RPM Fusion free repository (unlikely for NVIDIA, but handle it)
-            let packages = vec![
-                "akmod-nvidia",
-            ];
+            // Find the actual akmod-nvidia package name (could be akmod-nvidia, akmod-nvidia-470xx, etc.)
+            let akmod_pkg = pkgs.iter()
+                .find(|p| p.name.starts_with("akmod-nvidia"))
+                .map(|p| p.name.as_str())
+                .unwrap_or("akmod-nvidia");
+            
+            let packages = vec![akmod_pkg.to_string()];
             let install_packages = packages.join(" ");
             let script = format!(
                 "{} && dnf install -y --enablerepo=rpmfusion-free-updates {}",
@@ -3254,9 +3589,13 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             (packages, script)
         } else {
             // Fallback: try both RPM Fusion repos (assume RPM Fusion package names)
-            let packages = vec![
-                "akmod-nvidia",
-            ];
+            // Find the actual akmod-nvidia package name (could be akmod-nvidia, akmod-nvidia-470xx, etc.)
+            let akmod_pkg = pkgs.iter()
+                .find(|p| p.name.starts_with("akmod-nvidia"))
+                .map(|p| p.name.as_str())
+                .unwrap_or("akmod-nvidia");
+            
+            let packages = vec![akmod_pkg.to_string()];
             let install_packages = packages.join(" ");
             let script = format!(
                 "{} && dnf install -y --enablerepo=rpmfusion-free-updates --enablerepo=rpmfusion-nonfree-updates {}",
@@ -3347,11 +3686,22 @@ async fn load_all_devices() -> Result<(
     // Process NVIDIA packages
     match nvidia_result {
         Ok(repo_packages) if !repo_packages.is_empty() => {
+            eprintln!("[DEBUG] Found {} NVIDIA driver packages", repo_packages.len());
+            for pkg in &repo_packages {
+                eprintln!("[DEBUG] Package: {} | Version: {} | Repo: {} | Driver Version: {}", 
+                    pkg.name, pkg.version, pkg.repo, pkg.driver_version);
+            }
             let nvidia_profiles = create_nvidia_profiles_from_repos(repo_packages);
+            eprintln!("[DEBUG] Created {} NVIDIA profiles", nvidia_profiles.len());
+            for (profile, repo_name, _) in &nvidia_profiles {
+                eprintln!("[DEBUG] Profile: {} | Codename: {} | Repo: {}", 
+                    profile.i18n_desc, profile.codename, repo_name);
+            }
             repo_profiles_with_info.extend(nvidia_profiles);
         }
         Ok(_) => {
             // No packages found, continue
+            eprintln!("[DEBUG] No NVIDIA driver packages found");
         }
         Err(e) => {
             // Log error but continue without repository profiles
@@ -3990,89 +4340,43 @@ async fn request_permissions() -> Result<(), String> {
     
     eprintln!("[DEBUG] Requesting elevated permissions via pkexec...");
     
-    // First, ensure the directory exists and has proper permissions
-    // This will show the GUI password dialog
-    let mut mkdir_cmd = TokioCommand::new("pkexec");
-    mkdir_cmd.args(["mkdir", "-p", "/var/cache/cfhdb"]);
-    
-    // Ensure DISPLAY is set for GUI dialog
-    if let Ok(display) = std::env::var("DISPLAY") {
-        mkdir_cmd.env("DISPLAY", display);
-    }
-    
-    let mkdir_output = mkdir_cmd
-        .output()
-        .await
-        .map_err(|e| {
-            eprintln!("[DEBUG] Failed to execute pkexec mkdir: {}", e);
-            format!("Failed to request permissions: {}. Make sure polkit is installed.", e)
-        })?;
-    
-    if !mkdir_output.status.success() {
-        let stderr = String::from_utf8_lossy(&mkdir_output.stderr);
-        eprintln!("[DEBUG] Failed to create directory: {}", stderr);
-        // Check if user cancelled the password dialog
-        if mkdir_output.status.code() == Some(126) || mkdir_output.status.code() == Some(127) {
-            return Err("Authentication cancelled or failed. Please try again.".to_string());
-        }
-        return Err(format!("Failed to create directory: {}", stderr));
-    }
-    
     // Get current user to set ownership
     let current_user = users::get_current_username()
         .ok_or("Failed to get current username")?
         .to_string_lossy()
         .to_string();
     
-    // Change ownership of the directory to the current user so the cfhdb library can write to it
-    // (The library needs to write check_cmd.sh)
-    eprintln!("[DEBUG] Changing directory ownership to user: {}", current_user);
-    let mut chown_cmd = TokioCommand::new("pkexec");
-    chown_cmd.args(["chown", "-R", &format!("{}:{}", current_user, current_user), "/var/cache/cfhdb"]);
+    // Combine all operations into a single command to reduce sudo prompts
+    // mkdir, chown, and chmod all in one pkexec call
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("sh");
+    cmd.arg("-c");
+    cmd.arg(&format!(
+        "mkdir -p /var/cache/cfhdb && chown -R {}:{} /var/cache/cfhdb && chmod -R 777 /var/cache/cfhdb",
+        current_user, current_user
+    ));
+    
+    // Ensure DISPLAY is set for GUI dialog
     if let Ok(display) = std::env::var("DISPLAY") {
-        chown_cmd.env("DISPLAY", display);
+        cmd.env("DISPLAY", display);
     }
     
-    let chown_output = chown_cmd
+    let output = cmd
         .output()
-        .await;
+        .await
+        .map_err(|e| {
+            eprintln!("[DEBUG] Failed to execute pkexec: {}", e);
+            format!("Failed to request permissions: {}. Make sure polkit is installed.", e)
+        })?;
     
-    match chown_output {
-        Ok(output) if output.status.success() => {
-            eprintln!("[DEBUG] Directory ownership changed successfully");
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!("[DEBUG] Failed to set up directory: {}", stderr);
+        // Check if user cancelled the password dialog
+        if output.status.code() == Some(126) || output.status.code() == Some(127) {
+            return Err("Authentication cancelled or failed. Please try again.".to_string());
         }
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            eprintln!("[DEBUG] Warning: Failed to change directory ownership: {}", stderr);
-        }
-        Err(e) => {
-            eprintln!("[DEBUG] Warning: Failed to execute chown: {}", e);
-        }
-    }
-    
-    // Set directory permissions to 777 so the cfhdb library can write to it
-    eprintln!("[DEBUG] Setting directory permissions to allow writes...");
-    let mut chmod_cmd = TokioCommand::new("pkexec");
-    chmod_cmd.args(["chmod", "-R", "777", "/var/cache/cfhdb"]);
-    if let Ok(display) = std::env::var("DISPLAY") {
-        chmod_cmd.env("DISPLAY", display);
-    }
-    
-    let chmod_output = chmod_cmd
-        .output()
-        .await;
-    
-    match chmod_output {
-        Ok(output) if output.status.success() => {
-            eprintln!("[DEBUG] Directory permissions set successfully");
-        }
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            eprintln!("[DEBUG] Warning: Failed to set directory permissions: {}", stderr);
-        }
-        Err(e) => {
-            eprintln!("[DEBUG] Warning: Failed to execute chmod: {}", e);
-        }
+        return Err(format!("Failed to set up directory: {}", stderr));
     }
     
     eprintln!("[DEBUG] Permissions granted and directory prepared successfully");
@@ -4126,139 +4430,57 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
         }
     }
     
-    // Use sudo to create directory and copy file
+    // Use sudo to create directory and copy file - combine all operations into one command
     let parent_dir = path.parent().ok_or("Invalid path")?;
     let parent_str = parent_dir.to_str().ok_or("Invalid path")?;
     let path_str = path.to_str().ok_or("Invalid path")?;
     let temp_str = temp_file.to_str().ok_or("Invalid temp path")?;
     
-    // Create directory with pkexec (shows GUI password dialog via polkit)
-    eprintln!("[DEBUG] Creating directory with pkexec: {}", parent_str);
-    let mut create_cmd = TokioCommand::new("pkexec");
-    create_cmd.args(["mkdir", "-p", parent_str]);
+    // Combine mkdir, chmod (dir), cp, and chmod (file) into a single pkexec command to reduce sudo prompts
+    eprintln!("[DEBUG] Creating directory, setting permissions, and copying file with pkexec");
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("sh");
+    cmd.arg("-c");
+    cmd.arg(&format!(
+        "mkdir -p {} && chmod 755 {} && cp {} {} && chmod 644 {}",
+        parent_str, parent_str, temp_str, path_str, path_str
+    ));
     // Ensure DISPLAY is set for GUI dialog
     if let Ok(display) = std::env::var("DISPLAY") {
-        create_cmd.env("DISPLAY", display);
+        cmd.env("DISPLAY", display);
     }
-    let create_dir_output = create_cmd
+    let output = cmd
         .output()
         .await
         .map_err(|e| {
-            eprintln!("[DEBUG] Failed to execute pkexec mkdir: {}", e);
+            eprintln!("[DEBUG] Failed to execute pkexec: {}", e);
             let _ = std::fs::remove_file(&temp_file);
-            format!("Failed to execute mkdir: {}. Make sure polkit is installed.", e)
-        })?;
-    
-    if !create_dir_output.status.success() {
-        let stderr = String::from_utf8_lossy(&create_dir_output.stderr);
-        eprintln!("[DEBUG] pkexec mkdir failed: {}", stderr);
-        let _ = std::fs::remove_file(&temp_file);
-        // Check if user cancelled the password dialog (exit code 126/127 = auth failure)
-        if create_dir_output.status.code() == Some(126) || create_dir_output.status.code() == Some(127) {
-            return Err("Authentication cancelled or failed. Please try again.".to_string());
-        }
-        return Err(format!("Failed to create directory: {}", stderr));
-    }
-    
-    // Set directory permissions so all users can read it (cfhdb library needs to read files in it)
-    eprintln!("[DEBUG] Setting directory permissions for: {}", parent_str);
-    let mut chmod_dir_cmd = TokioCommand::new("pkexec");
-    chmod_dir_cmd.args(["chmod", "755", parent_str]);
-    if let Ok(display) = std::env::var("DISPLAY") {
-        chmod_dir_cmd.env("DISPLAY", display);
-    }
-    let chmod_dir_output = chmod_dir_cmd
-        .output()
-        .await;
-    
-    match chmod_dir_output {
-        Ok(output) if output.status.success() => {
-            eprintln!("[DEBUG] Directory permissions set successfully");
-        }
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            eprintln!("[DEBUG] Warning: Failed to set directory permissions: {}", stderr);
-        }
-        Err(e) => {
-            eprintln!("[DEBUG] Warning: Failed to execute chmod on directory: {}", e);
-        }
-    }
-    
-    eprintln!("[DEBUG] Directory created successfully");
-    
-    // Copy file with pkexec (shows GUI password dialog via polkit)
-    eprintln!("[DEBUG] Copying file with pkexec: {} -> {}", temp_str, path_str);
-    let mut copy_cmd = TokioCommand::new("pkexec");
-    copy_cmd.args(["cp", temp_str, path_str]);
-    // Ensure DISPLAY is set for GUI dialog
-    if let Ok(display) = std::env::var("DISPLAY") {
-        copy_cmd.env("DISPLAY", display);
-    }
-    let copy_output = copy_cmd
-        .output()
-        .await
-        .map_err(|e| {
-            eprintln!("[DEBUG] Failed to execute pkexec cp: {}", e);
-            let _ = std::fs::remove_file(&temp_file);
-            format!("Failed to execute cp: {}. Make sure polkit is installed.", e)
+            format!("Failed to execute command: {}. Make sure polkit is installed.", e)
         })?;
     
     // Clean up temp file
     let _ = std::fs::remove_file(&temp_file);
     
-    if !copy_output.status.success() {
-        let stderr = String::from_utf8_lossy(&copy_output.stderr);
-        eprintln!("[DEBUG] pkexec cp failed: {}", stderr);
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!("[DEBUG] pkexec command failed: {}", stderr);
         // Check if user cancelled the password dialog
-        if copy_output.status.code() == Some(126) || copy_output.status.code() == Some(127) {
+        if output.status.code() == Some(126) || output.status.code() == Some(127) {
             return Err("Authentication cancelled or failed. Please try again.".to_string());
         }
         return Err(format!("Failed to cache profile: {}", stderr));
     }
     
-    // Set file permissions so all users can read it (cfhdb library needs to read these files)
-    eprintln!("[DEBUG] Setting file permissions for: {}", path_str);
-    let mut chmod_cmd = TokioCommand::new("pkexec");
-    chmod_cmd.args(["chmod", "644", path_str]);
-    if let Ok(display) = std::env::var("DISPLAY") {
-        chmod_cmd.env("DISPLAY", display);
-    }
-    let chmod_output = chmod_cmd
-        .output()
-        .await;
-    
-    match chmod_output {
-        Ok(output) if output.status.success() => {
-            eprintln!("[DEBUG] File permissions set successfully");
-        }
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            eprintln!("[DEBUG] Warning: Failed to set file permissions: {}", stderr);
-            // Don't fail if chmod fails, the file was copied successfully
-        }
-        Err(e) => {
-            eprintln!("[DEBUG] Warning: Failed to execute chmod: {}", e);
-            // Don't fail if chmod fails, the file was copied successfully
-        }
-    }
-    
     eprintln!("[DEBUG] File cached successfully with pkexec");
     
     // Fix permissions on all files in the directory (including check_cmd.sh that cfhdb library needs)
-    // Use find to set files to 644 and directories to 755 separately
+    // Combine both find commands into a single pkexec call
     eprintln!("[DEBUG] Fixing permissions on all files in /var/cache/cfhdb/");
     
-    // Fix directory permissions first
-    let mut fix_dir_perms_cmd = TokioCommand::new("pkexec");
-    fix_dir_perms_cmd.args(["find", "/var/cache/cfhdb/", "-type", "d", "-exec", "chmod", "755", "{}", "+"]);
-    if let Ok(display) = std::env::var("DISPLAY") {
-        fix_dir_perms_cmd.env("DISPLAY", display);
-    }
-    let _ = fix_dir_perms_cmd.output().await;
-    
-    // Fix file permissions
     let mut fix_perms_cmd = TokioCommand::new("pkexec");
-    fix_perms_cmd.args(["find", "/var/cache/cfhdb/", "-type", "f", "-exec", "chmod", "644", "{}", "+"]);
+    fix_perms_cmd.arg("sh");
+    fix_perms_cmd.arg("-c");
+    fix_perms_cmd.arg("find /var/cache/cfhdb/ -type d -exec chmod 755 {} + && find /var/cache/cfhdb/ -type f -exec chmod 644 {} +");
     if let Ok(display) = std::env::var("DISPLAY") {
         fix_perms_cmd.env("DISPLAY", display);
     }
@@ -4635,6 +4857,22 @@ impl ButtonStyleSheet for RoundedButtonStyle {
             iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
         }));
         appearance
+    }
+}
+
+struct SidebarDividerStyle {
+    color: iced::Color,
+}
+
+impl iced::widget::container::StyleSheet for SidebarDividerStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(self.color)),
+            border: Border::default(),
+            ..Default::default()
+        }
     }
 }
 

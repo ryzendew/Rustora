@@ -36,6 +36,7 @@ pub struct PackageDetails {
     pub version: String,
     pub release: String,
     pub arch: String,
+    pub repository: String,
     pub summary: String,
     pub description: String,
     pub size: String,
@@ -272,6 +273,12 @@ impl InstalledTab {
                                 row![
                                     text("Architecture:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
                                     text(&details.arch).size(package_detail_size).width(Length::Fill),
+                                ]
+                                .spacing(12),
+                                Space::with_height(Length::Fixed(8.0)),
+                                row![
+                                    text("Repository:").size(package_detail_size).width(Length::Fixed(110.0)).style(iced::theme::Text::Color(theme.primary())),
+                                    text(&details.repository).size(package_detail_size).width(Length::Fill),
                                 ]
                                 .spacing(12),
                                 Space::with_height(Length::Fixed(8.0)),
@@ -559,6 +566,7 @@ async fn load_package_details(package_name: String) -> PackageDetails {
     let mut version = String::new();
     let mut release = String::new();
     let mut arch = String::new();
+    let mut repository = String::from("Unknown");
     let mut summary = String::new();
     let mut description = String::new();
     let mut size = String::new();
@@ -609,6 +617,22 @@ async fn load_package_details(package_name: String) -> PackageDetails {
             }
             if summary.is_empty() {
                 summary = format!("Package: {}", name);
+            }
+        }
+    }
+
+    // Get repository information using dnf repoquery
+    let repo_output = TokioCommand::new("dnf")
+        .args(["repoquery", "--installed", "--qf", "%{repo}", &package_name])
+        .output()
+        .await;
+
+    if let Ok(output) = repo_output {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let repo = stdout.trim();
+            if !repo.is_empty() {
+                repository = repo.to_string();
             }
         }
     }
@@ -682,6 +706,7 @@ async fn load_package_details(package_name: String) -> PackageDetails {
         version,
         release,
         arch,
+        repository,
         summary,
         description,
         size,
