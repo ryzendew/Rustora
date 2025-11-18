@@ -179,6 +179,10 @@ enum Commands {
     },
     /// Show settings dialog (internal use)
     Settings,
+    /// Show gaming meta installation dialog (internal use)
+    GamingMetaDialog,
+    /// Show Cachyos kernel installation dialog (internal use)
+    CachyosKernelDialog,
 }
 
 #[tokio::main]
@@ -380,6 +384,30 @@ async fn main() -> Result<()> {
             SettingsDialog::run_separate_window()?;
             Ok(())
         }
+        Some(Commands::GamingMetaDialog) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            use crate::gui::gaming_meta_dialog::GamingMetaDialog;
+            GamingMetaDialog::run_separate_window()?;
+            Ok(())
+        }
+        Some(Commands::CachyosKernelDialog) => {
+            // Only ensure fonts if they don't exist (fast check)
+            if !gui::fonts::fonts_exist() {
+                // Spawn font installation in background, don't wait
+                tokio::spawn(async {
+                    let _ = gui::fonts::ensure_fonts().await;
+                });
+            }
+            use crate::gui::cachyos_kernel_dialog::CachyosKernelDialog;
+            CachyosKernelDialog::run_separate_window()?;
+            Ok(())
+        }
         Some(Commands::MaintenanceDialog { task }) => {
             // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
@@ -566,6 +594,8 @@ async fn main() -> Result<()> {
                 Commands::UpdateDialog { .. } => unreachable!(),
                 Commands::UpdateSettingsDialog => unreachable!(),
                 Commands::Settings => unreachable!(),
+                Commands::GamingMetaDialog => unreachable!(),
+                Commands::CachyosKernelDialog => unreachable!(),
                 Commands::MaintenanceDialog { .. } => unreachable!(),
                 Commands::KernelInstallDialog { .. } => unreachable!(),
                 Commands::KernelRemoveDialog { .. } => unreachable!(),

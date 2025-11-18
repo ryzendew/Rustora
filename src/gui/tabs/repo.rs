@@ -34,6 +34,7 @@ pub enum Message {
     TerminalCommandChanged(String),
     ExecuteTerminalCommand,
     TerminalCommandOutput(String, String, bool), // stdout, stderr, success
+    TerminalPromptResponse(bool), // true for yes, false for no
     // Sub-tab messages
     SwitchView(RepoView),
     InstallNvidiaRepo,
@@ -91,6 +92,7 @@ pub struct RepoTab {
     terminal_command: String,
     terminal_output: Vec<String>,
     terminal_is_executing: bool,
+    terminal_pending_prompt: Option<String>, // Stores the prompt text when waiting for user response
     // Sub-tab state
     current_view: RepoView,
 }
@@ -109,6 +111,7 @@ impl RepoTab {
             terminal_command: String::new(),
             terminal_output: Vec::new(),
             terminal_is_executing: false,
+            terminal_pending_prompt: None,
             current_view: RepoView::All,
         }
     }
@@ -247,10 +250,12 @@ impl RepoTab {
                 self.terminal_open = true;
                 self.terminal_command = String::new();
                 self.terminal_output = vec!["# Add Repository Terminal".to_string(), 
+                                             "# Commands requiring root privileges (dnf, yum, rpm) will prompt for sudo password".to_string(),
                                              "# Enter a command to add a repository, e.g.:".to_string(),
                                              "# dnf config-manager --add-repo https://example.com/repo.repo".to_string(),
                                              "# or".to_string(),
                                              "# dnf config-manager --add-repo 'https://example.com/repo.repo'".to_string(),
+                                             "# Note: sudo will be automatically requested when needed".to_string(),
                                              "".to_string()];
                 iced::Command::none()
             }
@@ -268,17 +273,63 @@ impl RepoTab {
                 if self.terminal_is_executing || self.terminal_command.trim().is_empty() {
                     return iced::Command::none();
                 }
+                // Check if we're waiting for a prompt response
+                if self.terminal_pending_prompt.is_some() {
+                    // User needs to respond to the prompt first
+                    return iced::Command::none();
+                }
                 let command = self.terminal_command.clone();
                 self.terminal_is_executing = true;
                 self.terminal_output.push(format!("$ {}", command));
-                iced::Command::perform(execute_terminal_command(command), |result| {
+                iced::Command::perform(execute_terminal_command_interactive(command), |result| {
                     match result {
-                        Ok((stdout, stderr, success)) => Message::TerminalCommandOutput(stdout, stderr, success),
+                        Ok((stdout, stderr, success, _prompt)) => {
+                            // Prompt detection is handled in TerminalCommandOutput handler
+                            Message::TerminalCommandOutput(stdout, stderr, success)
+                        }
                         Err(e) => Message::TerminalCommandOutput(String::new(), e, false),
                     }
                 })
             }
+            Message::TerminalPromptResponse(response) => {
+                if let Some(prompt_text) = self.terminal_pending_prompt.take() {
+                    let command = self.terminal_command.clone();
+                    let response_char = if response { "y" } else { "n" };
+                    self.terminal_output.push(format!("[User responded: {}]", if response { "Yes" } else { "No" }));
+                    iced::Command::perform(
+                        send_prompt_response(command, prompt_text, response_char.to_string()),
+                        |result| {
+                            match result {
+                                Ok((stdout, stderr, success)) => Message::TerminalCommandOutput(stdout, stderr, success),
+                                Err(e) => Message::TerminalCommandOutput(String::new(), e, false),
+                            }
+                        }
+                    )
+                } else {
+                    iced::Command::none()
+                }
+            }
             Message::TerminalCommandOutput(stdout, stderr, success) => {
+                // Check if output contains a prompt
+                let full_output = format!("{}\n{}", stdout, stderr);
+                if let Some(prompt_text) = detect_prompt(&full_output) {
+                    // Store the prompt and show dialog
+                    self.terminal_pending_prompt = Some(prompt_text.clone());
+                    self.terminal_output.push(format!("[Prompt detected: {}]", prompt_text));
+                    // Show dialog using zenity/kdialog
+                    return iced::Command::perform(
+                        show_prompt_dialog(prompt_text),
+                        |result| {
+                            if let Some(response) = result {
+                                Message::TerminalPromptResponse(response)
+                            } else {
+                                // User cancelled, treat as no
+                                Message::TerminalPromptResponse(false)
+                            }
+                        }
+                    );
+                }
+                
                 self.terminal_is_executing = false;
                 if !stdout.is_empty() {
                     for line in stdout.lines() {
@@ -1264,6 +1315,8 @@ impl RepoTab {
                                 iced::Color::from_rgb(0.1, 0.5, 0.1)
                             } else if line.starts_with("✗") || line.starts_with("[stderr]") {
                                 iced::Color::from_rgb(0.9, 0.2, 0.2)
+                            } else if line.starts_with("[Prompt detected:") || line.starts_with("[User responded:") {
+                                iced::Color::from_rgb(0.9, 0.7, 0.1)
                             } else {
                                 theme.text()
                             };
@@ -1285,31 +1338,60 @@ impl RepoTab {
             .width(Length::Fill)
             .height(Length::Fill);
 
-            let command_input = text_input("Enter command...", &self.terminal_command)
-                .on_input(Message::TerminalCommandChanged)
-                .on_submit(Message::ExecuteTerminalCommand)
-                .size(input_font_size)
-                .width(Length::Fill)
-                .padding(12)
-                .style(iced::theme::TextInput::Custom(Box::new(TerminalInputStyle {
+            let command_input = if self.terminal_pending_prompt.is_some() {
+                // Show waiting message when prompt is pending
+                text_input("Waiting for prompt response...", &self.terminal_command)
+                    .size(input_font_size)
+                    .width(Length::Fill)
+                    .padding(12)
+                    .style(iced::theme::TextInput::Custom(Box::new(TerminalInputStyle {
+                        radius: settings.border_radius,
+                    })))
+                    .font(iced::Font::MONOSPACE)
+            } else {
+                text_input("Enter command...", &self.terminal_command)
+                    .on_input(Message::TerminalCommandChanged)
+                    .on_submit(Message::ExecuteTerminalCommand)
+                    .size(input_font_size)
+                    .width(Length::Fill)
+                    .padding(12)
+                    .style(iced::theme::TextInput::Custom(Box::new(TerminalInputStyle {
+                        radius: settings.border_radius,
+                    })))
+                    .font(iced::Font::MONOSPACE)
+            };
+
+            let execute_button = if self.terminal_pending_prompt.is_some() {
+                // Disable execute button when waiting for prompt
+                button(
+                    row![
+                        text("Waiting...")
+                            .size(button_font_size)
+                    ]
+                    .spacing(4)
+                    .align_items(Alignment::Center)
+                )
+                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                    is_primary: false,
                     radius: settings.border_radius,
                 })))
-                .font(iced::Font::MONOSPACE);
-
-            let execute_button = button(
-                row![
-                    text("Execute")
-                        .size(button_font_size)
-                ]
-                .spacing(4)
-                .align_items(Alignment::Center)
-            )
-            .on_press(Message::ExecuteTerminalCommand)
-            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                is_primary: true,
-                radius: settings.border_radius,
-            })))
-            .padding(Padding::new(12.0));
+                .padding(Padding::new(12.0))
+            } else {
+                button(
+                    row![
+                        text("Execute")
+                            .size(button_font_size)
+                    ]
+                    .spacing(4)
+                    .align_items(Alignment::Center)
+                )
+                .on_press(Message::ExecuteTerminalCommand)
+                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                    is_primary: true,
+                    radius: settings.border_radius,
+                })))
+                .padding(Padding::new(12.0))
+            };
 
             let close_button = button(
                 row![
@@ -2050,6 +2132,149 @@ async fn install_rpmfusion_repos() -> Result<(), String> {
     }
 }
 
+// Detect if output contains a y/n prompt
+fn detect_prompt(output: &str) -> Option<String> {
+    let prompt_patterns = [
+        "[y/N]",
+        "[Y/n]",
+        "[yes/no]",
+        "(y/n)",
+        "(Y/n)",
+        "Is this ok",
+        "Continue?",
+        "Proceed?",
+    ];
+    
+    // Check each line for prompt patterns
+    for line in output.lines().rev() {
+        let line_lower = line.to_lowercase();
+        for pattern in prompt_patterns.iter() {
+            if line_lower.contains(&pattern.to_lowercase()) {
+                // Found a prompt, return the line
+                return Some(line.trim().to_string());
+            }
+        }
+        // Also check for question marks that might indicate a prompt
+        if line.contains('?') && (line_lower.contains("y") || line_lower.contains("n") || line_lower.contains("yes") || line_lower.contains("no")) {
+            return Some(line.trim().to_string());
+        }
+    }
+    None
+}
+
+// Show a yes/no dialog using zenity or kdialog
+async fn show_prompt_dialog(prompt_text: String) -> Option<bool> {
+    use tokio::process::Command as TokioCommand;
+    
+    // Try zenity first (GNOME)
+    let zenity_cmd = TokioCommand::new("zenity")
+        .args([
+            "--question",
+            "--title=Command Prompt",
+            "--text",
+            &prompt_text,
+            "--ok-label=Yes",
+            "--cancel-label=No",
+        ])
+        .output()
+        .await;
+    
+    if let Ok(output) = zenity_cmd {
+        // zenity returns 0 for yes, 1 for no
+        return Some(output.status.code() == Some(0));
+    }
+    
+    // Fallback to kdialog (KDE)
+    let kdialog_cmd = TokioCommand::new("kdialog")
+        .args([
+            "--yesno",
+            &prompt_text,
+            "--title=Command Prompt",
+        ])
+        .output()
+        .await;
+    
+    if let Ok(output) = kdialog_cmd {
+        // kdialog returns 0 for yes, 1 for no
+        return Some(output.status.code() == Some(0));
+    }
+    
+    // If both fail, return None (user cancelled or no dialog available)
+    None
+}
+
+// Execute command with interactive prompt handling
+async fn execute_terminal_command_interactive(command: String) -> Result<(String, String, bool, Option<String>), String> {
+    // For now, use the regular execute_terminal_command and detect prompts in output
+    // In the future, this could be enhanced to use spawn with pipes for real-time interaction
+    execute_terminal_command(command).await
+        .map(|(stdout, stderr, success)| {
+            let full_output = format!("{}\n{}", stdout, stderr);
+            let prompt = detect_prompt(&full_output);
+            (stdout, stderr, success, prompt)
+        })
+}
+
+// Send prompt response by re-running command with answer
+async fn send_prompt_response(original_command: String, _prompt_text: String, response: String) -> Result<(String, String, bool), String> {
+    use tokio::process::Command as TokioCommand;
+    
+    // Parse the original command
+    let parts: Vec<&str> = original_command.trim().split_whitespace().collect();
+    if parts.is_empty() {
+        return Err("Empty command".to_string());
+    }
+    
+    let program = parts[0];
+    let args = &parts[1..];
+    
+    // Use echo to pipe the response, then run the command
+    // Format: echo "y" | pkexec dnf ...
+    let needs_root = program == "dnf" || program == "yum" || program == "rpm" || 
+                     (program == "sudo" && args.get(0).map(|a| *a == "dnf" || *a == "yum" || *a == "rpm").unwrap_or(false));
+    
+    let output = if needs_root {
+        // Build command: echo "y" | pkexec dnf ...
+        let mut cmd = TokioCommand::new("sh");
+        cmd.arg("-c");
+        
+        let cmd_str = if program == "sudo" {
+            format!("echo \"{}\" | pkexec {}", response, args.join(" "))
+        } else {
+            format!("echo \"{}\" | pkexec {} {}", response, program, args.join(" "))
+        };
+        cmd.arg(&cmd_str);
+        
+        // Ensure DISPLAY is set for GUI password dialog
+        if let Ok(display) = std::env::var("DISPLAY") {
+            cmd.env("DISPLAY", display);
+        }
+        
+        cmd.output().await
+    } else {
+        let mut cmd = TokioCommand::new("sh");
+        cmd.arg("-c");
+        let cmd_str = format!("echo \"{}\" | {} {}", response, program, args.join(" "));
+        cmd.arg(&cmd_str);
+        cmd.output().await
+    };
+    
+    match output {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let success = output.status.success();
+            
+            if !success && (output.status.code() == Some(126) || output.status.code() == Some(127)) {
+                return Err("Authentication cancelled or failed. Please try again.".to_string());
+            }
+            
+            Ok((stdout, stderr, success))
+        }
+        Err(e) => Err(format!("Failed to execute command: {}. Make sure polkit is installed.", e)),
+    }
+}
+
 async fn execute_terminal_command(command: String) -> Result<(String, String, bool), String> {
     // Parse the command - support simple commands like "dnf config-manager --add-repo ..."
     let parts: Vec<&str> = command.trim().split_whitespace().collect();
@@ -2061,12 +2286,25 @@ async fn execute_terminal_command(command: String) -> Result<(String, String, bo
     let args = &parts[1..];
 
     // Use pkexec for commands that need root privileges (like dnf config-manager)
-    let needs_root = program == "dnf" || program == "yum" || program == "rpm";
+    // This includes dnf, yum, rpm, and any command that modifies system repositories
+    let needs_root = program == "dnf" || program == "yum" || program == "rpm" || 
+                     (program == "sudo" && args.get(0).map(|a| *a == "dnf" || *a == "yum" || *a == "rpm").unwrap_or(false));
     
     let output = if needs_root {
         let mut cmd = TokioCommand::new("pkexec");
-        cmd.arg(program);
-        cmd.args(args);
+        // If command starts with sudo, remove it since pkexec handles elevation
+        if program == "sudo" {
+            cmd.args(args);
+        } else {
+            cmd.arg(program);
+            cmd.args(args);
+        }
+        
+        // Ensure DISPLAY is set for GUI password dialog
+        if let Ok(display) = std::env::var("DISPLAY") {
+            cmd.env("DISPLAY", display);
+        }
+        
         cmd.output().await
     } else {
         let mut cmd = TokioCommand::new(program);
@@ -2079,9 +2317,15 @@ async fn execute_terminal_command(command: String) -> Result<(String, String, bo
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             let success = output.status.success();
+            
+            // Check if user cancelled the password dialog (exit code 126 or 127)
+            if !success && (output.status.code() == Some(126) || output.status.code() == Some(127)) {
+                return Err("Authentication cancelled or failed. Please try again.".to_string());
+            }
+            
             Ok((stdout, stderr, success))
         }
-        Err(e) => Err(format!("Failed to execute command: {}", e)),
+        Err(e) => Err(format!("Failed to execute command: {}. Make sure polkit is installed.", e)),
     }
 }
 

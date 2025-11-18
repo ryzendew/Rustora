@@ -15,6 +15,8 @@ pub mod kernel_install_dialog;
 pub mod fonts;
 pub mod settings_dialog;
 pub mod settings;
+pub mod gaming_meta_dialog;
+pub mod cachyos_kernel_dialog;
 
 pub use app::RustoraApp;
 pub use theme::Theme;

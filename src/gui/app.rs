@@ -4,7 +4,7 @@ use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
 use iced::widget::scrollable::{Appearance as ScrollableAppearance, StyleSheet as ScrollableStyleSheet};
-use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab, MaintenanceTab, RepoTab, KernelTab, DeviceTab, AlienTab};
+use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab, MaintenanceTab, RepoTab, KernelTab, DeviceTab, AlienTab, TweaksTab};
 use crate::gui::Theme as AppTheme;
 use crate::gui::settings::AppSettings;
 use crate::gui::tabs::search;
@@ -16,6 +16,7 @@ use crate::gui::tabs::repo;
 use crate::gui::tabs::kernel;
 use crate::gui::tabs::device;
 use crate::gui::tabs::alien;
+use crate::gui::tabs::tweaks;
 use crate::gui::rpm_dialog::RpmDialog;
 use std::path::PathBuf;
 
@@ -67,6 +68,7 @@ pub enum Message {
     KernelTabMessage(kernel::Message),
     DeviceTabMessage(device::Message),
     AlienTabMessage(alien::Message),
+    TweaksTabMessage(tweaks::Message),
     ThemeToggled,
     OpenRpmFilePicker,
     RpmFileSelected(Option<PathBuf>),
@@ -85,6 +87,7 @@ pub enum Tab {
     Kernel,
     Device,
     Alien,
+    Tweaks,
 }
 
 #[derive(Debug)]
@@ -99,6 +102,7 @@ pub struct RustoraApp {
     kernel_tab: KernelTab,
     device_tab: DeviceTab,
     alien_tab: AlienTab,
+    tweaks_tab: TweaksTab,
     theme: AppTheme,
     #[allow(dead_code)]
     rpm_dialog: Option<RpmDialog>,
@@ -129,6 +133,7 @@ impl Application for RustoraApp {
                 kernel_tab: KernelTab::new(),
                 device_tab: DeviceTab::new(),
                 alien_tab: AlienTab::new(),
+                tweaks_tab: TweaksTab::new(),
                 theme: AppTheme::Dark,
                 rpm_dialog: None,
                 settings: AppSettings::load(),
@@ -207,6 +212,10 @@ impl Application for RustoraApp {
                     return Command::perform(async {}, |_| {
                         Message::DeviceTabMessage(device::Message::RequestPermissions)
                     });
+                } else if tab == Tab::Tweaks {
+                    return Command::perform(async {}, |_| {
+                        Message::TweaksTabMessage(tweaks::Message::LoadDnfConfig)
+                    });
                 }
                 Command::none()
             }
@@ -236,6 +245,9 @@ impl Application for RustoraApp {
             }
             Message::AlienTabMessage(msg) => {
                 self.alien_tab.update(msg).map(Message::AlienTabMessage)
+            }
+            Message::TweaksTabMessage(msg) => {
+                self.tweaks_tab.update(msg).map(Message::TweaksTabMessage)
             }
             Message::ThemeToggled => {
                 self.theme = match self.theme {
@@ -537,6 +549,26 @@ impl Application for RustoraApp {
             .width(Length::Shrink)
             .padding(Padding::new(14.0));
 
+        let tweaks_icon = text(glyphs::SETTINGS_SYMBOL).font(material_font);
+        let tweaks_button = button(
+            row![
+                tweaks_icon.size(icon_size),
+                text(" Tweaks").size(tab_font_size)
+            ]
+            .spacing(4)
+            .align_items(Alignment::Center)
+        )
+            .on_press(Message::TabSelected(Tab::Tweaks))
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: self.current_tab == Tab::Tweaks,
+                radius: self.settings.border_radius,
+                primary_color: Color::from(self.settings.primary_color.clone()),
+                text_color: Color::from(self.settings.text_color.clone()),
+                background_color: Color::from(self.settings.background_color.clone()),
+            })))
+            .width(Length::Shrink)
+            .padding(Padding::new(14.0));
+
         use iced::widget::scrollable;
         
         // Determine if we should use sidebar layout based on scale
@@ -575,6 +607,9 @@ impl Application for RustoraApp {
         }
         if self.settings.is_tab_visible("Alien") {
             tab_buttons_horizontal.push(alien_button.into());
+        }
+        if self.settings.is_tab_visible("Tweaks") {
+            tab_buttons_horizontal.push(tweaks_button.into());
         }
         
         // Create sidebar buttons (separate instances to avoid move issues)
@@ -942,6 +977,28 @@ impl Application for RustoraApp {
                 };
                 tab_buttons_sidebar.push(button(button_content).on_press(Message::TabSelected(Tab::Alien)).style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle { is_primary: self.current_tab == Tab::Alien, radius: self.settings.border_radius, primary_color: Color::from(self.settings.primary_color.clone()), text_color: Color::from(self.settings.text_color.clone()), background_color: Color::from(self.settings.background_color.clone()) }))).width(Length::Fill).padding(Padding::new(14.0)).into());
             }
+            if self.settings.is_tab_visible("Tweaks") {
+                let tweaks_icon_sidebar = text(glyphs::SETTINGS_SYMBOL).font(material_font);
+                let icon_size_for_button = if show_icons_only { 
+                    (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
+                } else { 
+                    icon_size 
+                };
+                let button_content: Element<Message> = if show_icons_only {
+                    container(tweaks_icon_sidebar.size(icon_size_for_button))
+                        .width(Length::Fill)
+                        .height(Length::Shrink)
+                        .align_x(iced::alignment::Horizontal::Center)
+                        .align_y(iced::alignment::Vertical::Center)
+                        .into()
+                } else {
+                    row![tweaks_icon_sidebar.size(icon_size), text(" Tweaks").size(tab_font_size)]
+                        .spacing(4)
+                        .align_items(Alignment::Center)
+                        .into()
+                };
+                tab_buttons_sidebar.push(button(button_content).on_press(Message::TabSelected(Tab::Tweaks)).style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle { is_primary: self.current_tab == Tab::Tweaks, radius: self.settings.border_radius, primary_color: Color::from(self.settings.primary_color.clone()), text_color: Color::from(self.settings.text_color.clone()), background_color: Color::from(self.settings.background_color.clone()) }))).width(Length::Fill).padding(Padding::new(14.0)).into());
+            }
             
             let sidebar = container(
                 column![
@@ -1023,6 +1080,7 @@ impl Application for RustoraApp {
             Tab::Kernel => self.kernel_tab.view(&self.theme, &self.settings).map(Message::KernelTabMessage),
             Tab::Device => self.device_tab.view(&self.theme, &self.settings).map(Message::DeviceTabMessage),
             Tab::Alien => self.alien_tab.view(&self.theme, &self.settings).map(Message::AlienTabMessage),
+            Tab::Tweaks => self.tweaks_tab.view(&self.theme, &self.settings).map(Message::TweaksTabMessage),
         };
 
         let content_pane = container(content)
