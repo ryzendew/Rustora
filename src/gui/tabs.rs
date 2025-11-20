@@ -6,7 +6,7 @@ pub mod maintenance;
 pub mod repo;
 pub mod kernel;
 pub mod device;
-pub mod alien;
+pub mod fpm;
 pub mod tweaks;
 
 pub use search::SearchTab;
@@ -17,7 +17,7 @@ pub use maintenance::MaintenanceTab;
 pub use repo::RepoTab;
 pub use kernel::KernelTab;
 pub use device::DeviceTab;
-pub use alien::AlienTab;
+pub use fpm::FpmTab;
 pub use tweaks::TweaksTab;
 
 

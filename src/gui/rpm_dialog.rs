@@ -86,10 +86,17 @@ impl RpmDialog {
             return Space::with_width(Length::Shrink).into();
         }
 
+        // Load settings and calculate font sizes like tabs do
+        let settings = crate::gui::settings::AppSettings::load();
+        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
+
         let content =         if self.is_loading {
             container(
                 column![
-                    text("Loading RPM information...").size(18),
+                    text("Loading RPM information...").size(title_font_size),
                     Space::with_height(Length::Fixed(20.0)),
                     progress_bar(0.0..=1.0, 0.5).width(Length::Fill),
                 ]
@@ -107,16 +114,16 @@ impl RpmDialog {
                 row![
                     column![
                         text(format!("Install {}", info.name))
-                            .size(18) // Optimized for 720p
+                            .size(title_font_size)
                             .style(iced::theme::Text::Color(theme.primary())),
                         text(format!("{} {} ({})", info.version, info.release, info.arch))
-                            .size(12) // Responsive text size
+                            .size(body_font_size * 0.7)
                             .style(iced::theme::Text::Color(iced::Color::from_rgba(0.6, 0.6, 0.6, 1.0))),
                     ]
                     .spacing(2),
                     Space::with_width(Length::Fill),
                     button(
-                        text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(18)
+                        text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size)
                     )
                         .on_press(Message::Cancel)
                         .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)))
@@ -131,27 +138,27 @@ impl RpmDialog {
             // Clean, organized info section - optimized for 720p with better space usage
             let info_section = container(
                 column![
-                    text("Package Information").size(14).style(iced::theme::Text::Color(theme.primary())),
+                    text("Package Information").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                     Space::with_height(Length::Fixed(10.0)),
                     // Use a more compact grid layout for package info
                     row![
                         // Left column
                         column![
                             row![
-                                text("Name:").size(11).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
-                                text(&info.name).size(11).width(Length::Fill),
+                                text("Name:").size(body_font_size * 0.75).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
+                                text(&info.name).size(body_font_size * 0.75).width(Length::Fill),
                             ]
                             .spacing(8),
                             Space::with_height(Length::Fixed(6.0)),
                             row![
-                                text("Version:").size(11).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
-                                text(&info.version).size(11).width(Length::Fill),
+                                text("Version:").size(body_font_size * 0.75).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
+                                text(&info.version).size(body_font_size * 0.75).width(Length::Fill),
                             ]
                             .spacing(8),
                             Space::with_height(Length::Fixed(6.0)),
                             row![
-                                text("Release:").size(11).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
-                                text(&info.release).size(11).width(Length::Fill),
+                                text("Release:").size(body_font_size * 0.75).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
+                                text(&info.release).size(body_font_size * 0.75).width(Length::Fill),
                             ]
                             .spacing(8),
                         ]
@@ -161,14 +168,14 @@ impl RpmDialog {
                         // Right column
                         column![
                             row![
-                                text("Arch:").size(11).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
-                                text(&info.arch).size(11).width(Length::Fill),
+                                text("Arch:").size(body_font_size * 0.75).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
+                                text(&info.arch).size(body_font_size * 0.75).width(Length::Fill),
                             ]
                             .spacing(8),
                             Space::with_height(Length::Fixed(6.0)),
                             row![
-                                text("Size:").size(11).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
-                                text(&info.size).size(11).width(Length::Fill),
+                                text("Size:").size(body_font_size * 0.75).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
+                                text(&info.size).size(body_font_size * 0.75).width(Length::Fill),
                             ]
                             .spacing(8),
                         ]
@@ -178,14 +185,14 @@ impl RpmDialog {
                     .spacing(0)
                     .padding(Padding::new(12.0)),
                     Space::with_height(Length::Fixed(10.0)),
-                    text("Summary").size(13).style(iced::theme::Text::Color(theme.primary())),
+                    text("Summary").size(body_font_size * 0.85).style(iced::theme::Text::Color(theme.primary())),
                     Space::with_height(Length::Fixed(4.0)),
-                    text(&info.summary).size(11),
+                    text(&info.summary).size(body_font_size * 0.75),
                     Space::with_height(Length::Fixed(10.0)),
-                    text("Description").size(13).style(iced::theme::Text::Color(theme.primary())),
+                    text("Description").size(body_font_size * 0.85).style(iced::theme::Text::Color(theme.primary())),
                     Space::with_height(Length::Fixed(4.0)),
                     scrollable(
-                        text(&info.description).size(11)
+                        text(&info.description).size(body_font_size * 0.75)
                     )
                     .height(Length::Fixed(110.0)), // Slightly increased for better readability
                 ]
@@ -199,8 +206,8 @@ impl RpmDialog {
                 container(
                     column![
                         row![
-                            text(crate::gui::fonts::glyphs::SETTINGS_SYMBOL).font(material_font).size(15).style(iced::theme::Text::Color(theme.primary())),
-                            text(format!(" Dependencies ({}):", info.dependencies.len())).size(15).style(iced::theme::Text::Color(theme.primary()))
+                            text(crate::gui::fonts::glyphs::SETTINGS_SYMBOL).font(material_font).size(icon_size * 0.8).style(iced::theme::Text::Color(theme.primary())),
+                            text(format!(" Dependencies ({}):", info.dependencies.len())).size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary()))
                         ]
                         .spacing(4)
                         .align_items(Alignment::Center),
@@ -211,7 +218,7 @@ impl RpmDialog {
                                     .iter()
                                     .map(|dep| {
                                         container(
-                                            text(dep).size(11)
+                                            text(dep).size(body_font_size * 0.75)
                                         )
                                         .padding(Padding::new(8.0))
                                         .style(iced::theme::Container::Custom(Box::new(DependencyItemStyle)))
@@ -241,11 +248,11 @@ impl RpmDialog {
                 };
                 container(
                     column![
-                        text("Installation Progress").size(15).style(iced::theme::Text::Color(theme.primary())),
+                        text("Installation Progress").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(8.0)),
                         progress_bar(0.0..=1.0, progress_value).width(Length::Fill),
                         Space::with_height(Length::Fixed(5.0)),
-                        text(&progress_text).size(12)
+                        text(&progress_text).size(body_font_size * 0.8)
                             .style(iced::theme::Text::Color(if self.is_complete {
                                 iced::Color::from_rgb(0.0, 0.8, 0.0)
                             } else {
@@ -268,8 +275,8 @@ impl RpmDialog {
                     Space::with_width(Length::Fill),
                     button(
                         row![
-                            text(crate::gui::fonts::glyphs::EXIT_SYMBOL).font(material_font),
-                            text(" Exit")
+                            text(crate::gui::fonts::glyphs::EXIT_SYMBOL).font(material_font).size(icon_size * 0.9),
+                            text(" Exit").size(button_font_size)
                         ]
                         .spacing(4)
                         .align_items(Alignment::Center)
@@ -361,7 +368,7 @@ impl RpmDialog {
         } else {
             container(
                 text("Failed to load RPM information")
-                    .size(18)
+                    .size(button_font_size)
                     .style(iced::theme::Text::Color(iced::Color::from_rgb(1.0, 0.3, 0.3)))
             )
             .width(Length::Fixed(600.0))
@@ -605,12 +612,47 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
         
+        // Check for Debian package name dependencies (common in converted packages)
+        let has_debian_deps = stderr.contains("libc6") || stderr.contains("libgtk-3-0") || 
+                             stderr.contains("libwebkit") || stderr.contains("libxdo") ||
+                             stdout.contains("libc6") || stdout.contains("libgtk-3-0") ||
+                             stdout.contains("libwebkit") || stdout.contains("libxdo");
+        
         // Check if the error is due to file conflicts
-        let error_msg = if stderr.contains("conflicts with file") || stdout.contains("conflicts with file") {
+        let has_file_conflicts = stderr.contains("conflicts with file") || stdout.contains("conflicts with file");
+        
+        // Check for "nothing provides" errors (dependency resolution failures)
+        let has_missing_deps = stderr.contains("nothing provides") || stdout.contains("nothing provides");
+        
+        let error_msg = if has_debian_deps || has_missing_deps {
             format!(
-                "Installation failed due to file conflicts. This is a known limitation of Alien (version 8.95).\n\n\
-                Alien-converted packages often try to claim ownership of system directories like /usr/bin, /usr/lib, etc., \
-                which are owned by the filesystem package. This is a bug in Alien's conversion process.\n\n\
+                "Installation failed due to dependency resolution issues.\n\n\
+                This converted package contains Debian/Ubuntu package names that don't exist in Fedora.\n\n\
+                Common Debian → Fedora package name mappings:\n\
+                • libc6 → glibc (usually already installed)\n\
+                • libgtk-3-0 → gtk3\n\
+                • libwebkit2gtk-4.1-0 → webkit2gtk4.1\n\
+                • libxdo3 → xdotool\n\n\
+                Error details:\n{}\n{}\n\n\
+                ⚠️  WARNING: Package conversion cannot automatically map dependencies.\n\
+                \n\
+                Recommended solutions:\n\
+                1. Check if there's a native RPM version available (preferred)\n\
+                2. Look for Flatpak or AppImage versions of the application\n\
+                3. Manually install the Fedora equivalents of missing dependencies, then try:\n\
+                   dnf install --nogpgcheck --skip-broken {}\n\
+                4. Extract the package manually and install files directly (advanced)\n\
+                5. Report the issue to the package maintainer to provide native RPM support\n\
+                \n\
+                Note: FPM conversion preserves original dependency names and cannot automatically\n\
+                map them to Fedora package names. This is a known limitation of package conversion.",
+                stderr, stdout, rpm_path.to_string_lossy()
+            )
+        } else if has_file_conflicts {
+            format!(
+                "Installation failed due to file conflicts.\n\n\
+                Converted packages may try to claim ownership of system directories like /usr/bin, /usr/lib, etc., \
+                which are owned by the filesystem package.\n\n\
                 Error details:\n{}\n{}\n\n\
                 ⚠️  WARNING: Using --allowerasing or --force could remove critical system files and break your system.\n\
                 \n\
@@ -620,7 +662,7 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
                 3. Manually extract and install the package contents (advanced)\n\
                 4. Report the issue to the package maintainer to provide native RPM support\n\
                 \n\
-                Note: Alien is outdated and has known issues with modern package structures.",
+                Note: Package conversion may have limitations depending on the source package structure.",
                 stderr, stdout
             )
         } else {

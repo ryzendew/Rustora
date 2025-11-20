@@ -77,10 +77,17 @@ impl FlatpakRemoveDialog {
             return Space::with_width(Length::Shrink).into();
         }
 
+        // Load settings and calculate font sizes like tabs do
+        let settings = crate::gui::settings::AppSettings::load();
+        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
+        let _body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
+        let _button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
+        let _icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
+
         let content = if self.is_loading {
             container(
                 column![
-                    text("Loading Flatpak information...").size(18),
+                    text("Loading Flatpak information...").size(title_font_size),
                     Space::with_height(Length::Fixed(20.0)),
                     progress_bar(0.0..=1.0, 0.5).width(Length::Fill),
                 ]

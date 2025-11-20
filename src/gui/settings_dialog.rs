@@ -81,7 +81,7 @@ impl SettingsDialog {
             "Repositories".to_string(),
             "Kernel".to_string(),
             "Device".to_string(),
-            "Alien".to_string(),
+            "FPM".to_string(),
         ];
         
         // Initialize tab visibility if not set

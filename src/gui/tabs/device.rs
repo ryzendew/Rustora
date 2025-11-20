@@ -297,7 +297,7 @@ impl DeviceTab {
         match message {
             Message::RequestPermissions => {
                 self.is_loading = true;
-                self.loading_message = "Requesting elevated permissions...".to_string();
+                self.loading_message = "Requesting elevated permissions...".into();
                 self.error = None;
                 // Use pkexec to verify permissions (shows GUI password dialog)
                 iced::Command::perform(request_permissions(), |result| {
@@ -308,8 +308,8 @@ impl DeviceTab {
                 })
             }
             Message::PermissionsGranted => {
-                self.loading_message = "Permissions granted. Loading devices...".to_string();
-                // Now proceed to load devices
+                self.loading_message = "Permissions granted. Loading devices...".into();
+                // Now proceed to load devices (always reload, even if devices are already loaded)
                 iced::Command::perform(async {}, |_| Message::LoadDevices)
             }
             Message::PermissionsDenied(error) => {
@@ -319,22 +319,21 @@ impl DeviceTab {
                 iced::Command::none()
             }
             Message::LoadDevices => {
-                if self.pci_devices.is_empty() && self.usb_devices.is_empty() {
-                    self.is_loading = true;
-                    self.loading_message = "Checking device profiles...".to_string();
-                    // First ensure profiles are downloaded and cached
-                    iced::Command::perform(ensure_profiles_cached(), |result| {
-                        match result {
-                            Ok(_) => Message::LoadDevicesAfterCache,
-                            Err(e) => Message::Error(format!("Failed to cache profiles: {}", e)),
-                        }
-                    })
-                } else {
-                    iced::Command::none()
-                }
+                // Always reload devices when explicitly requested (e.g., after password entry)
+                // This allows refreshing the device list when returning to the tab
+                self.is_loading = true;
+                    self.loading_message = "Checking device profiles...".into();
+                self.error = None;
+                // First ensure profiles are downloaded and cached
+                iced::Command::perform(ensure_profiles_cached(), |result| {
+                    match result {
+                        Ok(_) => Message::LoadDevicesAfterCache,
+                        Err(e) => Message::Error(format!("Failed to cache profiles: {}", e)),
+                    }
+                })
             }
             Message::LoadDevicesAfterCache => {
-                self.loading_message = "Loading device profiles...".to_string();
+                self.loading_message = "Loading device profiles...".into();
                 iced::Command::perform(load_all_devices(), |result| {
                     match result {
                         Ok(data) => Message::DevicesLoaded {
@@ -349,14 +348,14 @@ impl DeviceTab {
             }
             Message::DownloadProfiles => {
                 self.is_loading = true;
-                self.loading_message = "Downloading and caching profiles...".to_string();
+                self.loading_message = "Downloading and caching profiles...".into();
                 iced::Command::perform(ensure_profiles_cached_force(), |result| {
                     Message::ProfilesDownloaded(result)
                 })
             }
             Message::DownloadProfilesForce => {
                 self.is_loading = true;
-                self.loading_message = "Downloading and caching profiles...".to_string();
+                self.loading_message = "Downloading and caching profiles...".into();
                 iced::Command::perform(ensure_profiles_cached_force(), |result| {
                     Message::ProfilesDownloaded(result)
                 })
@@ -677,7 +676,7 @@ impl DeviceTab {
                         // Spawn separate window for driver installation
                         let exe_path = std::env::current_exe()
                             .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
-                        let exe_str = exe_path.to_string_lossy().to_string();
+                        let exe_str = exe_path.to_string_lossy().into_owned();
                         let profile_name_clone = profile_name.clone();
                         let script_clone = script.clone();
                         
@@ -820,7 +819,7 @@ impl DeviceTab {
                         // Spawn separate window for driver removal
                         let exe_path = std::env::current_exe()
                             .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
-                        let exe_str = exe_path.to_string_lossy().to_string();
+                        let exe_str = exe_path.to_string_lossy().into_owned();
                         let profile_name_clone = profile_name.clone();
                         let script_clone = script.clone();
                         

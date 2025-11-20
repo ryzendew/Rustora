@@ -74,22 +74,29 @@ impl FlatpakUpdateDialog {
     }
 
     fn view_impl(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+        // Load settings and calculate font sizes like tabs do
+        let settings = crate::gui::settings::AppSettings::load();
+        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
+        let _button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
+        
         let material_font = crate::gui::fonts::get_material_symbols_font();
         
         let title = container(
             row![
                 column![
                     text("Update Flatpak Applications")
-                        .size(18)
+                        .size(title_font_size)
                         .style(iced::theme::Text::Color(theme.primary())),
                     text(format!("{} package(s) to update", self.packages.len()))
-                        .size(12)
+                        .size(body_font_size * 0.7)
                         .style(iced::theme::Text::Color(iced::Color::from_rgba(0.6, 0.6, 0.6, 1.0))),
                 ]
                 .spacing(2),
                 Space::with_width(Length::Fill),
                 button(
-                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(18)
+                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size)
                 )
                 .on_press(Message::Cancel)
                 .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)))

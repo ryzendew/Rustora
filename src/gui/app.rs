@@ -4,7 +4,7 @@ use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
 use iced::widget::scrollable::{Appearance as ScrollableAppearance, StyleSheet as ScrollableStyleSheet};
-use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab, MaintenanceTab, RepoTab, KernelTab, DeviceTab, AlienTab, TweaksTab};
+use crate::gui::tabs::{SearchTab, InstalledTab, UpdateTab, FlatpakTab, MaintenanceTab, RepoTab, KernelTab, DeviceTab, FpmTab, TweaksTab};
 use crate::gui::Theme as AppTheme;
 use crate::gui::settings::AppSettings;
 use crate::gui::tabs::search;
@@ -15,7 +15,7 @@ use crate::gui::tabs::maintenance;
 use crate::gui::tabs::repo;
 use crate::gui::tabs::kernel;
 use crate::gui::tabs::device;
-use crate::gui::tabs::alien;
+use crate::gui::tabs::fpm;
 use crate::gui::tabs::tweaks;
 use crate::gui::rpm_dialog::RpmDialog;
 use std::path::PathBuf;
@@ -67,7 +67,7 @@ pub enum Message {
     RepoTabMessage(repo::Message),
     KernelTabMessage(kernel::Message),
     DeviceTabMessage(device::Message),
-    AlienTabMessage(alien::Message),
+    FpmTabMessage(fpm::Message),
     TweaksTabMessage(tweaks::Message),
     ThemeToggled,
     OpenRpmFilePicker,
@@ -86,7 +86,7 @@ pub enum Tab {
     Repo,
     Kernel,
     Device,
-    Alien,
+    Fpm,
     Tweaks,
 }
 
@@ -101,7 +101,7 @@ pub struct RustoraApp {
     repo_tab: RepoTab,
     kernel_tab: KernelTab,
     device_tab: DeviceTab,
-    alien_tab: AlienTab,
+    fpm_tab: FpmTab,
     tweaks_tab: TweaksTab,
     theme: AppTheme,
     #[allow(dead_code)]
@@ -132,7 +132,7 @@ impl Application for RustoraApp {
                 repo_tab: RepoTab::new(),
                 kernel_tab: KernelTab::new(),
                 device_tab: DeviceTab::new(),
-                alien_tab: AlienTab::new(),
+                fpm_tab: FpmTab::new(),
                 tweaks_tab: TweaksTab::new(),
                 theme: AppTheme::Dark,
                 rpm_dialog: None,
@@ -243,8 +243,8 @@ impl Application for RustoraApp {
             Message::DeviceTabMessage(msg) => {
                 self.device_tab.update(msg).map(Message::DeviceTabMessage)
             }
-            Message::AlienTabMessage(msg) => {
-                self.alien_tab.update(msg).map(Message::AlienTabMessage)
+            Message::FpmTabMessage(msg) => {
+                self.fpm_tab.update(msg).map(Message::FpmTabMessage)
             }
             Message::TweaksTabMessage(msg) => {
                 self.tweaks_tab.update(msg).map(Message::TweaksTabMessage)
@@ -529,18 +529,18 @@ impl Application for RustoraApp {
             .width(Length::Shrink)
             .padding(Padding::new(14.0));
 
-        let alien_icon = text(glyphs::DOWNLOAD_SYMBOL).font(material_font);
-        let alien_button = button(
+        let fpm_icon = text(glyphs::DOWNLOAD_SYMBOL).font(material_font);
+        let fpm_button = button(
             row![
-                alien_icon.size(icon_size),
-                text(" Alien").size(tab_font_size)
+                fpm_icon.size(icon_size),
+                text(" FPM").size(tab_font_size)
             ]
             .spacing(4)
             .align_items(Alignment::Center)
         )
-            .on_press(Message::TabSelected(Tab::Alien))
+            .on_press(Message::TabSelected(Tab::Fpm))
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                is_primary: self.current_tab == Tab::Alien,
+                is_primary: self.current_tab == Tab::Fpm,
                 radius: self.settings.border_radius,
                 primary_color: Color::from(self.settings.primary_color.clone()),
                 text_color: Color::from(self.settings.text_color.clone()),
@@ -605,8 +605,8 @@ impl Application for RustoraApp {
         if self.settings.is_tab_visible("Device") {
             tab_buttons_horizontal.push(device_button.into());
         }
-        if self.settings.is_tab_visible("Alien") {
-            tab_buttons_horizontal.push(alien_button.into());
+        if self.settings.is_tab_visible("FPM") {
+            tab_buttons_horizontal.push(fpm_button.into());
         }
         if self.settings.is_tab_visible("Tweaks") {
             tab_buttons_horizontal.push(tweaks_button.into());
@@ -954,8 +954,8 @@ impl Application for RustoraApp {
                 };
                 tab_buttons_sidebar.push(button(button_content).on_press(Message::TabSelected(Tab::Device)).style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle { is_primary: self.current_tab == Tab::Device, radius: self.settings.border_radius, primary_color: Color::from(self.settings.primary_color.clone()), text_color: Color::from(self.settings.text_color.clone()), background_color: Color::from(self.settings.background_color.clone()) }))).width(Length::Fill).padding(Padding::new(14.0)).into());
             }
-            if self.settings.is_tab_visible("Alien") {
-                let alien_icon_sidebar = text(glyphs::DOWNLOAD_SYMBOL).font(material_font);
+            if self.settings.is_tab_visible("FPM") {
+                let fpm_icon_sidebar = text(glyphs::DOWNLOAD_SYMBOL).font(material_font);
                 let icon_size_for_button = if show_icons_only { 
                     // Make icons larger when icons-only to fill the button space
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
@@ -963,19 +963,19 @@ impl Application for RustoraApp {
                     icon_size 
                 };
                 let button_content: Element<Message> = if show_icons_only {
-                    container(alien_icon_sidebar.size(icon_size_for_button))
+                    container(fpm_icon_sidebar.size(icon_size_for_button))
                         .width(Length::Fill)
                         .height(Length::Shrink)
                         .align_x(iced::alignment::Horizontal::Center)
                         .align_y(iced::alignment::Vertical::Center)
                         .into()
                 } else {
-                    row![alien_icon_sidebar.size(icon_size), text(" Alien").size(tab_font_size)]
+                    row![fpm_icon_sidebar.size(icon_size), text(" FPM").size(tab_font_size)]
                         .spacing(4)
                         .align_items(Alignment::Center)
                         .into()
                 };
-                tab_buttons_sidebar.push(button(button_content).on_press(Message::TabSelected(Tab::Alien)).style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle { is_primary: self.current_tab == Tab::Alien, radius: self.settings.border_radius, primary_color: Color::from(self.settings.primary_color.clone()), text_color: Color::from(self.settings.text_color.clone()), background_color: Color::from(self.settings.background_color.clone()) }))).width(Length::Fill).padding(Padding::new(14.0)).into());
+                tab_buttons_sidebar.push(button(button_content).on_press(Message::TabSelected(Tab::Fpm)).style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle { is_primary: self.current_tab == Tab::Fpm, radius: self.settings.border_radius, primary_color: Color::from(self.settings.primary_color.clone()), text_color: Color::from(self.settings.text_color.clone()), background_color: Color::from(self.settings.background_color.clone()) }))).width(Length::Fill).padding(Padding::new(14.0)).into());
             }
             if self.settings.is_tab_visible("Tweaks") {
                 let tweaks_icon_sidebar = text(glyphs::SETTINGS_SYMBOL).font(material_font);
@@ -1079,7 +1079,7 @@ impl Application for RustoraApp {
             Tab::Repo => self.repo_tab.view(&self.theme, &self.settings).map(Message::RepoTabMessage),
             Tab::Kernel => self.kernel_tab.view(&self.theme, &self.settings).map(Message::KernelTabMessage),
             Tab::Device => self.device_tab.view(&self.theme, &self.settings).map(Message::DeviceTabMessage),
-            Tab::Alien => self.alien_tab.view(&self.theme, &self.settings).map(Message::AlienTabMessage),
+            Tab::Fpm => self.fpm_tab.view(&self.theme, &self.settings).map(Message::FpmTabMessage),
             Tab::Tweaks => self.tweaks_tab.view(&self.theme, &self.settings).map(Message::TweaksTabMessage),
         };
 

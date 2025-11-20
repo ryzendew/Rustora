@@ -122,8 +122,6 @@ pub struct HyprlandStatus {
     pub grim: bool,
     pub slurp: bool,
     pub swappy: bool,
-    pub repo_rpmfusion_free: bool,
-    pub repo_rpmfusion_nonfree: bool,
     pub repo_quickshell: bool,
     pub repo_hyprland: bool,
 }
@@ -418,8 +416,6 @@ impl TweaksTab {
                             grim: false,
                             slurp: false,
                             swappy: false,
-                            repo_rpmfusion_free: false,
-                            repo_rpmfusion_nonfree: false,
                             repo_quickshell: false,
                             repo_hyprland: false,
                         });
@@ -1398,204 +1394,119 @@ impl TweaksTab {
             })))
             .into()
         } else if let Some(ref status) = self.cachyos_kernel_status {
-            // Packages section
-            let packages_section = container(
-                column![
-                    text("Installation Status")
-                        .size(title_font_size * 0.85)
-                        .style(iced::theme::Text::Color(theme.primary())),
-                    Space::with_height(Length::Fixed(20.0)),
-                    text("Packages")
-                        .size(body_font_size * 1.05)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
-                    Space::with_height(Length::Fixed(12.0)),
-                    row![
+            // Modern grid-based status display - build grid directly
+            let create_status_item = |name: &str, is_installed: bool| -> Element<Message> {
+                container(
+                    text(if is_installed { format!("✓ {}", name) } else { format!("✗ {}", name) })
+                        .size(body_font_size * 0.95)
+                        .style(iced::theme::Text::Color(if is_installed {
+                            iced::Color::from_rgb(0.1, 0.7, 0.1)
+                        } else {
+                            iced::Color::from_rgb(0.6, 0.6, 0.6)
+                        }))
+                        .horizontal_alignment(iced::alignment::Horizontal::Center)
+                )
+                .width(Length::Fill)
+                .height(Length::Shrink)
+                .padding(Padding::from([12.0, 16.0, 12.0, 16.0]))
+                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
+                    is_installed,
+                    radius: settings.border_radius * 0.6,
+                })))
+                .into()
+            };
+            
+            scrollable(
+                container(
+                    column![
+                        // Packages section
                         container(
-                            text(if status.kernel_cachyos { "✓ kernel-cachyos" } else { "✗ kernel-cachyos" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.kernel_cachyos {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
+                            column![
+                                text("Packages")
+                                    .size(title_font_size)
+                                    .style(iced::theme::Text::Color(theme.primary())),
+                                Space::with_height(Length::Fixed(4.0)),
+                                text("Kernel and scheduler components")
+                                    .size(body_font_size * 0.85)
+                                    .style(iced::theme::Text::Color(theme.secondary_text())),
+                                Space::with_height(Length::Fixed(20.0)),
+                                // Grid layout
+                                row![
+                                    create_status_item("kernel-cachyos", status.kernel_cachyos),
+                                    Space::with_width(Length::Fixed(12.0)),
+                                    create_status_item("cachyos-settings", status.cachyos_settings),
+                                ]
+                                .spacing(0)
+                                .width(Length::Fill),
+                                Space::with_height(Length::Fixed(12.0)),
+                                row![
+                                    create_status_item("ananicy-cpp", status.ananicy_cpp),
+                                    Space::with_width(Length::Fixed(12.0)),
+                                    create_status_item("cachyos-ananicy-rules", status.cachyos_ananicy_rules),
+                                ]
+                                .spacing(0)
+                                .width(Length::Fill),
+                                Space::with_height(Length::Fixed(12.0)),
+                                row![
+                                    create_status_item("scx-manager", status.scx_manager),
+                                    Space::with_width(Length::Fixed(12.0)),
+                                    create_status_item("scx-scheds-git", status.scx_scheds_git),
+                                ]
+                                .spacing(0)
+                                .width(Length::Fill),
+                                Space::with_height(Length::Fixed(12.0)),
+                                create_status_item("scx-tools", status.scx_tools),
+                            ]
+                            .spacing(0)
                         )
                         .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.kernel_cachyos,
-                            radius: settings.border_radius * 0.5,
+                        .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
+                        .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                            radius: settings.border_radius,
+                            theme: *theme,
                         }))),
-                        Space::with_width(Length::Fixed(8.0)),
+                        Space::with_height(Length::Fixed(20.0)),
+                        
+                        // Repositories section
                         container(
-                            text(if status.cachyos_settings { "✓ cachyos-settings" } else { "✗ cachyos-settings" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.cachyos_settings {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
+                            column![
+                                text("Repositories")
+                                    .size(title_font_size)
+                                    .style(iced::theme::Text::Color(theme.primary())),
+                                Space::with_height(Length::Fixed(4.0)),
+                                text("Enabled COPR repositories")
+                                    .size(body_font_size * 0.85)
+                                    .style(iced::theme::Text::Color(theme.secondary_text())),
+                                Space::with_height(Length::Fixed(20.0)),
+                                row![
+                                    create_status_item("kernel-cachyos", status.repo_kernel_cachyos),
+                                    Space::with_width(Length::Fixed(12.0)),
+                                    create_status_item("kernel-cachyos-addons", status.repo_kernel_cachyos_addons),
+                                ]
+                                .spacing(0)
+                                .width(Length::Fill),
+                            ]
+                            .spacing(0)
                         )
                         .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.cachyos_settings,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                        Space::with_width(Length::Fixed(8.0)),
-                        container(
-                            text(if status.ananicy_cpp { "✓ ananicy-cpp" } else { "✗ ananicy-cpp" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.ananicy_cpp {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.ananicy_cpp,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                    ]
-                    .spacing(0),
-                    Space::with_height(Length::Fixed(8.0)),
-                    row![
-                        container(
-                            text(if status.cachyos_ananicy_rules { "✓ cachyos-ananicy-rules" } else { "✗ cachyos-ananicy-rules" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.cachyos_ananicy_rules {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.cachyos_ananicy_rules,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                        Space::with_width(Length::Fixed(8.0)),
-                        container(
-                            text(if status.scx_manager { "✓ scx-manager" } else { "✗ scx-manager" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.scx_manager {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.scx_manager,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                        Space::with_width(Length::Fixed(8.0)),
-                        container(
-                            text(if status.scx_scheds_git { "✓ scx-scheds-git" } else { "✗ scx-scheds-git" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.scx_scheds_git {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.scx_scheds_git,
-                            radius: settings.border_radius * 0.5,
+                        .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
+                        .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                            radius: settings.border_radius,
+                            theme: *theme,
                         }))),
                     ]
-                    .spacing(0),
-                    Space::with_height(Length::Fixed(8.0)),
-                    container(
-                        text(if status.scx_tools { "✓ scx-tools" } else { "✗ scx-tools" })
-                            .size(body_font_size * 0.9)
-                            .style(iced::theme::Text::Color(if status.scx_tools {
-                                iced::Color::from_rgb(0.1, 0.7, 0.1)
-                            } else {
-                                iced::Color::from_rgb(0.6, 0.6, 0.6)
-                            }))
-                    )
+                    .spacing(0)
                     .width(Length::Fill)
-                    .padding(Padding::from([6.0, 12.0, 6.0, 12.0]))
-                    .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                        is_installed: status.scx_tools,
-                        radius: settings.border_radius * 0.5,
-                    }))),
-                ]
-                .spacing(0)
-            )
-            .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
-            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                radius: settings.border_radius,
-                theme: *theme,
-            })));
-
-            // Repositories section
-            let repos_section = container(
-                column![
-                    text("Repositories")
-                        .size(body_font_size * 1.05)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
-                    Space::with_height(Length::Fixed(12.0)),
-                    row![
-                        container(
-                            text(if status.repo_kernel_cachyos { "✓ kernel-cachyos" } else { "✗ kernel-cachyos" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.repo_kernel_cachyos {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.repo_kernel_cachyos,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                        Space::with_width(Length::Fixed(8.0)),
-                        container(
-                            text(if status.repo_kernel_cachyos_addons { "✓ kernel-cachyos-addons" } else { "✗ kernel-cachyos-addons" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.repo_kernel_cachyos_addons {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.repo_kernel_cachyos_addons,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                    ]
-                    .spacing(0),
-                ]
-                .spacing(0)
-            )
-            .padding(Padding::from([18.0, 20.0, 18.0, 20.0]))
-            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                radius: settings.border_radius,
-                theme: *theme,
-            })));
-
-            container(
-                column![
-                    packages_section,
-                    Space::with_height(Length::Fixed(20.0)),
-                    repos_section,
-                ]
-                .spacing(0)
+                )
+                .width(Length::Fill)
+                .padding(Padding::from([0.0, 0.0, 0.0, 0.0]))
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(Padding::from([0.0, 0.0, 0.0, 0.0]))
+            .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                iced::Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+                settings.border_radius,
+            ))))
             .into()
         } else {
             container(
@@ -1652,49 +1563,111 @@ impl TweaksTab {
         })))
         .padding(Padding::from([14.0, 20.0, 14.0, 20.0]));
 
-        // Cachyos Kernel left side (info and buttons) - redesigned
-        let cachyos_kernel_left = container(
-            column![
-                text("Cachyos Kernel")
-                    .size(title_font_size)
-                    .style(iced::theme::Text::Color(theme.primary())),
-                Space::with_height(Length::Fixed(12.0)),
-                text("Installs Cachyos kernel with scheduler extensions:")
-                    .size(body_font_size)
-                    .style(iced::theme::Text::Color(theme.secondary_text())),
-                Space::with_height(Length::Fixed(10.0)),
+        // Cachyos Kernel - Modern card-based design
+        let cachyos_kernel_left = scrollable(
+            container(
                 column![
-                    text("• kernel-cachyos + cachyos-settings")
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.text())),
-                    text("• ananicy-cpp, cachyos-ananicy-rules")
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.text())),
-                    text("• scx-manager, scx-scheds-git, scx-tools")
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.text())),
-                    text("• Auto-configures GRUB and regenerates initramfs")
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.text())),
-                ]
-                .spacing(8),
-                Space::with_height(Length::Fixed(20.0)),
-                row![
-                    cachyos_kernel_button,
-                    Space::with_width(Length::Fixed(12.0)),
-                    check_cachyos_status_button,
+                    // Header section
+                    container(
+                        column![
+                            text("Cachyos Kernel")
+                                .size(title_font_size * 1.1)
+                                .style(iced::theme::Text::Color(theme.primary())),
+                            Space::with_height(Length::Fixed(8.0)),
+                            text("High-performance kernel with scheduler extensions")
+                                .size(body_font_size * 0.9)
+                                .style(iced::theme::Text::Color(theme.secondary_text())),
+                        ]
+                        .spacing(0)
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
+                    Space::with_height(Length::Fixed(24.0)),
+                    
+                    // Features card
+                    container(
+                        column![
+                            text("Components")
+                                .size(body_font_size * 1.05)
+                                .style(iced::theme::Text::Color(theme.primary())),
+                            Space::with_height(Length::Fixed(16.0)),
+                            column![
+                                row![
+                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_width(Length::Fixed(8.0)),
+                                    text("kernel-cachyos + cachyos-settings")
+                                        .size(body_font_size * 0.95)
+                                        .style(iced::theme::Text::Color(theme.text())),
+                                ]
+                                .spacing(0)
+                                .align_items(Alignment::Start),
+                                Space::with_height(Length::Fixed(10.0)),
+                                row![
+                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_width(Length::Fixed(8.0)),
+                                    text("ananicy-cpp, cachyos-ananicy-rules")
+                                        .size(body_font_size * 0.95)
+                                        .style(iced::theme::Text::Color(theme.text())),
+                                ]
+                                .spacing(0)
+                                .align_items(Alignment::Start),
+                                Space::with_height(Length::Fixed(10.0)),
+                                row![
+                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_width(Length::Fixed(8.0)),
+                                    text("scx-manager, scx-scheds-git, scx-tools")
+                                        .size(body_font_size * 0.95)
+                                        .style(iced::theme::Text::Color(theme.text())),
+                                ]
+                                .spacing(0)
+                                .align_items(Alignment::Start),
+                                Space::with_height(Length::Fixed(10.0)),
+                                row![
+                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_width(Length::Fixed(8.0)),
+                                    text("Auto-configures GRUB and regenerates initramfs")
+                                        .size(body_font_size * 0.95)
+                                        .style(iced::theme::Text::Color(theme.text())),
+                                ]
+                                .spacing(0)
+                                .align_items(Alignment::Start),
+                            ]
+                            .spacing(0),
+                        ]
+                        .spacing(0)
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
+                    .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                        radius: settings.border_radius,
+                        theme: *theme,
+                    }))),
+                    Space::with_height(Length::Fixed(20.0)),
+                    
+                    // Action buttons
+                    container(
+                        column![
+                            cachyos_kernel_button.width(Length::Fill),
+                            Space::with_height(Length::Fixed(12.0)),
+                            check_cachyos_status_button.width(Length::Fill),
+                        ]
+                        .spacing(0)
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
                 ]
                 .spacing(0)
-                .align_items(Alignment::Center),
-            ]
-            .spacing(0)
-            .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
+                .width(Length::Fill)
+            )
+            .width(Length::Fill)
+            .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
         )
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
-            radius: settings.border_radius,
-        })));
+        .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+            iced::Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+            settings.border_radius,
+        ))));
 
         // Gaming Meta status display
         let gaming_meta_status_display: Element<Message> = if self.is_checking_gaming_meta {
@@ -1720,143 +1693,87 @@ impl TweaksTab {
             })))
             .into()
         } else if let Some(ref status) = self.gaming_meta_status {
-            container(
-                column![
-                    text("Installation Status")
-                        .size(title_font_size * 0.85)
-                        .style(iced::theme::Text::Color(theme.primary())),
-                    Space::with_height(Length::Fixed(20.0)),
-                    text("Packages")
-                        .size(body_font_size * 1.05)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
-                    Space::with_height(Length::Fixed(12.0)),
-                    row![
+            // Modern grid-based status display - build grid directly
+            let create_status_item = |name: &str, is_installed: bool| -> Element<Message> {
+                container(
+                    text(if is_installed { format!("✓ {}", name) } else { format!("✗ {}", name) })
+                        .size(body_font_size * 0.95)
+                        .style(iced::theme::Text::Color(if is_installed {
+                            iced::Color::from_rgb(0.1, 0.7, 0.1)
+                        } else {
+                            iced::Color::from_rgb(0.6, 0.6, 0.6)
+                        }))
+                        .horizontal_alignment(iced::alignment::Horizontal::Center)
+                )
+                .width(Length::Fill)
+                .height(Length::Shrink)
+                .padding(Padding::from([12.0, 16.0, 12.0, 16.0]))
+                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
+                    is_installed,
+                    radius: settings.border_radius * 0.6,
+                })))
+                .into()
+            };
+            
+            scrollable(
+                container(
+                    column![
+                        // Header
                         container(
-                            text(if status.steam { "✓ Steam" } else { "✗ Steam" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.steam {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
+                            column![
+                                text("Installation Status")
+                                    .size(title_font_size)
+                                    .style(iced::theme::Text::Color(theme.primary())),
+                                Space::with_height(Length::Fixed(4.0)),
+                                text("Package installation status")
+                                    .size(body_font_size * 0.85)
+                                    .style(iced::theme::Text::Color(theme.secondary_text())),
+                            ]
+                            .spacing(0)
                         )
                         .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.steam,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                        Space::with_width(Length::Fixed(8.0)),
-                        container(
-                            text(if status.lutris { "✓ Lutris" } else { "✗ Lutris" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.lutris {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.lutris,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                        Space::with_width(Length::Fixed(8.0)),
-                        container(
-                            text(if status.mangohud { "✓ MangoHUD" } else { "✗ MangoHUD" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.mangohud {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.mangohud,
-                            radius: settings.border_radius * 0.5,
-                        }))),
+                        .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
+                        Space::with_height(Length::Fixed(24.0)),
+                        
+                        // Responsive grid - 2 columns
+                        row![
+                            create_status_item("Steam", status.steam),
+                            Space::with_width(Length::Fixed(12.0)),
+                            create_status_item("Lutris", status.lutris),
+                        ]
+                        .spacing(0)
+                        .width(Length::Fill),
+                        Space::with_height(Length::Fixed(12.0)),
+                        row![
+                            create_status_item("MangoHUD", status.mangohud),
+                            Space::with_width(Length::Fixed(12.0)),
+                            create_status_item("Gamescope", status.gamescope),
+                        ]
+                        .spacing(0)
+                        .width(Length::Fill),
+                        Space::with_height(Length::Fixed(12.0)),
+                        row![
+                            create_status_item("MangoJuice", status.mangojuice),
+                            Space::with_width(Length::Fixed(12.0)),
+                            create_status_item("ProtonPlus", status.protonplus),
+                        ]
+                        .spacing(0)
+                        .width(Length::Fill),
+                        Space::with_height(Length::Fixed(12.0)),
+                        create_status_item("Heroic Games Launcher", status.heroic),
                     ]
-                    .spacing(0),
-                    Space::with_height(Length::Fixed(8.0)),
-                    row![
-                        container(
-                            text(if status.gamescope { "✓ Gamescope" } else { "✗ Gamescope" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.gamescope {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.gamescope,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                        Space::with_width(Length::Fixed(8.0)),
-                        container(
-                            text(if status.mangojuice { "✓ MangoJuice" } else { "✗ MangoJuice" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.mangojuice {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.mangojuice,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                        Space::with_width(Length::Fixed(8.0)),
-                        container(
-                            text(if status.protonplus { "✓ ProtonPlus" } else { "✗ ProtonPlus" })
-                                .size(body_font_size)
-                                .style(iced::theme::Text::Color(if status.protonplus {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                            is_installed: status.protonplus,
-                            radius: settings.border_radius * 0.5,
-                        }))),
-                    ]
-                    .spacing(0),
-                    Space::with_height(Length::Fixed(8.0)),
-                    container(
-                        text(if status.heroic { "✓ Heroic Games Launcher" } else { "✗ Heroic Games Launcher" })
-                            .size(body_font_size * 0.9)
-                            .style(iced::theme::Text::Color(if status.heroic {
-                                iced::Color::from_rgb(0.1, 0.7, 0.1)
-                            } else {
-                                iced::Color::from_rgb(0.6, 0.6, 0.6)
-                            }))
-                    )
+                    .spacing(0)
                     .width(Length::Fill)
-                    .padding(Padding::from([6.0, 12.0, 6.0, 12.0]))
-                    .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                        is_installed: status.heroic,
-                        radius: settings.border_radius * 0.5,
-                    }))),
-                ]
-                .spacing(0)
+                )
+                .width(Length::Fill)
+                .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
             )
-            .padding(Padding::from([18.0, 20.0, 18.0, 20.0]))
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                radius: settings.border_radius,
-                theme: *theme,
-            })))
+            .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                iced::Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+                settings.border_radius,
+            ))))
             .into()
         } else {
             container(
@@ -1897,106 +1814,176 @@ impl TweaksTab {
         })))
         .padding(Padding::from([14.0, 20.0, 14.0, 20.0]));
 
-        // Gaming Meta left side (info and buttons) - redesigned for better space usage
-        let gaming_meta_left = container(
-            column![
-                text("Gaming Meta")
-                    .size(title_font_size)
-                    .style(iced::theme::Text::Color(theme.primary())),
-                Space::with_height(Length::Fixed(16.0)),
-                text("Installs a complete gaming setup including:")
-                    .size(body_font_size)
-                    .style(iced::theme::Text::Color(theme.secondary_text())),
-                Space::with_height(Length::Fixed(14.0)),
+        // Gaming Meta - Modern card-based design
+        let gaming_meta_left = scrollable(
+            container(
                 column![
-                    text("• Steam, Lutris, MangoHUD, Gamescope")
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.text())),
-                    Space::with_height(Length::Fixed(8.0)),
-                    text("• ProtonPlus, MangoJuice (Flatpak)")
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.text())),
-                    Space::with_height(Length::Fixed(8.0)),
-                    text("• Heroic Games Launcher (latest release)")
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.text())),
-                ]
-                .spacing(0),
-                Space::with_height(Length::Fixed(32.0)),
-                row![
-                    button(
-                        row![
-                            text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
-                            text(" Install Gaming Meta").size(button_font_size)
+                    // Header section
+                    container(
+                        column![
+                            text("Gaming Meta")
+                                .size(title_font_size * 1.1)
+                                .style(iced::theme::Text::Color(theme.primary())),
+                            Space::with_height(Length::Fixed(8.0)),
+                            text("Complete gaming setup for Fedora")
+                                .size(body_font_size * 0.9)
+                                .style(iced::theme::Text::Color(theme.secondary_text())),
                         ]
-                        .spacing(10)
-                        .align_items(Alignment::Center)
+                        .spacing(0)
                     )
-                    .on_press(Message::InstallGamingMeta)
-                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                        is_primary: true,
+                    .width(Length::Fill)
+                    .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
+                    Space::with_height(Length::Fixed(24.0)),
+                    
+                    // Features card
+                    container(
+                        column![
+                            text("What's Included")
+                                .size(body_font_size * 1.05)
+                                .style(iced::theme::Text::Color(theme.primary())),
+                            Space::with_height(Length::Fixed(16.0)),
+                            column![
+                                row![
+                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_width(Length::Fixed(8.0)),
+                                    text("Steam, Lutris, MangoHUD, Gamescope")
+                                        .size(body_font_size * 0.95)
+                                        .style(iced::theme::Text::Color(theme.text())),
+                                ]
+                                .spacing(0)
+                                .align_items(Alignment::Start),
+                                Space::with_height(Length::Fixed(10.0)),
+                                row![
+                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_width(Length::Fixed(8.0)),
+                                    text("ProtonPlus, MangoJuice (Flatpak)")
+                                        .size(body_font_size * 0.95)
+                                        .style(iced::theme::Text::Color(theme.text())),
+                                ]
+                                .spacing(0)
+                                .align_items(Alignment::Start),
+                                Space::with_height(Length::Fixed(10.0)),
+                                row![
+                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_width(Length::Fixed(8.0)),
+                                    text("Heroic Games Launcher (latest release)")
+                                        .size(body_font_size * 0.95)
+                                        .style(iced::theme::Text::Color(theme.text())),
+                                ]
+                                .spacing(0)
+                                .align_items(Alignment::Start),
+                            ]
+                            .spacing(0),
+                        ]
+                        .spacing(0)
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
+                    .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
                         radius: settings.border_radius,
-                    })))
-                    .padding(Padding::from([14.0, 20.0, 14.0, 20.0])),
-                    Space::with_width(Length::Fixed(12.0)),
-                    check_status_button,
+                        theme: *theme,
+                    }))),
+                    Space::with_height(Length::Fixed(20.0)),
+                    
+                    // Action buttons
+                    container(
+                        column![
+                            button(
+                                row![
+                                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
+                                    text(" Install Gaming Meta").size(button_font_size)
+                                ]
+                                .spacing(10)
+                                .align_items(Alignment::Center)
+                            )
+                            .on_press(Message::InstallGamingMeta)
+                            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                                is_primary: true,
+                                radius: settings.border_radius,
+                            })))
+                            .padding(Padding::from([14.0, 20.0, 14.0, 20.0]))
+                            .width(Length::Fill),
+                            Space::with_height(Length::Fixed(12.0)),
+                            check_status_button.width(Length::Fill),
+                        ]
+                        .spacing(0)
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
                 ]
                 .spacing(0)
-                .align_items(Alignment::Center),
-            ]
-            .spacing(0)
+                .width(Length::Fill)
+            )
+            .width(Length::Fill)
             .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
         )
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
-            radius: settings.border_radius,
-        })));
+        .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+            iced::Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+            settings.border_radius,
+        ))));
 
         // Content based on current view
         let content: Element<Message> = match self.current_view {
             TweaksView::GamingMeta => {
-                // Only show output_log if it has content
-                let left_column: Element<Message> = if self.output_log.is_empty() {
-                    gaming_meta_left.into()
+                // Modern two-column responsive layout
+                let left_content: Element<Message> = if self.output_log.is_empty() {
+                    container(gaming_meta_left)
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .into()
                 } else {
                     column![
-                        gaming_meta_left,
-                        Space::with_height(Length::Fixed(12.0)),
+                        container(gaming_meta_left)
+                            .width(Length::Fill)
+                            .height(Length::Shrink),
+                        Space::with_height(Length::Fixed(16.0)),
                         output_log,
                     ]
                     .spacing(0)
+                    .width(Length::Fill)
                     .into()
                 };
-                row![
-                    container(left_column)
-                        .width(Length::FillPortion(1))
-                        .height(Length::Fill),
-                    Space::with_width(Length::Fixed(16.0)),
-                    container(gaming_meta_status_display)
-                        .width(Length::FillPortion(1))
-                        .height(Length::Fill)
-                        .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
-                ]
-                .spacing(0)
-                .align_items(Alignment::Start)
+                
+                container(
+                    row![
+                        container(left_content)
+                            .width(Length::FillPortion(1))
+                            .height(Length::Fill),
+                        Space::with_width(Length::Fixed(20.0)),
+                        container(gaming_meta_status_display)
+                            .width(Length::FillPortion(1))
+                            .height(Length::Fill),
+                    ]
+                    .spacing(0)
+                    .align_items(Alignment::Start)
+                    .width(Length::Fill)
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
                 .into()
             }
             TweaksView::DnfConfig => {
                 dnf_config_info.into()
             }
             TweaksView::CachyosKernel => {
-                row![
-                    cachyos_kernel_left
-                        .width(Length::FillPortion(1)),
-                    Space::with_width(Length::Fixed(16.0)),
-                    container(cachyos_kernel_status_display)
-                        .width(Length::FillPortion(1))
-                        .height(Length::Fill)
-                        .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
-                ]
-                .spacing(0)
-                .align_items(Alignment::Start)
+                container(
+                    row![
+                        container(cachyos_kernel_left)
+                            .width(Length::FillPortion(1))
+                            .height(Length::Fill),
+                        Space::with_width(Length::Fixed(20.0)),
+                        container(cachyos_kernel_status_display)
+                            .width(Length::FillPortion(1))
+                            .height(Length::Fill),
+                    ]
+                    .spacing(0)
+                    .align_items(Alignment::Start)
+                    .width(Length::Fill)
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
                 .into()
             }
             TweaksView::Hyprland => {
@@ -2024,309 +2011,135 @@ impl TweaksTab {
                     })))
                     .into()
                 } else if let Some(ref status) = self.hyprland_status {
-                    // Packages section
-                    let packages_section = container(
-                        column![
-                            text("Installation Status")
-                                .size(title_font_size * 0.65)
-                                .style(iced::theme::Text::Color(theme.primary())),
-                            Space::with_height(Length::Fixed(20.0)),
-                            text("Packages")
+                    // Modern grid-based status display - build grid directly
+                    let create_status_item = |name: &str, is_installed: bool| -> Element<Message> {
+                        container(
+                            text(if is_installed { format!("✓ {}", name) } else { format!("✗ {}", name) })
                                 .size(body_font_size * 0.95)
-                                .style(iced::theme::Text::Color(theme.secondary_text())),
-                            Space::with_height(Length::Fixed(12.0)),
-                            row![
+                                .style(iced::theme::Text::Color(if is_installed {
+                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
+                                } else {
+                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
+                                }))
+                                .horizontal_alignment(iced::alignment::Horizontal::Center)
+                        )
+                        .width(Length::Fill)
+                        .height(Length::Shrink)
+                        .padding(Padding::from([12.0, 16.0, 12.0, 16.0]))
+                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
+                            is_installed,
+                            radius: settings.border_radius * 0.6,
+                        })))
+                        .into()
+                    };
+                    
+                    scrollable(
+                        container(
+                            column![
+                                // Packages section
                                 container(
-                                    text(if status.hyprland { "✓ hyprland" } else { "✗ hyprland" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.hyprland {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
+                                    column![
+                                        text("Packages")
+                                            .size(title_font_size)
+                                            .style(iced::theme::Text::Color(theme.primary())),
+                                        Space::with_height(Length::Fixed(4.0)),
+                                        text("Window manager and utilities")
+                                            .size(body_font_size * 0.85)
+                                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                                        Space::with_height(Length::Fixed(20.0)),
+                                        // Grid layout
+                                        row![
+                                            create_status_item("hyprland", status.hyprland),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("hyprpicker", status.hyprpicker),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("swww", status.swww),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("quickshell-git", status.quickshell_git),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("fuzzel", status.fuzzel),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("wlogout", status.wlogout),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("cliphist", status.cliphist),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("brightnessctl", status.brightnessctl),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("grim", status.grim),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("slurp", status.slurp),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        create_status_item("swappy", status.swappy),
+                                    ]
+                                    .spacing(0)
                                 )
                                 .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.hyprland,
-                                    radius: settings.border_radius * 0.5,
+                                .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
+                                .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                                    radius: settings.border_radius,
+                                    theme: *theme,
                                 }))),
-                                Space::with_width(Length::Fixed(8.0)),
+                                Space::with_height(Length::Fixed(20.0)),
+                                
+                                // Repositories section - only Hyprland-related COPR repos
                                 container(
-                                    text(if status.hyprpicker { "✓ hyprpicker" } else { "✗ hyprpicker" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.hyprpicker {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
+                                    column![
+                                        text("Repositories")
+                                            .size(title_font_size)
+                                            .style(iced::theme::Text::Color(theme.primary())),
+                                        Space::with_height(Length::Fixed(4.0)),
+                                        text("Enabled COPR repositories")
+                                            .size(body_font_size * 0.85)
+                                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                                        Space::with_height(Length::Fixed(20.0)),
+                                        row![
+                                            create_status_item("errornointernet/quickshell", status.repo_quickshell),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("solopasha/hyprland", status.repo_hyprland),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                    ]
+                                    .spacing(0)
                                 )
                                 .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.hyprpicker,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                                Space::with_width(Length::Fixed(8.0)),
-                                container(
-                                    text(if status.swww { "✓ swww" } else { "✗ swww" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.swww {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.swww,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                            ]
-                            .spacing(0),
-                            Space::with_height(Length::Fixed(8.0)),
-                            row![
-                                container(
-                                    text(if status.quickshell_git { "✓ quickshell-git" } else { "✗ quickshell-git" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.quickshell_git {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.quickshell_git,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                                Space::with_width(Length::Fixed(8.0)),
-                                container(
-                                    text(if status.fuzzel { "✓ fuzzel" } else { "✗ fuzzel" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.fuzzel {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.fuzzel,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                                Space::with_width(Length::Fixed(8.0)),
-                                container(
-                                    text(if status.wlogout { "✓ wlogout" } else { "✗ wlogout" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.wlogout {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.wlogout,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                            ]
-                            .spacing(0),
-                            Space::with_height(Length::Fixed(8.0)),
-                            row![
-                                container(
-                                    text(if status.cliphist { "✓ cliphist" } else { "✗ cliphist" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.cliphist {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.cliphist,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                                Space::with_width(Length::Fixed(8.0)),
-                                container(
-                                    text(if status.brightnessctl { "✓ brightnessctl" } else { "✗ brightnessctl" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.brightnessctl {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.brightnessctl,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                                Space::with_width(Length::Fixed(8.0)),
-                                container(
-                                    text(if status.grim { "✓ grim" } else { "✗ grim" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.grim {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.grim,
-                                    radius: settings.border_radius * 0.5,
+                                .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
+                                .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                                    radius: settings.border_radius,
+                                    theme: *theme,
                                 }))),
                             ]
-                            .spacing(0),
-                            Space::with_height(Length::Fixed(8.0)),
-                            row![
-                                container(
-                                    text(if status.slurp { "✓ slurp" } else { "✗ slurp" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.slurp {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.slurp,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                                Space::with_width(Length::Fixed(8.0)),
-                                container(
-                                    text(if status.swappy { "✓ swappy" } else { "✗ swappy" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.swappy {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.swappy,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                            ]
-                            .spacing(0),
-                        ]
-                        .spacing(0)
-                    )
-                    .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
-                    .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                        radius: settings.border_radius,
-                        theme: *theme,
-                    })));
-
-                    // Repositories section - only show RPM Fusion and quickshell
-                    let repos_section = container(
-                        column![
-                            text("Repositories")
-                                .size(body_font_size * 0.95)
-                                .style(iced::theme::Text::Color(theme.secondary_text())),
-                            Space::with_height(Length::Fixed(12.0)),
-                            row![
-                                container(
-                                    text(if status.repo_rpmfusion_free { "✓ RPM Fusion Free" } else { "✗ RPM Fusion Free" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.repo_rpmfusion_free {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.repo_rpmfusion_free,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                                Space::with_width(Length::Fixed(8.0)),
-                                container(
-                                    text(if status.repo_rpmfusion_nonfree { "✓ RPM Fusion Nonfree" } else { "✗ RPM Fusion Nonfree" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.repo_rpmfusion_nonfree {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.repo_rpmfusion_nonfree,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                            ]
-                            .spacing(0),
-                            Space::with_height(Length::Fixed(8.0)),
-                            row![
-                                container(
-                                    text(if status.repo_quickshell { "✓ errornointernet/quickshell" } else { "✗ errornointernet/quickshell" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.repo_quickshell {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.repo_quickshell,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                                Space::with_width(Length::Fixed(8.0)),
-                                container(
-                                    text(if status.repo_hyprland { "✓ solopasha/hyprland" } else { "✗ solopasha/hyprland" })
-                                        .size(body_font_size)
-                                        .style(iced::theme::Text::Color(if status.repo_hyprland {
-                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                        } else {
-                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                        }))
-                                )
-                                .width(Length::Fill)
-                                .padding(Padding::from([8.0, 14.0, 8.0, 14.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                                    is_installed: status.repo_hyprland,
-                                    radius: settings.border_radius * 0.5,
-                                }))),
-                            ]
-                            .spacing(0),
-                        ]
-                        .spacing(0)
-                    )
-                    .padding(Padding::from([18.0, 20.0, 18.0, 20.0]))
-                    .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                        radius: settings.border_radius,
-                        theme: *theme,
-                    })));
-
-                    container(
-                        column![
-                            packages_section,
-                            Space::with_height(Length::Fixed(20.0)),
-                            repos_section,
-                        ]
-                        .spacing(0)
+                            .spacing(0)
+                            .width(Length::Fill)
+                        )
+                        .width(Length::Fill)
+                        .padding(Padding::from([0.0, 0.0, 0.0, 0.0]))
                     )
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .padding(Padding::from([0.0, 0.0, 0.0, 0.0]))
+                    .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                        iced::Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+                        settings.border_radius,
+                    ))))
                     .into()
                 } else {
                     container(
@@ -2398,78 +2211,155 @@ impl TweaksTab {
                 })))
                 .padding(Padding::from([14.0, 20.0, 14.0, 20.0]));
 
-                // Hyprland left side (info and buttons) - redesigned
-                let hyprland_left = container(
-                    column![
-                        text("Hyprland Setup")
-                            .size(title_font_size)
-                            .style(iced::theme::Text::Color(theme.primary())),
-                        Space::with_height(Length::Fixed(12.0)),
-                        text("Installs Hyprland window manager and dependencies:")
-                            .size(body_font_size)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
-                        Space::with_height(Length::Fixed(10.0)),
+                // Hyprland - Modern card-based design
+                let hyprland_left = scrollable(
+                    container(
                         column![
-                            text("• Enables COPR repositories (solopasha/hyprland, errornointernet/quickshell)")
-                                .size(body_font_size * 0.95)
-                                .style(iced::theme::Text::Color(theme.text())),
-                            text("• Installs Hyprland, hyprpicker, swww, quickshell-git")
-                                .size(body_font_size * 0.95)
-                                .style(iced::theme::Text::Color(theme.text())),
-                            text("• Installs essential utilities (fuzzel, wlogout, cliphist, etc.)")
-                                .size(body_font_size * 0.95)
-                                .style(iced::theme::Text::Color(theme.text())),
-                        ]
-                        .spacing(8),
-                        Space::with_height(Length::Fixed(20.0)),
-                        row![
-                            hyprland_install_button,
-                            Space::with_width(Length::Fixed(12.0)),
-                            check_hyprland_status_button,
+                            // Header section
+                            container(
+                                column![
+                                    text("Hyprland Setup")
+                                        .size(title_font_size * 1.1)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(Length::Fixed(8.0)),
+                                    text("Window manager and essential utilities")
+                                        .size(body_font_size * 0.9)
+                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                                ]
+                                .spacing(0)
+                            )
+                            .width(Length::Fill)
+                            .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
+                            Space::with_height(Length::Fixed(24.0)),
+                            
+                            // Main installation card
+                            container(
+                                column![
+                                    text("Components")
+                                        .size(body_font_size * 1.05)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(Length::Fixed(16.0)),
+                                    column![
+                                        row![
+                                            text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                            Space::with_width(Length::Fixed(8.0)),
+                                            text("Enables COPR repositories (solopasha/hyprland, errornointernet/quickshell)")
+                                                .size(body_font_size * 0.95)
+                                                .style(iced::theme::Text::Color(theme.text())),
+                                        ]
+                                        .spacing(0)
+                                        .align_items(Alignment::Start),
+                                        Space::with_height(Length::Fixed(10.0)),
+                                        row![
+                                            text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                            Space::with_width(Length::Fixed(8.0)),
+                                            text("Installs Hyprland, hyprpicker, swww, quickshell-git")
+                                                .size(body_font_size * 0.95)
+                                                .style(iced::theme::Text::Color(theme.text())),
+                                        ]
+                                        .spacing(0)
+                                        .align_items(Alignment::Start),
+                                        Space::with_height(Length::Fixed(10.0)),
+                                        row![
+                                            text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                            Space::with_width(Length::Fixed(8.0)),
+                                            text("Installs essential utilities (fuzzel, wlogout, cliphist, etc.)")
+                                                .size(body_font_size * 0.95)
+                                                .style(iced::theme::Text::Color(theme.text())),
+                                        ]
+                                        .spacing(0)
+                                        .align_items(Alignment::Start),
+                                    ]
+                                    .spacing(0),
+                                    Space::with_height(Length::Fixed(20.0)),
+                                    hyprland_install_button.width(Length::Fill),
+                                    Space::with_height(Length::Fixed(12.0)),
+                                    check_hyprland_status_button.width(Length::Fill),
+                                ]
+                                .spacing(0)
+                            )
+                            .width(Length::Fill)
+                            .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
+                            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                                radius: settings.border_radius,
+                                theme: *theme,
+                            }))),
+                            Space::with_height(Length::Fixed(20.0)),
+                            
+                            // Dotfiles card
+                            container(
+                                column![
+                                    text("Dotfiles")
+                                        .size(body_font_size * 1.05)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(Length::Fixed(4.0)),
+                                    text("Configuration files from Dark Material Shell")
+                                        .size(body_font_size * 0.85)
+                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                                    Space::with_height(Length::Fixed(16.0)),
+                                    column![
+                                        row![
+                                            text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                            Space::with_width(Length::Fixed(8.0)),
+                                            text("hypr folder → ~/.config/hypr")
+                                                .size(body_font_size * 0.95)
+                                                .style(iced::theme::Text::Color(theme.text())),
+                                        ]
+                                        .spacing(0)
+                                        .align_items(Alignment::Start),
+                                        Space::with_height(Length::Fixed(10.0)),
+                                        row![
+                                            text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                            Space::with_width(Length::Fixed(8.0)),
+                                            text("quickshell folder → ~/.config/quickshell")
+                                                .size(body_font_size * 0.95)
+                                                .style(iced::theme::Text::Color(theme.text())),
+                                        ]
+                                        .spacing(0)
+                                        .align_items(Alignment::Start),
+                                    ]
+                                    .spacing(0),
+                                    Space::with_height(Length::Fixed(20.0)),
+                                    hyprland_dotfiles_button.width(Length::Fill),
+                                ]
+                                .spacing(0)
+                            )
+                            .width(Length::Fill)
+                            .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
+                            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                                radius: settings.border_radius,
+                                theme: *theme,
+                            }))),
                         ]
                         .spacing(0)
-                        .align_items(Alignment::Center),
-                        Space::with_height(Length::Fixed(20.0)),
-                        text("Install Dotfiles")
-                            .size(body_font_size * 1.1)
-                            .style(iced::theme::Text::Color(theme.primary())),
-                        Space::with_height(Length::Fixed(10.0)),
-                        text("Installs configuration files from Dark Material Shell:")
-                            .size(body_font_size * 0.95)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
-                        Space::with_height(Length::Fixed(10.0)),
-                        column![
-                            text("• hypr folder → ~/.config/hypr")
-                                .size(body_font_size * 0.95)
-                                .style(iced::theme::Text::Color(theme.text())),
-                            text("• quickshell folder → ~/.config/quickshell")
-                                .size(body_font_size * 0.95)
-                                .style(iced::theme::Text::Color(theme.text())),
-                        ]
-                        .spacing(8),
-                        Space::with_height(Length::Fixed(20.0)),
-                        hyprland_dotfiles_button,
-                    ]
-                    .spacing(0)
-                    .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
+                        .width(Length::Fill)
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
                 )
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
-                    radius: settings.border_radius,
-                })));
+                .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                    iced::Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+                    settings.border_radius,
+                ))));
 
-                row![
-                    hyprland_left
-                        .width(Length::FillPortion(1)),
-                    Space::with_width(Length::Fixed(16.0)),
-                    container(hyprland_status_display)
-                        .width(Length::FillPortion(1))
-                        .height(Length::Fill)
-                        .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
-                ]
-                .spacing(0)
-                .align_items(Alignment::Start)
+                container(
+                    row![
+                        container(hyprland_left)
+                            .width(Length::FillPortion(1))
+                            .height(Length::Fill),
+                        Space::with_width(Length::Fixed(20.0)),
+                        container(hyprland_status_display)
+                            .width(Length::FillPortion(1))
+                            .height(Length::Fill),
+                    ]
+                    .spacing(0)
+                    .align_items(Alignment::Start)
+                    .width(Length::Fill)
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
                 .into()
             }
             TweaksView::Proton => {
@@ -3562,9 +3452,7 @@ async fn check_hyprland_status() -> Result<HyprlandStatus, String> {
     let grim = check_dnf_package("grim").await;
     let slurp = check_dnf_package("slurp").await;
     let swappy = check_dnf_package("swappy").await;
-    // Hyprland needs RPM Fusion, quickshell, and hyprland repos
-    let repo_rpmfusion_free = check_rpmfusion_repo_enabled("rpmfusion-free").await;
-    let repo_rpmfusion_nonfree = check_rpmfusion_repo_enabled("rpmfusion-nonfree").await;
+    // Hyprland needs quickshell and hyprland COPR repos
     let repo_quickshell = check_copr_repo_enabled("errornointernet/quickshell").await;
     let repo_hyprland = check_copr_repo_enabled("solopasha/hyprland").await;
     
@@ -3580,8 +3468,6 @@ async fn check_hyprland_status() -> Result<HyprlandStatus, String> {
         grim,
         slurp,
         swappy,
-        repo_rpmfusion_free,
-        repo_rpmfusion_nonfree,
         repo_quickshell,
         repo_hyprland,
     })
@@ -4818,7 +4704,7 @@ fn has_proton_update(runner: &ProtonRunner, build: &ProtonBuild, detected_launch
 
 fn format_directory_name(format: &str, runner_title: &str, release_name: &str) -> String {
     eprintln!("[DEBUG] format_directory_name: format='{}', runner_title='{}', release_name='{}'", format, runner_title, release_name);
-    let mut result = format.to_string();
+    let mut result = format.to_owned();
     result = result.replace("$release_name", release_name);
     result = result.replace("$title", runner_title);
     
@@ -5008,7 +4894,7 @@ async fn download_proton_build(runner_title: String, title: String, download_url
     eprintln!("[DEBUG] ========== DOWNLOAD COMPLETE ==========");
     eprintln!("[DEBUG] File: {}", tar_path.display());
     eprintln!("[DEBUG] ========================================");
-    Ok((runner_title, title, tar_path.to_string_lossy().to_string()))
+    Ok((runner_title, title, tar_path.to_string_lossy().into_owned()))
 }
 
 #[allow(dead_code)]
@@ -5720,7 +5606,7 @@ async fn open_proton_directory(
     }
     
     // Open in file manager
-    let path_str = install_path.to_string_lossy().to_string();
+    let path_str = install_path.to_string_lossy().into_owned();
     let output = tokio::process::Command::new("xdg-open")
         .arg(&path_str)
         .output()

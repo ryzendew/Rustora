@@ -17,7 +17,7 @@ echo ""
 # ============================================================================
 # STEP 0: INSTALL BUILD DEPENDENCIES
 # ============================================================================
-echo -e "${BLUE}Step 0/3: Installing build dependencies...${NC}"
+echo -e "${BLUE}Step 0/4: Installing build dependencies...${NC}"
 
 # Check if dnf is available
 if ! command -v dnf &> /dev/null; then
@@ -56,9 +56,101 @@ fi
 echo ""
 
 # ============================================================================
+# STEP 0.5: INSTALL FPM (Effing Package Manager)
+# ============================================================================
+echo -e "${BLUE}Step 0.5/4: Checking fpm installation...${NC}"
+
+# Check if fpm is already installed and working
+FPM_INSTALLED=false
+if command -v fpm &> /dev/null; then
+    # Verify fpm actually works (not just a broken symlink)
+    if fpm --version &> /dev/null; then
+        FPM_VERSION=$(fpm --version 2>/dev/null | head -n1 || echo "unknown")
+        echo -e "${GREEN}✅ fpm already installed (version: $FPM_VERSION)${NC}"
+        echo "   Skipping fpm installation."
+        FPM_INSTALLED=true
+    else
+        echo -e "${YELLOW}⚠️  fpm found but not working properly. Will reinstall...${NC}"
+    fi
+fi
+
+# Only install if not already installed
+if [ "$FPM_INSTALLED" = false ]; then
+    echo "📦 Installing fpm and Ruby dependencies..."
+    
+    # Check if dnf is available
+    if ! command -v dnf &> /dev/null; then
+        echo -e "${YELLOW}⚠️  Warning: dnf not found. Skipping fpm installation.${NC}"
+        echo "   Please manually install: ruby ruby-devel rubygems gcc make"
+        echo "   Then run: gem install fpm"
+    else
+        # FPM dependencies
+        FPM_DEPS="ruby ruby-devel rubygems gcc make"
+        
+        # Check which packages are missing
+        MISSING_FPM_DEPS=""
+        for dep in $FPM_DEPS; do
+            if ! rpm -q "$dep" &> /dev/null; then
+                MISSING_FPM_DEPS="$MISSING_FPM_DEPS $dep"
+            fi
+        done
+        
+        if [ -n "$MISSING_FPM_DEPS" ]; then
+            echo "📦 Installing fpm dependencies:$MISSING_FPM_DEPS"
+            if [ "$EUID" -eq 0 ]; then
+                dnf install -y $MISSING_FPM_DEPS
+            elif command -v sudo &> /dev/null; then
+                echo "   (Using sudo to install dependencies...)"
+                sudo dnf install -y $MISSING_FPM_DEPS
+            else
+                echo -e "${YELLOW}⚠️  Need sudo to install fpm dependencies. Please run:${NC}"
+                echo "   sudo dnf install -y$MISSING_FPM_DEPS"
+                echo ""
+                read -p "Press Enter to continue (fpm installation may fail)..." || true
+            fi
+        fi
+        
+        # Install bundler if not present
+        if ! gem list -i bundler &> /dev/null; then
+            echo "📦 Installing bundler..."
+            if [ "$EUID" -eq 0 ]; then
+                gem install bundler
+            elif command -v sudo &> /dev/null; then
+                sudo gem install bundler
+            else
+                gem install bundler --user-install
+                export PATH="$HOME/.local/share/gem/ruby/$(ruby -e 'puts RUBY_VERSION[/\d+\.\d+/]')/bin:$PATH"
+            fi
+        fi
+        
+        # Install fpm
+        echo "📦 Installing fpm gem..."
+        if [ "$EUID" -eq 0 ]; then
+            gem install fpm
+        elif command -v sudo &> /dev/null; then
+            sudo gem install fpm
+        else
+            gem install fpm --user-install
+            export PATH="$HOME/.local/share/gem/ruby/$(ruby -e 'puts RUBY_VERSION[/\d+\.\d+/]')/bin:$PATH"
+        fi
+        
+        # Verify installation
+        if command -v fpm &> /dev/null && fpm --version &> /dev/null; then
+            FPM_VERSION=$(fpm --version 2>/dev/null | head -n1 || echo "unknown")
+            echo -e "${GREEN}✅ fpm installed successfully (version: $FPM_VERSION)${NC}"
+        else
+            echo -e "${YELLOW}⚠️  fpm installed but not in PATH. You may need to add gem bin directory to PATH.${NC}"
+            echo "   Try: export PATH=\"\$HOME/.local/share/gem/ruby/\$(ruby -e 'puts RUBY_VERSION[/\d+\.\d+/]')/bin:\$PATH\""
+        fi
+    fi
+fi
+
+echo ""
+
+# ============================================================================
 # STEP 1: BUILD
 # ============================================================================
-echo -e "${BLUE}Step 1/3: Building...${NC}"
+echo -e "${BLUE}Step 1/4: Building...${NC}"
 
 # Check if Rust is installed
 if ! command -v cargo &> /dev/null; then
@@ -103,7 +195,7 @@ echo ""
 # ============================================================================
 # STEP 2: INSTALL
 # ============================================================================
-echo -e "${BLUE}Step 2/3: Installing...${NC}"
+echo -e "${BLUE}Step 2/4: Installing...${NC}"
 
 # Check if binary exists
 if [ ! -f "$BINARY_PATH" ]; then
@@ -185,6 +277,11 @@ echo -e "${GREEN}✅ Installation complete!${NC}"
 echo ""
 echo "📁 Binary installed to: $BIN_DIR/rustora"
 echo "📁 Desktop file: $DESKTOP_DIR/rustora.desktop"
+echo ""
+if command -v fpm &> /dev/null; then
+    echo "📦 fpm (Effing Package Manager) is installed and ready to use"
+    echo "   Run 'fpm --version' to verify"
+fi
 echo ""
 echo "You can now run Rustora with:"
 echo "  $BIN_DIR/rustora"

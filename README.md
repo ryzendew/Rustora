@@ -112,7 +112,7 @@ rustora install package.rpm
 
 ### 🔄 Package Conversion
 
-#### Alien Tab
+#### FPM Tab
 - **Convert DEB to RPM** - convert Debian/Ubuntu packages to RPM format
 - **Convert TGZ to RPM** - convert Slackware packages to RPM format
 - **Real-time conversion progress** with detailed output
@@ -123,14 +123,14 @@ rustora install package.rpm
 **Example:**
 ```bash
 # Convert a DEB package
-# 1. Navigate to Alien tab
+# 1. Navigate to FPM tab
 # 2. Click "Convert DEB to RPM"
 # 3. Select .deb file using file picker
 # 4. Wait for conversion to complete
 # 5. Install dialog opens automatically
 ```
 
-**Requirements:** `alien` package (`sudo dnf install alien`)
+**Requirements:** `fpm` gem (installed automatically by `build-and-install.sh`, or manually: `gem install fpm`)
 
 ### 🛠️ System Maintenance
 
@@ -410,12 +410,12 @@ sudo dnf install -y \
     mesa-libGL-devel \
     fontconfig-devel freetype-devel expat-devel \
     dnf rpm polkit zenity curl unzip fontconfig \
-    alien
+    ruby ruby-devel rubygems
 ```
 
 **Notes:**
 - `zenity` (GNOME) or `kdialog` (KDE) is required for file picker dialogs
-- `alien` is required for the Alien tab (package conversion feature)
+- `fpm` gem is required for the FPM tab (package conversion feature) - installed automatically by `build-and-install.sh`, or manually: `gem install fpm`
 - `polkit` is required for privilege escalation
 
 </details>
@@ -492,7 +492,7 @@ The GUI provides access to all features through a tabbed interface:
 - **Repositories**: Manage DNF repositories
 - **Kernels**: Manage kernel installations
 - **Devices**: Manage device drivers
-- **Alien**: Convert packages from other formats
+- **FPM**: Convert packages from other formats
 - **Tweaks**: System optimizations and gaming tools
 
 ### Terminal Mode
@@ -549,7 +549,7 @@ rustora install firefox
 ### Example 3: Converting a DEB Package
 
 1. Open Rustora
-2. Navigate to **Alien** tab
+2. Navigate to **FPM** tab
 3. Click **Convert DEB to RPM**
 4. Select `.deb` file using file picker
 5. Wait for conversion (progress shown in real-time)

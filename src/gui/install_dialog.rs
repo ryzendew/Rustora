@@ -80,10 +80,17 @@ impl InstallDialog {
             return Space::with_width(Length::Shrink).into();
         }
 
+        // Load settings and calculate font sizes like tabs do
+        let settings = crate::gui::settings::AppSettings::load();
+        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
+        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
+        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
+        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
+
         let content = if self.is_loading {
             container(
                 column![
-                    text("Loading package information...").size(18),
+                    text("Loading package information...").size(title_font_size),
                     Space::with_height(Length::Fixed(20.0)),
                     progress_bar(0.0..=1.0, 0.5).width(Length::Fill),
                 ]
@@ -102,7 +109,7 @@ impl InstallDialog {
             
             let title = container(
                     text(&title_text)
-                        .size(20)
+                        .size(title_font_size)
                         .style(iced::theme::Text::Color(theme.primary()))
             )
             .width(Length::Fill)
@@ -114,51 +121,51 @@ impl InstallDialog {
                 let info = &self.package_info[0];
                 container(
                     column![
-                        text("Package Information").size(16).style(iced::theme::Text::Color(theme.primary())),
+                        text("Package Information").size(body_font_size * 0.95).style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(10.0)),
                         row![
-                            text("Name:").width(Length::Fixed(120.0)),
-                            text(&info.name).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
+                            text("Name:").size(body_font_size * 0.85).width(Length::Fixed(120.0)),
+                            text(&info.name).size(body_font_size * 0.85).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
                         ]
                         .width(Length::Fill)
                         .spacing(10),
                         Space::with_height(Length::Fixed(5.0)),
                         row![
-                            text("Version:").width(Length::Fixed(120.0)),
-                            text(&info.version).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
+                            text("Version:").size(body_font_size * 0.85).width(Length::Fixed(120.0)),
+                            text(&info.version).size(body_font_size * 0.85).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
                         ]
                         .width(Length::Fill)
                         .spacing(10),
                         Space::with_height(Length::Fixed(5.0)),
                         row![
-                            text("Release:").width(Length::Fixed(120.0)),
-                            text(&info.release).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
+                            text("Release:").size(body_font_size * 0.85).width(Length::Fixed(120.0)),
+                            text(&info.release).size(body_font_size * 0.85).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
                         ]
                         .width(Length::Fill)
                         .spacing(10),
                         Space::with_height(Length::Fixed(5.0)),
                         row![
-                            text("Architecture:").width(Length::Fixed(120.0)),
-                            text(&info.arch).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
+                            text("Architecture:").size(body_font_size * 0.85).width(Length::Fixed(120.0)),
+                            text(&info.arch).size(body_font_size * 0.85).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
                         ]
                         .width(Length::Fill)
                         .spacing(10),
                         Space::with_height(Length::Fixed(5.0)),
                         row![
-                            text("Size:").width(Length::Fixed(120.0)),
-                            text(&info.size).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
+                            text("Size:").size(body_font_size * 0.85).width(Length::Fixed(120.0)),
+                            text(&info.size).size(body_font_size * 0.85).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
                         ]
                         .width(Length::Fill)
                         .spacing(10),
                         Space::with_height(Length::Fixed(15.0)),
-                        text("Summary:").size(14).style(iced::theme::Text::Color(theme.primary())),
+                        text("Summary:").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(5.0)),
-                        text(&info.summary).size(12).shaping(iced::widget::text::Shaping::Advanced),
+                        text(&info.summary).size(body_font_size * 0.8).shaping(iced::widget::text::Shaping::Advanced),
                         Space::with_height(Length::Fixed(15.0)),
-                        text("Description:").size(14).style(iced::theme::Text::Color(theme.primary())),
+                        text("Description:").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(5.0)),
                         scrollable(
-                            text(&info.description).size(12).shaping(iced::widget::text::Shaping::Advanced)
+                            text(&info.description).size(body_font_size * 0.8).shaping(iced::widget::text::Shaping::Advanced)
                         )
                         .height(Length::Fixed(100.0)),
                     ]
@@ -171,7 +178,7 @@ impl InstallDialog {
                 container(
                     column![
                         text(format!("Packages to Install ({})", self.package_info.len()))
-                            .size(16)
+                            .size(body_font_size * 0.95)
                             .style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(10.0)),
                         scrollable(
@@ -183,23 +190,23 @@ impl InstallDialog {
                                             column![
                                                 row![
                                                     text(&info.name)
-                                                        .size(14)
+                                                        .size(body_font_size * 0.9)
                                                         .style(iced::theme::Text::Color(theme.primary())),
                                                     Space::with_width(Length::Fill),
                                                     text(format!("{} {}", info.version, info.release))
-                                                        .size(12),
+                                                        .size(body_font_size * 0.8),
                                                 ]
                                                 .width(Length::Fill)
                                                 .spacing(10),
                                                 Space::with_height(Length::Fixed(5.0)),
                                                 text(&info.summary)
-                                                    .size(12)
+                                                    .size(body_font_size * 0.8)
                                                     .shaping(iced::widget::text::Shaping::Advanced),
                                                 Space::with_height(Length::Fixed(5.0)),
                                                 row![
-                                                    text(format!("Arch: {}", info.arch)).size(11),
+                                                    text(format!("Arch: {}", info.arch)).size(body_font_size * 0.75),
                                                     Space::with_width(Length::Fill),
-                                                    text(format!("Size: {}", info.size)).size(11),
+                                                    text(format!("Size: {}", info.size)).size(body_font_size * 0.75),
                                                 ]
                                                 .width(Length::Fill),
                                             ]
@@ -233,11 +240,11 @@ impl InstallDialog {
                 };
                 container(
                     column![
-                        text("Installation Progress").size(16).style(iced::theme::Text::Color(theme.primary())),
+                        text("Installation Progress").size(body_font_size * 0.95).style(iced::theme::Text::Color(theme.primary())),
                         Space::with_height(Length::Fixed(10.0)),
                         progress_bar(0.0..=1.0, progress_value).width(Length::Fill),
                         Space::with_height(Length::Fixed(5.0)),
-                        text(&progress_text).size(12)
+                        text(&progress_text).size(body_font_size * 0.8)
                             .style(iced::theme::Text::Color(if self.is_complete {
                                 iced::Color::from_rgb(0.0, 0.8, 0.0)
                             } else {
@@ -260,8 +267,8 @@ impl InstallDialog {
                         let material_font = crate::gui::fonts::get_material_symbols_font();
                         button(
                             row![
-                                text(crate::gui::fonts::glyphs::EXIT_SYMBOL).font(material_font),
-                                text(" Exit")
+                                text(crate::gui::fonts::glyphs::EXIT_SYMBOL).font(material_font).size(icon_size * 0.9),
+                                text(" Exit").size(button_font_size)
                             ]
                             .spacing(4)
                             .align_items(Alignment::Center)
