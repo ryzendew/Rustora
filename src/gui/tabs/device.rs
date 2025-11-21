@@ -1014,13 +1014,15 @@ impl DeviceTab {
         container(
             row![
                 container(sidebar)
-                    .width(Length::Fixed(360.0))
+                    .width(Length::FillPortion(1))
                     .height(Length::Fill),
+                Space::with_width(Length::Fixed(20.0)),
                 container(content)
-                    .width(Length::Fill)
+                    .width(Length::FillPortion(3))
                     .height(Length::Fill),
             ]
             .spacing(0)
+            .width(Length::Fill)
         )
         .width(Length::Fill)
         .height(Length::Fill)

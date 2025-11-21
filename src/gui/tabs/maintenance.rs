@@ -450,11 +450,11 @@ impl MaintenanceTab {
         // Main layout
         let content = row![
             container(actions_column)
-                .width(Length::Fixed(420.0))
+                .width(Length::FillPortion(1))
                 .height(Length::Fill),
             Space::with_width(Length::Fixed(24.0)),
             container(log_section)
-                .width(Length::Fill)
+                .width(Length::FillPortion(2))
                 .height(Length::Fill),
         ]
         .spacing(0)

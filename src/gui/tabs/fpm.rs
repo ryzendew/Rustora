@@ -360,7 +360,8 @@ impl FpmTab {
                     Space::with_width(Length::Fixed(12.0)),
                     create_button("Directory → RPM", Message::ConvertDirToRpm),
                 ]
-                .spacing(0),
+                .spacing(0)
+                .width(Length::Fill),
                 Space::with_height(Length::Fixed(12.0)),
                 // Second row of buttons
                 row![
@@ -370,7 +371,8 @@ impl FpmTab {
                     Space::with_width(Length::Fixed(12.0)),
                     create_button("ZIP → RPM", Message::ConvertZipToRpm),
                 ]
-                .spacing(0),
+                .spacing(0)
+                .width(Length::Fill),
                 Space::with_height(Length::Fixed(12.0)),
                 // Third row of buttons
                 row![
@@ -380,13 +382,15 @@ impl FpmTab {
                     Space::with_width(Length::Fixed(12.0)),
                     create_button("NPM → RPM", Message::ConvertNpmToRpm),
                 ]
-                .spacing(0),
+                .spacing(0)
+                .width(Length::Fill),
                 Space::with_height(Length::Fixed(12.0)),
                 // Fourth row of buttons
                 row![
                     create_button("CPAN → RPM", Message::ConvertCpanToRpm),
                 ]
-                .spacing(0),
+                .spacing(0)
+                .width(Length::Fill),
             ]
             .spacing(0)
         )
@@ -415,7 +419,8 @@ impl FpmTab {
                     Space::with_width(Length::Fixed(12.0)),
                     create_button("RPM → ZIP", Message::ConvertRpmToZip),
                 ]
-                .spacing(0),
+                .spacing(0)
+                .width(Length::Fill),
             ]
             .spacing(0)
         )

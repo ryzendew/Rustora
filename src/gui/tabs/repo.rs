@@ -229,6 +229,19 @@ impl RepoTab {
                     Ok(_) => {
                         // Reload repositories to reflect the change
                         self.is_loading = true;
+                        // Also reload details if panel is open
+                        if let Some(ref repo_id) = self.selected_repository {
+                            let repo_id = repo_id.clone();
+                            return iced::Command::batch([
+                                iced::Command::perform(load_repositories(), |result| {
+                                    match result {
+                                        Ok(repos) => Message::RepositoriesLoaded(repos),
+                                        Err(e) => Message::Error(e),
+                                    }
+                                }),
+                                iced::Command::perform(load_repository_details(repo_id), Message::RepositoryDetailsLoaded),
+                            ]);
+                        }
                         iced::Command::perform(load_repositories(), |result| {
                             match result {
                                 Ok(repos) => Message::RepositoriesLoaded(repos),
@@ -236,9 +249,10 @@ impl RepoTab {
                             }
                         })
                     }
-                    Err(_e) => {
+                    Err(e) => {
                         self.is_loading = false;
-                        iced::Command::none()
+                        // Show error message
+                        iced::Command::perform(async {}, |_| Message::Error(e))
                     }
                 }
             }
@@ -687,7 +701,7 @@ impl RepoTab {
                     settings.border_radius,
                 ))))
             )
-            .width(Length::Fixed(450.0))
+            .width(Length::Fill)
             .height(Length::Fill)
             .style(iced::theme::Container::Custom(Box::new(PanelStyle {
                 radius: settings.border_radius,
@@ -717,7 +731,7 @@ impl RepoTab {
                 ]
                 .padding(Padding::new(20.0))
             )
-            .width(Length::Fixed(400.0))
+            .width(Length::Fill)
             .height(Length::Fill)
             .style(iced::theme::Container::Custom(Box::new(PanelStyle {
                 radius: settings.border_radius,
@@ -852,13 +866,14 @@ impl RepoTab {
 
         let header_row = row![
             search_input,
-            Space::with_width(Length::Fixed(12.0)),
+            Space::with_width(Length::Fixed(16.0)),
             add_repo_button,
             Space::with_width(Length::Fixed(12.0)),
             refresh_button,
         ]
         .spacing(0)
-        .align_items(Alignment::Center);
+        .align_items(Alignment::Center)
+        .width(Length::Fill);
 
         // Content - show install buttons based on current view
         let content: Element<Message> = if self.current_view == RepoView::Nvidia && !self.is_loading {
@@ -943,55 +958,89 @@ impl RepoTab {
                                     })
                                     .unwrap_or_else(|| "No URL".to_string());
 
-                                button(
-                                    container(
-                                        row![
-                                            column![
+                                container(
+                                    row![
+                                        button(
+                                            container(
                                                 row![
-                                                    text(&repo.id)
-                                                        .size(body_font_size * 1.14)
-                                                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
+                                                    column![
+                                                        row![
+                                                            text(shorten_repo_id(&repo.id))
+                                                                .size(body_font_size * 1.14)
+                                                                .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
+                                                                .width(Length::Fill),
+                                                            Space::with_width(Length::Fixed(12.0)),
+                                                            container(
+                                                                text(if repo.enabled { "Enabled" } else { "Disabled" })
+                                                                    .size(body_font_size * 0.79)
+                                                                    .style(iced::theme::Text::Color(enabled_color))
+                                                            )
+                                                            .padding(Padding::new(6.0))
+                                                            .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
+                                                                enabled: repo.enabled,
+                                                                radius: settings.border_radius,
+                                                            }))),
+                                                        ]
+                                                        .spacing(0)
+                                                        .align_items(Alignment::Center)
                                                         .width(Length::Fill),
-                                                    Space::with_width(Length::Fixed(12.0)),
-                                                    container(
-                                                        text(if repo.enabled { "Enabled" } else { "Disabled" })
-                                                            .size(body_font_size * 0.79)
-                                                            .style(iced::theme::Text::Color(enabled_color))
-                                                    )
-                                                    .padding(Padding::new(6.0))
-                                                    .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
-                                                        enabled: repo.enabled,
-                                                        radius: settings.border_radius,
-                                                    }))),
+                                                        Space::with_height(Length::Fixed(6.0)),
+                                                        text(&repo.name)
+                                                            .size(body_font_size)
+                                                            .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
+                                                            .width(Length::Fill),
+                                                        Space::with_height(Length::Fixed(4.0)),
+                                                        text(&url_display)
+                                                            .size(body_font_size * 0.86)
+                                                            .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
+                                                            .width(Length::Fill),
+                                                    ]
+                                                    .spacing(0)
+                                                    .width(Length::Fill),
                                                 ]
                                                 .spacing(0)
+                                                .align_items(Alignment::Start)
+                                                .padding(16)
+                                            )
+                                            .style(iced::theme::Container::Custom(Box::new(RepoItemStyle {
+                                                radius: settings.border_radius,
+                                            })))
+                                        )
+                                        .on_press(Message::RepositorySelected(repo_id.clone()))
+                                        .style(iced::theme::Button::Text)
+                                        .padding(0)
+                                        .width(Length::Fill),
+                                        Space::with_width(Length::Fixed(12.0)),
+                                        {
+                                            let repo_id_toggle = repo_id.clone();
+                                            button(
+                                                row![
+                                                    text(if repo.enabled {
+                                                        crate::gui::fonts::glyphs::DELETE_SYMBOL
+                                                    } else {
+                                                        crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL
+                                                    })
+                                                    .font(material_font)
+                                                    .size(icon_size),
+                                                    text(if repo.enabled { " Disable" } else { " Enable" })
+                                                        .size(button_font_size * 0.9)
+                                                ]
+                                                .spacing(4)
                                                 .align_items(Alignment::Center)
-                                                .width(Length::Fill),
-                                                Space::with_height(Length::Fixed(6.0)),
-                                                text(&repo.name)
-                                                    .size(body_font_size)
-                                                    .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
-                                                    .width(Length::Fill),
-                                                Space::with_height(Length::Fixed(4.0)),
-                                                text(&url_display)
-                                                    .size(body_font_size * 0.86)
-                                                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
-                                                    .width(Length::Fill),
-                                            ]
-                                            .spacing(0)
-                                            .width(Length::Fill),
-                                        ]
-                                        .spacing(0)
-                                        .align_items(Alignment::Start)
-                                        .padding(16)
-                                    )
-                                    .style(iced::theme::Container::Custom(Box::new(RepoItemStyle {
-                                        radius: settings.border_radius,
-                                    })))
+                                            )
+                                            .on_press(Message::ToggleRepository(repo_id_toggle))
+                                            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                                                is_primary: !repo.enabled,
+                                                radius: settings.border_radius,
+                                            })))
+                                            .padding(Padding::new(10.0))
+                                        }
+                                    ]
+                                    .spacing(0)
+                                    .align_items(Alignment::Center)
+                                    .width(Length::Fill)
                                 )
-                                .on_press(Message::RepositorySelected(repo_id))
-                                .style(iced::theme::Button::Text)
-                                .padding(0)
+                                .width(Length::Fill)
                                 .into()
                             })
                             .collect::<Vec<_>>(),
@@ -1098,57 +1147,91 @@ impl RepoTab {
                                     })
                                     .unwrap_or_else(|| "No URL".to_string());
 
-                                button(
-                                    container(
-                                        row![
-                                            column![
-                                                row![
-                                                    text(&repo.id)
-                                                        .size(body_font_size * 1.14)
-                                                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
+                            container(
+                                row![
+                                    button(
+                                        container(
+                                            row![
+                                                column![
+                                                    row![
+                                                        text(&repo.id)
+                                                            .size(body_font_size * 1.14)
+                                                            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
+                                                            .width(Length::Fill),
+                                                        Space::with_width(Length::Fixed(12.0)),
+                                                        container(
+                                                            text(if repo.enabled { "Enabled" } else { "Disabled" })
+                                                                .size(body_font_size * 0.79)
+                                                                .style(iced::theme::Text::Color(enabled_color))
+                                                        )
+                                                        .padding(Padding::new(6.0))
+                                                        .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
+                                                            enabled: repo.enabled,
+                                                            radius: settings.border_radius,
+                                                        }))),
+                                                    ]
+                                                    .spacing(0)
+                                                    .align_items(Alignment::Center)
+                                                    .width(Length::Fill),
+                                                    Space::with_height(Length::Fixed(6.0)),
+                                                    text(&repo.name)
+                                                        .size(body_font_size)
+                                                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
                                                         .width(Length::Fill),
-                                                    Space::with_width(Length::Fixed(12.0)),
-                                                    container(
-                                                        text(if repo.enabled { "Enabled" } else { "Disabled" })
-                                                            .size(body_font_size * 0.79)
-                                                            .style(iced::theme::Text::Color(enabled_color))
-                                                    )
-                                                    .padding(Padding::new(6.0))
-                                                    .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
-                                                        enabled: repo.enabled,
-                                                        radius: settings.border_radius,
-                                                    }))),
+                                                    Space::with_height(Length::Fixed(4.0)),
+                                                    text(&url_display)
+                                                        .size(body_font_size * 0.86)
+                                                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
+                                                        .width(Length::Fill),
                                                 ]
                                                 .spacing(0)
-                                                .align_items(Alignment::Center)
                                                 .width(Length::Fill),
-                                                Space::with_height(Length::Fixed(6.0)),
-                                                text(&repo.name)
-                                                    .size(body_font_size)
-                                                    .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
-                                                    .width(Length::Fill),
-                                                Space::with_height(Length::Fixed(4.0)),
-                                                text(&url_display)
-                                                    .size(body_font_size * 0.86)
-                                                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
-                                                    .width(Length::Fill),
                                             ]
                                             .spacing(0)
-                                            .width(Length::Fill),
-                                        ]
-                                        .spacing(0)
-                                        .align_items(Alignment::Start)
-                                        .padding(16)
+                                            .align_items(Alignment::Start)
+                                            .padding(16)
+                                        )
+                                        .style(iced::theme::Container::Custom(Box::new(RepoItemStyle {
+                                            radius: settings.border_radius,
+                                        })))
                                     )
-                                    .style(iced::theme::Container::Custom(Box::new(RepoItemStyle {
-                                        radius: settings.border_radius,
-                                    })))
-                                )
-                                .on_press(Message::RepositorySelected(repo_id))
-                                .style(iced::theme::Button::Text)
-                                .padding(0)
-                                .into()
-                            })
+                                    .on_press(Message::RepositorySelected(repo_id.clone()))
+                                    .style(iced::theme::Button::Text)
+                                    .padding(0)
+                                    .width(Length::Fill),
+                                    Space::with_width(Length::Fixed(12.0)),
+                                    {
+                                        let repo_id_toggle = repo_id.clone();
+                                        button(
+                                            row![
+                                                text(if repo.enabled {
+                                                    crate::gui::fonts::glyphs::DELETE_SYMBOL
+                                                } else {
+                                                    crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL
+                                                })
+                                                .font(material_font)
+                                                .size(icon_size),
+                                                text(if repo.enabled { " Disable" } else { " Enable" })
+                                                    .size(button_font_size * 0.9)
+                                            ]
+                                            .spacing(4)
+                                            .align_items(Alignment::Center)
+                                        )
+                                        .on_press(Message::ToggleRepository(repo_id_toggle))
+                                        .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                                            is_primary: !repo.enabled,
+                                            radius: settings.border_radius,
+                                        })))
+                                        .padding(Padding::new(10.0))
+                                    }
+                                ]
+                                .spacing(0)
+                                .align_items(Alignment::Center)
+                                .width(Length::Fill)
+                            )
+                            .width(Length::Fill)
+                            .into()
+                        })
                             .collect::<Vec<_>>(),
                     )
                     .spacing(8)
@@ -1205,98 +1288,139 @@ impl RepoTab {
             })))
             .into()
         } else {
-            scrollable(
-                column(
-                    self.filtered_repositories
-                        .iter()
-                        .map(|repo| {
-                            let repo_id = repo.id.clone();
-                            let enabled_color = if repo.enabled {
-                                iced::Color::from_rgb(0.0, 0.8, 0.0)
-                            } else {
-                                iced::Color::from_rgb(0.6, 0.6, 0.6)
-                            };
-                            
-                            let url_display = repo.baseurl.as_ref()
-                                .or(repo.metalink.as_ref())
-                                .map(|u| {
-                                    if u.len() > 60 {
-                                        format!("{}...", &u[..60])
-                                    } else {
-                                        u.clone()
-                                    }
-                                })
-                                .unwrap_or_else(|| "No URL".to_string());
+            column(
+                self.filtered_repositories
+                    .iter()
+                    .map(|repo| {
+                        let repo_id = repo.id.clone();
+                        let enabled_color = if repo.enabled {
+                            iced::Color::from_rgb(0.0, 0.8, 0.0)
+                        } else {
+                            iced::Color::from_rgb(0.6, 0.6, 0.6)
+                        };
+                        
+                        let url_display = repo.baseurl.as_ref()
+                            .or(repo.metalink.as_ref())
+                            .cloned()
+                            .unwrap_or_else(|| "No URL".to_string());
 
-                            button(
-                                container(
-                                    row![
-                                        column![
-                                            row![
-                                                text(&repo.id)
-                                                    .size(body_font_size * 1.14)
-                                                    .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
-                                                    .width(Length::Fill),
-                                                Space::with_width(Length::Fixed(12.0)),
-                                                container(
-                                                    text(if repo.enabled { "Enabled" } else { "Disabled" })
-                                                        .size(body_font_size * 0.79)
-                                                        .style(iced::theme::Text::Color(enabled_color))
-                                                )
-                                                .padding(Padding::new(6.0))
-                                                .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
-                                                    radius: settings.border_radius,
-                                                    enabled: repo.enabled,
-                                                }))),
-                                            ]
-                                            .spacing(0)
-                                            .align_items(Alignment::Center)
-                                            .width(Length::Fill),
-                                            Space::with_height(Length::Fixed(6.0)),
-                                            text(&repo.name)
-                                                .size(body_font_size) // Larger size for emphasis
-                                                .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))) // Darker for better visibility
+                        // Clean, spacious card design
+                        container(
+                                row![
+                                    // Main clickable repository card - takes most space
+                                    button(
+                                        container(
+                                            column![
+                                                // Top row: ID and status badge
+                                                row![
+                                                    text(shorten_repo_id(&repo.id))
+                                                        .size(body_font_size * 1.2)
+                                                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
+                                                        .width(Length::Fill),
+                                                    Space::with_width(Length::Fixed(16.0)),
+                                                    container(
+                                                        text(if repo.enabled { "Enabled" } else { "Disabled" })
+                                                            .size(body_font_size * 0.8)
+                                                            .style(iced::theme::Text::Color(enabled_color))
+                                                    )
+                                                    .padding(Padding::from([6.0, 12.0, 6.0, 12.0]))
+                                                    .style(iced::theme::Container::Custom(Box::new(StatusBadgeStyle {
+                                                        radius: settings.border_radius,
+                                                        enabled: repo.enabled,
+                                                    }))),
+                                                ]
+                                                .spacing(0)
+                                                .align_items(Alignment::Center)
                                                 .width(Length::Fill),
-                                            Space::with_height(Length::Fixed(4.0)),
-                                            row![
-                                                text(&url_display)
-                                                    .size(body_font_size * 0.86)
-                                                    .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
+                                                Space::with_height(Length::Fixed(14.0)),
+                                                // Repository name
+                                                text(&repo.name)
+                                                    .size(body_font_size)
+                                                    .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
                                                     .width(Length::Fill),
-                                                Space::with_width(Length::Fixed(8.0)),
-                                                text(&repo.file_path)
-                                                    .size(body_font_size * 0.79)
-                                                    .style(iced::theme::Text::Color(iced::Color::from_rgba(0.5, 0.5, 0.5, 1.0))),
+                                                Space::with_height(Length::Fixed(14.0)),
+                                                // URL - full width, wraps properly
+                                                column![
+                                                    text("URL")
+                                                        .size(body_font_size * 0.85)
+                                                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
+                                                    Space::with_height(Length::Fixed(4.0)),
+                                                    text(&url_display)
+                                                        .size(body_font_size * 0.9)
+                                                        .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
+                                                        .width(Length::Fill)
+                                                        .shaping(iced::widget::text::Shaping::Advanced),
+                                                ]
+                                                .spacing(0)
+                                                .width(Length::Fill),
+                                                Space::with_height(Length::Fixed(12.0)),
+                                                // File path - full width
+                                                column![
+                                                    text("File")
+                                                        .size(body_font_size * 0.85)
+                                                        .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
+                                                    Space::with_height(Length::Fixed(4.0)),
+                                                    text(&repo.file_path)
+                                                        .size(body_font_size * 0.85)
+                                                        .style(iced::theme::Text::Color(iced::Color::from_rgba(0.5, 0.5, 0.5, 1.0)))
+                                                        .width(Length::Fill)
+                                                        .shaping(iced::widget::text::Shaping::Advanced),
+                                                ]
+                                                .spacing(0)
+                                                .width(Length::Fill),
+                                            ]
+                                            .spacing(0)
+                                            .width(Length::Fill)
+                                            .padding(Padding::from([22.0, 26.0, 22.0, 26.0]))
+                                        )
+                                        .style(iced::theme::Container::Custom(Box::new(RepoItemStyle {
+                                            radius: settings.border_radius,
+                                        })))
+                                    )
+                                    .on_press(Message::RepositorySelected(repo_id.clone()))
+                                    .style(iced::theme::Button::Text)
+                                    .padding(0)
+                                    .width(Length::Fill),
+                                    Space::with_width(Length::Fixed(20.0)),
+                                    // Toggle button - vertical layout
+                                    {
+                                        let repo_id_toggle = repo_id.clone();
+                                        button(
+                                            column![
+                                                text(if repo.enabled {
+                                                    crate::gui::fonts::glyphs::DELETE_SYMBOL
+                                                } else {
+                                                    crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL
+                                                })
+                                                .font(material_font)
+                                                .size(icon_size * 1.3),
+                                                Space::with_height(Length::Fixed(8.0)),
+                                                text(if repo.enabled { "Disable" } else { "Enable" })
+                                                    .size(button_font_size * 0.9)
                                             ]
                                             .spacing(0)
                                             .align_items(Alignment::Center)
-                                            .width(Length::Fill),
-                                        ]
-                                        .spacing(0)
-                                        .width(Length::Fill),
-                                    ]
-                                    .spacing(0)
-                                    .align_items(Alignment::Start)
-                                    .padding(16)
-                                )
-                                .style(iced::theme::Container::Custom(Box::new(RepoItemStyle {
-                                    radius: settings.border_radius,
-                                })))
+                                        )
+                                        .on_press(Message::ToggleRepository(repo_id_toggle))
+                                        .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                                            is_primary: !repo.enabled,
+                                            radius: settings.border_radius,
+                                        })))
+                                        .padding(Padding::from([18.0, 24.0, 18.0, 24.0]))
+                                    }
+                                ]
+                                .spacing(0)
+                                .align_items(Alignment::Start)
+                                .width(Length::Fill)
                             )
-                            .on_press(Message::RepositorySelected(repo_id))
-                            .style(iced::theme::Button::Text)
-                            .padding(0)
-                            .into()
-                        })
-                            .collect::<Vec<_>>(),
-                    )
-                    .spacing(8)
-                    .padding(10),
+                        .width(Length::Fill)
+                        .into()
+                    })
+                    .collect::<Vec<_>>(),
                 )
-                .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
-                    Color::from(settings.background_color.clone()),
-                    settings.border_radius,
-                ))))
+                .spacing(16)
+                .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
+                .width(Length::Fill)
                 .into()
             };
 
@@ -1453,16 +1577,25 @@ impl RepoTab {
                 .into()
         } else {
             container(
-                column![
-                    header_row,
-                    Space::with_height(Length::Fixed(16.0)),
-                    content,
-                ]
-                .spacing(0)
+                scrollable(
+                    column![
+                        header_row,
+                        Space::with_height(Length::Fixed(20.0)),
+                        content,
+                    ]
+                    .spacing(0)
+                    .width(Length::Fill)
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
+                    Color::from(settings.background_color.clone()),
+                    settings.border_radius,
+                ))))
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(Padding::new(20.0))
+            .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
             .into()
         };
 
@@ -1485,11 +1618,18 @@ impl RepoTab {
                 if self.terminal_open {
                     terminal_ui
                 } else {
-                    row![main_content, panel]
-                        .spacing(15)
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .into()
+                    row![
+                        container(main_content)
+                            .width(Length::FillPortion(2))
+                            .height(Length::Fill),
+                        container(panel)
+                            .width(Length::FillPortion(1))
+                            .height(Length::Fill),
+                    ]
+                    .spacing(15)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into()
                 },
             ]
             .spacing(0)
@@ -1530,6 +1670,26 @@ async fn load_repositories() -> Result<Vec<RepositoryInfo>, String> {
     repositories.sort_by(|a, b| a.id.cmp(&b.id));
 
     Ok(repositories)
+}
+
+/// Shorten repository ID for display, especially COPR repositories
+fn shorten_repo_id(id: &str) -> String {
+    // For COPR repos like "copr:copr.fedorainfracloud.org:bieszcachyos"
+    // Extract just the last part after the final colon
+    if id.starts_with("copr:") {
+        if let Some(last_colon) = id.rfind(':') {
+            if last_colon < id.len() - 1 {
+                return id[last_colon + 1..].to_string();
+            }
+        }
+    }
+    
+    // For other long IDs, truncate if too long
+    if id.len() > 40 {
+        format!("{}...", &id[..37])
+    } else {
+        id.to_string()
+    }
 }
 
 fn parse_repo_file(content: &str, file_path: String) -> Vec<RepositoryInfo> {
@@ -1698,8 +1858,15 @@ async fn toggle_repository(repo_id: String, enable: bool) -> Result<String, Stri
     
     let action = if enable { "set-enabled" } else { "set-disabled" };
     
-    let output = TokioCommand::new("pkexec")
-        .args(["dnf", "config-manager", &format!("--{}", action), &repo_id])
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.args(["dnf", "config-manager", &format!("--{}", action), &repo_id]);
+    
+    // Ensure DISPLAY is set for GUI password dialog
+    if let Ok(display) = std::env::var("DISPLAY") {
+        cmd.env("DISPLAY", display);
+    }
+    
+    let output = cmd
         .output()
         .await
         .map_err(|e| format!("Failed to execute dnf config-manager: {}", e))?;
@@ -1707,6 +1874,12 @@ async fn toggle_repository(repo_id: String, enable: bool) -> Result<String, Stri
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
+        
+        // Check if user cancelled the password dialog
+        if output.status.code() == Some(126) || output.status.code() == Some(127) {
+            return Err("Authentication cancelled or failed. Please try again.".to_string());
+        }
+        
         return Err(format!("Failed to {} repository: {}\n{}", 
             if enable { "enable" } else { "disable" },
             stderr, stdout));

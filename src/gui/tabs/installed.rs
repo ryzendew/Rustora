@@ -308,7 +308,7 @@ impl InstalledTab {
                 )
                 .height(Length::Fill)
             )
-            .width(Length::Fixed(420.0))
+            .width(Length::Fill)
             .height(Length::Fill)
             .style(iced::theme::Container::Custom(Box::new(PanelStyle {
                 radius: settings.border_radius,
@@ -339,7 +339,7 @@ impl InstalledTab {
                 ]
                 .padding(Padding::new(20.0))
             )
-            .width(Length::Fixed(400.0))
+            .width(Length::Fill)
             .height(Length::Fill)
             .style(iced::theme::Container::Custom(Box::new(PanelStyle {
                 radius: settings.border_radius,
@@ -507,10 +507,17 @@ impl InstalledTab {
             .height(Length::Fill);
 
         container(
-            row![main_content, panel]
-                .spacing(15)
-                .width(Length::Fill)
-                .height(Length::Fill)
+            row![
+                container(main_content)
+                    .width(Length::FillPortion(2))
+                    .height(Length::Fill),
+                container(panel)
+                    .width(Length::FillPortion(1))
+                    .height(Length::Fill),
+            ]
+            .spacing(15)
+            .width(Length::Fill)
+            .height(Length::Fill)
         )
         .width(Length::Fill)
         .height(Length::Fill)
