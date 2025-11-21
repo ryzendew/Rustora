@@ -571,6 +571,7 @@ async fn install_packages(packages: &[&str]) -> Result<String, String> {
     cmd.arg("dnf");
     cmd.arg("install");
     cmd.arg("-y");
+    cmd.arg("--allowerasing");
     cmd.args(packages);
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
@@ -590,7 +591,7 @@ async fn install_packages(packages: &[&str]) -> Result<String, String> {
     let mut stderr_reader = BufReader::new(stderr).lines();
     
     let mut output = String::new();
-    output.push_str(&format!("$ pkexec dnf install -y {}\n", packages.join(" ")));
+    output.push_str(&format!("$ pkexec dnf install -y --allowerasing {}\n", packages.join(" ")));
     output.push_str("─────────────────────────────────────────────────────────────\n");
     
     let mut already_installed = false;
