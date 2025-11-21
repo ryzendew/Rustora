@@ -304,12 +304,12 @@ impl TweaksTab {
                             eprintln!("[DEBUG] Loading Proton builds (empty: {}, has_error: {})", 
                                 self.proton_runners.is_empty(), 
                                 self.proton_builds_error.is_some());
-                            self.is_loading_proton_builds = true;
-                            self.proton_builds_error = None;
-                            return iced::Command::batch(vec![
-                                iced::Command::perform(detect_launchers(), Message::LaunchersDetected),
-                                iced::Command::perform(load_proton_builds(), Message::ProtonBuildsLoaded),
-                            ]);
+                        self.is_loading_proton_builds = true;
+                        self.proton_builds_error = None;
+                        return iced::Command::batch(vec![
+                            iced::Command::perform(detect_launchers(), Message::LaunchersDetected),
+                            iced::Command::perform(load_proton_builds(), Message::ProtonBuildsLoaded),
+                        ]);
                         }
                     }
                     if self.detected_launchers.is_empty() && !self.is_detecting_launchers {
@@ -1396,20 +1396,20 @@ impl TweaksTab {
         } else if let Some(ref status) = self.cachyos_kernel_status {
             // Modern grid-based status display - build grid directly
             let create_status_item = |name: &str, is_installed: bool| -> Element<Message> {
-                container(
+                        container(
                     text(if is_installed { format!("✓ {}", name) } else { format!("✗ {}", name) })
                         .size(body_font_size * 0.95)
                         .style(iced::theme::Text::Color(if is_installed {
-                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                        } else {
-                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                        }))
+                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
+                                } else {
+                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
+                                }))
                         .horizontal_alignment(iced::alignment::Horizontal::Center)
-                )
-                .width(Length::Fill)
+                        )
+                        .width(Length::Fill)
                 .height(Length::Shrink)
                 .padding(Padding::from([12.0, 16.0, 12.0, 16.0]))
-                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
+                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
                     is_installed,
                     radius: settings.border_radius * 0.6,
                 })))
@@ -1417,7 +1417,7 @@ impl TweaksTab {
             };
             
             scrollable(
-                container(
+                        container(
                     column![
                         // Packages section
                         container(
@@ -1435,11 +1435,11 @@ impl TweaksTab {
                                     create_status_item("kernel-cachyos", status.kernel_cachyos),
                                     Space::with_width(Length::Fixed(12.0)),
                                     create_status_item("cachyos-settings", status.cachyos_settings),
-                                ]
+                    ]
                                 .spacing(0)
                                 .width(Length::Fill),
                                 Space::with_height(Length::Fixed(12.0)),
-                                row![
+                    row![
                                     create_status_item("ananicy-cpp", status.ananicy_cpp),
                                     Space::with_width(Length::Fixed(12.0)),
                                     create_status_item("cachyos-ananicy-rules", status.cachyos_ananicy_rules),
@@ -1456,50 +1456,50 @@ impl TweaksTab {
                                 .width(Length::Fill),
                                 Space::with_height(Length::Fixed(12.0)),
                                 create_status_item("scx-tools", status.scx_tools),
-                            ]
-                            .spacing(0)
-                        )
+                ]
+                .spacing(0)
+            )
                         .width(Length::Fill)
                         .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                            radius: settings.border_radius,
-                            theme: *theme,
+            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                radius: settings.border_radius,
+                theme: *theme,
                         }))),
                         Space::with_height(Length::Fixed(20.0)),
-                        
-                        // Repositories section
+
+            // Repositories section
                         container(
-                            column![
-                                text("Repositories")
+                column![
+                    text("Repositories")
                                     .size(title_font_size)
                                     .style(iced::theme::Text::Color(theme.primary())),
                                 Space::with_height(Length::Fixed(4.0)),
                                 text("Enabled COPR repositories")
                                     .size(body_font_size * 0.85)
-                                    .style(iced::theme::Text::Color(theme.secondary_text())),
+                        .style(iced::theme::Text::Color(theme.secondary_text())),
                                 Space::with_height(Length::Fixed(20.0)),
-                                row![
+                    row![
                                     create_status_item("kernel-cachyos", status.repo_kernel_cachyos),
                                     Space::with_width(Length::Fixed(12.0)),
                                     create_status_item("kernel-cachyos-addons", status.repo_kernel_cachyos_addons),
                                 ]
                                 .spacing(0)
                                 .width(Length::Fill),
-                            ]
-                            .spacing(0)
-                        )
+                ]
+                .spacing(0)
+            )
                         .width(Length::Fill)
                         .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                            radius: settings.border_radius,
-                            theme: *theme,
+            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                radius: settings.border_radius,
+                theme: *theme,
                         }))),
-                    ]
-                    .spacing(0)
+                ]
+                .spacing(0)
                     .width(Length::Fill)
-                )
-                .width(Length::Fill)
-                .padding(Padding::from([0.0, 0.0, 0.0, 0.0]))
+            )
+            .width(Length::Fill)
+            .padding(Padding::from([0.0, 0.0, 0.0, 0.0]))
             )
             .width(Length::Fill)
             .height(Length::Fill)
@@ -1569,14 +1569,14 @@ impl TweaksTab {
                 column![
                     // Header section
                     container(
-                        column![
-                            text("Cachyos Kernel")
+            column![
+                text("Cachyos Kernel")
                                 .size(title_font_size * 1.1)
-                                .style(iced::theme::Text::Color(theme.primary())),
+                    .style(iced::theme::Text::Color(theme.primary())),
                             Space::with_height(Length::Fixed(8.0)),
                             text("High-performance kernel with scheduler extensions")
                                 .size(body_font_size * 0.9)
-                                .style(iced::theme::Text::Color(theme.secondary_text())),
+                    .style(iced::theme::Text::Color(theme.secondary_text())),
                         ]
                         .spacing(0)
                     )
@@ -1586,7 +1586,7 @@ impl TweaksTab {
                     
                     // Features card
                     container(
-                        column![
+                column![
                             text("Components")
                                 .size(body_font_size * 1.05)
                                 .style(iced::theme::Text::Color(theme.primary())),
@@ -1596,8 +1596,8 @@ impl TweaksTab {
                                     text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("kernel-cachyos + cachyos-settings")
-                                        .size(body_font_size * 0.95)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                        .size(body_font_size * 0.95)
+                        .style(iced::theme::Text::Color(theme.text())),
                                 ]
                                 .spacing(0)
                                 .align_items(Alignment::Start),
@@ -1606,8 +1606,8 @@ impl TweaksTab {
                                     text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("ananicy-cpp, cachyos-ananicy-rules")
-                                        .size(body_font_size * 0.95)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                        .size(body_font_size * 0.95)
+                        .style(iced::theme::Text::Color(theme.text())),
                                 ]
                                 .spacing(0)
                                 .align_items(Alignment::Start),
@@ -1616,8 +1616,8 @@ impl TweaksTab {
                                     text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("scx-manager, scx-scheds-git, scx-tools")
-                                        .size(body_font_size * 0.95)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                        .size(body_font_size * 0.95)
+                        .style(iced::theme::Text::Color(theme.text())),
                                 ]
                                 .spacing(0)
                                 .align_items(Alignment::Start),
@@ -1626,9 +1626,9 @@ impl TweaksTab {
                                     text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("Auto-configures GRUB and regenerates initramfs")
-                                        .size(body_font_size * 0.95)
-                                        .style(iced::theme::Text::Color(theme.text())),
-                                ]
+                        .size(body_font_size * 0.95)
+                        .style(iced::theme::Text::Color(theme.text())),
+                ]
                                 .spacing(0)
                                 .align_items(Alignment::Start),
                             ]
@@ -1642,7 +1642,7 @@ impl TweaksTab {
                         radius: settings.border_radius,
                         theme: *theme,
                     }))),
-                    Space::with_height(Length::Fixed(20.0)),
+                Space::with_height(Length::Fixed(20.0)),
                     
                     // Action buttons
                     container(
@@ -1650,13 +1650,13 @@ impl TweaksTab {
                             cachyos_kernel_button.width(Length::Fill),
                             Space::with_height(Length::Fixed(12.0)),
                             check_cachyos_status_button.width(Length::Fill),
-                        ]
-                        .spacing(0)
+                ]
+                .spacing(0)
                     )
                     .width(Length::Fill)
                     .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
-                ]
-                .spacing(0)
+            ]
+            .spacing(0)
                 .width(Length::Fill)
             )
             .width(Length::Fill)
@@ -1695,20 +1695,20 @@ impl TweaksTab {
         } else if let Some(ref status) = self.gaming_meta_status {
             // Modern grid-based status display - build grid directly
             let create_status_item = |name: &str, is_installed: bool| -> Element<Message> {
-                container(
+            container(
                     text(if is_installed { format!("✓ {}", name) } else { format!("✗ {}", name) })
                         .size(body_font_size * 0.95)
                         .style(iced::theme::Text::Color(if is_installed {
-                            iced::Color::from_rgb(0.1, 0.7, 0.1)
-                        } else {
-                            iced::Color::from_rgb(0.6, 0.6, 0.6)
-                        }))
+                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
+                                } else {
+                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
+                                }))
                         .horizontal_alignment(iced::alignment::Horizontal::Center)
-                )
-                .width(Length::Fill)
+                        )
+                        .width(Length::Fill)
                 .height(Length::Shrink)
                 .padding(Padding::from([12.0, 16.0, 12.0, 16.0]))
-                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
+                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
                     is_installed,
                     radius: settings.border_radius * 0.6,
                 })))
@@ -1716,7 +1716,7 @@ impl TweaksTab {
             };
             
             scrollable(
-                container(
+                        container(
                     column![
                         // Header
                         container(
@@ -1740,11 +1740,11 @@ impl TweaksTab {
                             create_status_item("Steam", status.steam),
                             Space::with_width(Length::Fixed(12.0)),
                             create_status_item("Lutris", status.lutris),
-                        ]
+                    ]
                         .spacing(0)
                         .width(Length::Fill),
                         Space::with_height(Length::Fixed(12.0)),
-                        row![
+                    row![
                             create_status_item("MangoHUD", status.mangohud),
                             Space::with_width(Length::Fixed(12.0)),
                             create_status_item("Gamescope", status.gamescope),
@@ -1756,8 +1756,8 @@ impl TweaksTab {
                             create_status_item("MangoJuice", status.mangojuice),
                             Space::with_width(Length::Fixed(12.0)),
                             create_status_item("ProtonPlus", status.protonplus),
-                        ]
-                        .spacing(0)
+                ]
+                .spacing(0)
                         .width(Length::Fill),
                         Space::with_height(Length::Fixed(12.0)),
                         create_status_item("Heroic Games Launcher", status.heroic),
@@ -1820,14 +1820,14 @@ impl TweaksTab {
                 column![
                     // Header section
                     container(
-                        column![
-                            text("Gaming Meta")
+            column![
+                text("Gaming Meta")
                                 .size(title_font_size * 1.1)
-                                .style(iced::theme::Text::Color(theme.primary())),
+                    .style(iced::theme::Text::Color(theme.primary())),
                             Space::with_height(Length::Fixed(8.0)),
                             text("Complete gaming setup for Fedora")
                                 .size(body_font_size * 0.9)
-                                .style(iced::theme::Text::Color(theme.secondary_text())),
+                    .style(iced::theme::Text::Color(theme.secondary_text())),
                         ]
                         .spacing(0)
                     )
@@ -1837,7 +1837,7 @@ impl TweaksTab {
                     
                     // Features card
                     container(
-                        column![
+                column![
                             text("What's Included")
                                 .size(body_font_size * 1.05)
                                 .style(iced::theme::Text::Color(theme.primary())),
@@ -1847,8 +1847,8 @@ impl TweaksTab {
                                     text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("Steam, Lutris, MangoHUD, Gamescope")
-                                        .size(body_font_size * 0.95)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                        .size(body_font_size * 0.95)
+                        .style(iced::theme::Text::Color(theme.text())),
                                 ]
                                 .spacing(0)
                                 .align_items(Alignment::Start),
@@ -1857,8 +1857,8 @@ impl TweaksTab {
                                     text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("ProtonPlus, MangoJuice (Flatpak)")
-                                        .size(body_font_size * 0.95)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                        .size(body_font_size * 0.95)
+                        .style(iced::theme::Text::Color(theme.text())),
                                 ]
                                 .spacing(0)
                                 .align_items(Alignment::Start),
@@ -1867,13 +1867,13 @@ impl TweaksTab {
                                     text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("Heroic Games Launcher (latest release)")
-                                        .size(body_font_size * 0.95)
-                                        .style(iced::theme::Text::Color(theme.text())),
+                        .size(body_font_size * 0.95)
+                        .style(iced::theme::Text::Color(theme.text())),
                                 ]
                                 .spacing(0)
                                 .align_items(Alignment::Start),
-                            ]
-                            .spacing(0),
+                ]
+                .spacing(0),
                         ]
                         .spacing(0)
                     )
@@ -1888,30 +1888,30 @@ impl TweaksTab {
                     // Action buttons
                     container(
                         column![
-                            button(
-                                row![
-                                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
-                                    text(" Install Gaming Meta").size(button_font_size)
-                                ]
-                                .spacing(10)
-                                .align_items(Alignment::Center)
-                            )
-                            .on_press(Message::InstallGamingMeta)
-                            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                                is_primary: true,
-                                radius: settings.border_radius,
-                            })))
+                    button(
+                        row![
+                            text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
+                            text(" Install Gaming Meta").size(button_font_size)
+                        ]
+                        .spacing(10)
+                        .align_items(Alignment::Center)
+                    )
+                    .on_press(Message::InstallGamingMeta)
+                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                        is_primary: true,
+                        radius: settings.border_radius,
+                    })))
                             .padding(Padding::from([14.0, 20.0, 14.0, 20.0]))
                             .width(Length::Fill),
                             Space::with_height(Length::Fixed(12.0)),
                             check_status_button.width(Length::Fill),
-                        ]
-                        .spacing(0)
+                ]
+                .spacing(0)
                     )
                     .width(Length::Fill)
                     .padding(Padding::from([0.0, 0.0, 0.0, 0.0])),
-                ]
-                .spacing(0)
+            ]
+            .spacing(0)
                 .width(Length::Fill)
             )
             .width(Length::Fill)
@@ -1947,17 +1947,17 @@ impl TweaksTab {
                 };
                 
                 container(
-                    row![
+                row![
                         container(left_content)
-                            .width(Length::FillPortion(1))
-                            .height(Length::Fill),
+                        .width(Length::FillPortion(1))
+                        .height(Length::Fill),
                         Space::with_width(Length::Fixed(20.0)),
-                        container(gaming_meta_status_display)
-                            .width(Length::FillPortion(1))
+                    container(gaming_meta_status_display)
+                        .width(Length::FillPortion(1))
                             .height(Length::Fill),
-                    ]
-                    .spacing(0)
-                    .align_items(Alignment::Start)
+                ]
+                .spacing(0)
+                .align_items(Alignment::Start)
                     .width(Length::Fill)
                 )
                 .width(Length::Fill)
@@ -1969,17 +1969,17 @@ impl TweaksTab {
             }
             TweaksView::CachyosKernel => {
                 container(
-                    row![
+                row![
                         container(cachyos_kernel_left)
                             .width(Length::FillPortion(1))
                             .height(Length::Fill),
                         Space::with_width(Length::Fixed(20.0)),
-                        container(cachyos_kernel_status_display)
-                            .width(Length::FillPortion(1))
+                    container(cachyos_kernel_status_display)
+                        .width(Length::FillPortion(1))
                             .height(Length::Fill),
-                    ]
-                    .spacing(0)
-                    .align_items(Alignment::Start)
+                ]
+                .spacing(0)
+                .align_items(Alignment::Start)
                     .width(Length::Fill)
                 )
                 .width(Length::Fill)
@@ -2013,20 +2013,20 @@ impl TweaksTab {
                 } else if let Some(ref status) = self.hyprland_status {
                     // Modern grid-based status display - build grid directly
                     let create_status_item = |name: &str, is_installed: bool| -> Element<Message> {
-                        container(
+                                container(
                             text(if is_installed { format!("✓ {}", name) } else { format!("✗ {}", name) })
                                 .size(body_font_size * 0.95)
                                 .style(iced::theme::Text::Color(if is_installed {
-                                    iced::Color::from_rgb(0.1, 0.7, 0.1)
-                                } else {
-                                    iced::Color::from_rgb(0.6, 0.6, 0.6)
-                                }))
+                                            iced::Color::from_rgb(0.1, 0.7, 0.1)
+                                        } else {
+                                            iced::Color::from_rgb(0.6, 0.6, 0.6)
+                                        }))
                                 .horizontal_alignment(iced::alignment::Horizontal::Center)
-                        )
-                        .width(Length::Fill)
+                                )
+                                .width(Length::Fill)
                         .height(Length::Shrink)
                         .padding(Padding::from([12.0, 16.0, 12.0, 16.0]))
-                        .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
+                                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
                             is_installed,
                             radius: settings.border_radius * 0.6,
                         })))
@@ -2034,7 +2034,7 @@ impl TweaksTab {
                     };
                     
                     scrollable(
-                        container(
+                                container(
                             column![
                                 // Packages section
                                 container(
@@ -2052,11 +2052,11 @@ impl TweaksTab {
                                             create_status_item("hyprland", status.hyprland),
                                             Space::with_width(Length::Fixed(12.0)),
                                             create_status_item("hyprpicker", status.hyprpicker),
-                                        ]
+                            ]
                                         .spacing(0)
                                         .width(Length::Fill),
                                         Space::with_height(Length::Fixed(12.0)),
-                                        row![
+                            row![
                                             create_status_item("swww", status.swww),
                                             Space::with_width(Length::Fixed(12.0)),
                                             create_status_item("quickshell-git", status.quickshell_git),
@@ -2064,7 +2064,7 @@ impl TweaksTab {
                                         .spacing(0)
                                         .width(Length::Fill),
                                         Space::with_height(Length::Fixed(12.0)),
-                                        row![
+                            row![
                                             create_status_item("fuzzel", status.fuzzel),
                                             Space::with_width(Length::Fixed(12.0)),
                                             create_status_item("wlogout", status.wlogout),
@@ -2072,7 +2072,7 @@ impl TweaksTab {
                                         .spacing(0)
                                         .width(Length::Fill),
                                         Space::with_height(Length::Fixed(12.0)),
-                                        row![
+                            row![
                                             create_status_item("cliphist", status.cliphist),
                                             Space::with_width(Length::Fixed(12.0)),
                                             create_status_item("brightnessctl", status.brightnessctl),
@@ -2089,50 +2089,50 @@ impl TweaksTab {
                                         .width(Length::Fill),
                                         Space::with_height(Length::Fixed(12.0)),
                                         create_status_item("swappy", status.swappy),
-                                    ]
-                                    .spacing(0)
-                                )
+                        ]
+                        .spacing(0)
+                    )
                                 .width(Length::Fill)
                                 .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                                    radius: settings.border_radius,
-                                    theme: *theme,
+                    .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                        radius: settings.border_radius,
+                        theme: *theme,
                                 }))),
                                 Space::with_height(Length::Fixed(20.0)),
-                                
+
                                 // Repositories section - only Hyprland-related COPR repos
                                 container(
-                                    column![
-                                        text("Repositories")
+                        column![
+                            text("Repositories")
                                             .size(title_font_size)
                                             .style(iced::theme::Text::Color(theme.primary())),
                                         Space::with_height(Length::Fixed(4.0)),
                                         text("Enabled COPR repositories")
                                             .size(body_font_size * 0.85)
-                                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                                .style(iced::theme::Text::Color(theme.secondary_text())),
                                         Space::with_height(Length::Fixed(20.0)),
-                                        row![
+                            row![
                                             create_status_item("errornointernet/quickshell", status.repo_quickshell),
                                             Space::with_width(Length::Fixed(12.0)),
                                             create_status_item("solopasha/hyprland", status.repo_hyprland),
                                         ]
                                         .spacing(0)
                                         .width(Length::Fill),
-                                    ]
-                                    .spacing(0)
-                                )
+                        ]
+                        .spacing(0)
+                    )
                                 .width(Length::Fill)
                                 .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
-                                .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                                    radius: settings.border_radius,
-                                    theme: *theme,
+                    .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
+                        radius: settings.border_radius,
+                        theme: *theme,
                                 }))),
-                            ]
-                            .spacing(0)
+                        ]
+                        .spacing(0)
                             .width(Length::Fill)
-                        )
-                        .width(Length::Fill)
-                        .padding(Padding::from([0.0, 0.0, 0.0, 0.0]))
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding::from([0.0, 0.0, 0.0, 0.0]))
                     )
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -2217,14 +2217,14 @@ impl TweaksTab {
                         column![
                             // Header section
                             container(
-                                column![
-                                    text("Hyprland Setup")
+                    column![
+                        text("Hyprland Setup")
                                         .size(title_font_size * 1.1)
-                                        .style(iced::theme::Text::Color(theme.primary())),
+                            .style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_height(Length::Fixed(8.0)),
                                     text("Window manager and essential utilities")
                                         .size(body_font_size * 0.9)
-                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                            .style(iced::theme::Text::Color(theme.secondary_text())),
                                 ]
                                 .spacing(0)
                             )
@@ -2234,7 +2234,7 @@ impl TweaksTab {
                             
                             // Main installation card
                             container(
-                                column![
+                        column![
                                     text("Components")
                                         .size(body_font_size * 1.05)
                                         .style(iced::theme::Text::Color(theme.primary())),
@@ -2244,8 +2244,8 @@ impl TweaksTab {
                                             text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
                                             text("Enables COPR repositories (solopasha/hyprland, errornointernet/quickshell)")
-                                                .size(body_font_size * 0.95)
-                                                .style(iced::theme::Text::Color(theme.text())),
+                                .size(body_font_size * 0.95)
+                                .style(iced::theme::Text::Color(theme.text())),
                                         ]
                                         .spacing(0)
                                         .align_items(Alignment::Start),
@@ -2254,8 +2254,8 @@ impl TweaksTab {
                                             text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
                                             text("Installs Hyprland, hyprpicker, swww, quickshell-git")
-                                                .size(body_font_size * 0.95)
-                                                .style(iced::theme::Text::Color(theme.text())),
+                                .size(body_font_size * 0.95)
+                                .style(iced::theme::Text::Color(theme.text())),
                                         ]
                                         .spacing(0)
                                         .align_items(Alignment::Start),
@@ -2264,19 +2264,19 @@ impl TweaksTab {
                                             text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
                                             text("Installs essential utilities (fuzzel, wlogout, cliphist, etc.)")
-                                                .size(body_font_size * 0.95)
-                                                .style(iced::theme::Text::Color(theme.text())),
-                                        ]
+                                .size(body_font_size * 0.95)
+                                .style(iced::theme::Text::Color(theme.text())),
+                        ]
                                         .spacing(0)
                                         .align_items(Alignment::Start),
                                     ]
                                     .spacing(0),
-                                    Space::with_height(Length::Fixed(20.0)),
+                        Space::with_height(Length::Fixed(20.0)),
                                     hyprland_install_button.width(Length::Fill),
                                     Space::with_height(Length::Fixed(12.0)),
                                     check_hyprland_status_button.width(Length::Fill),
-                                ]
-                                .spacing(0)
+                        ]
+                        .spacing(0)
                             )
                             .width(Length::Fill)
                             .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
@@ -2284,26 +2284,26 @@ impl TweaksTab {
                                 radius: settings.border_radius,
                                 theme: *theme,
                             }))),
-                            Space::with_height(Length::Fixed(20.0)),
+                        Space::with_height(Length::Fixed(20.0)),
                             
                             // Dotfiles card
                             container(
                                 column![
                                     text("Dotfiles")
                                         .size(body_font_size * 1.05)
-                                        .style(iced::theme::Text::Color(theme.primary())),
+                            .style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_height(Length::Fixed(4.0)),
                                     text("Configuration files from Dark Material Shell")
                                         .size(body_font_size * 0.85)
-                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                            .style(iced::theme::Text::Color(theme.secondary_text())),
                                     Space::with_height(Length::Fixed(16.0)),
-                                    column![
+                        column![
                                         row![
                                             text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
                                             text("hypr folder → ~/.config/hypr")
-                                                .size(body_font_size * 0.95)
-                                                .style(iced::theme::Text::Color(theme.text())),
+                                .size(body_font_size * 0.95)
+                                .style(iced::theme::Text::Color(theme.text())),
                                         ]
                                         .spacing(0)
                                         .align_items(Alignment::Start),
@@ -2312,20 +2312,20 @@ impl TweaksTab {
                                             text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
                                             text("quickshell folder → ~/.config/quickshell")
-                                                .size(body_font_size * 0.95)
-                                                .style(iced::theme::Text::Color(theme.text())),
-                                        ]
+                                .size(body_font_size * 0.95)
+                                .style(iced::theme::Text::Color(theme.text())),
+                        ]
                                         .spacing(0)
                                         .align_items(Alignment::Start),
                                     ]
                                     .spacing(0),
-                                    Space::with_height(Length::Fixed(20.0)),
+                        Space::with_height(Length::Fixed(20.0)),
                                     hyprland_dotfiles_button.width(Length::Fill),
-                                ]
-                                .spacing(0)
+                    ]
+                    .spacing(0)
                             )
                             .width(Length::Fill)
-                            .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
+                    .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
                             .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
                                 radius: settings.border_radius,
                                 theme: *theme,
@@ -2345,17 +2345,17 @@ impl TweaksTab {
                 ))));
 
                 container(
-                    row![
+                row![
                         container(hyprland_left)
                             .width(Length::FillPortion(1))
                             .height(Length::Fill),
                         Space::with_width(Length::Fixed(20.0)),
-                        container(hyprland_status_display)
-                            .width(Length::FillPortion(1))
+                    container(hyprland_status_display)
+                        .width(Length::FillPortion(1))
                             .height(Length::Fill),
-                    ]
-                    .spacing(0)
-                    .align_items(Alignment::Start)
+                ]
+                .spacing(0)
+                .align_items(Alignment::Start)
                     .width(Length::Fill)
                 )
                 .width(Length::Fill)
@@ -3398,24 +3398,6 @@ async fn check_copr_repo_enabled(repo: &str) -> bool {
     false
 }
 
-async fn check_rpmfusion_repo_enabled(repo: &str) -> bool {
-    use tokio::process::Command as TokioCommand;
-    let mut cmd = TokioCommand::new("dnf");
-    cmd.arg("repoinfo");
-    cmd.arg(repo);
-    cmd.stdout(std::process::Stdio::piped());
-    cmd.stderr(std::process::Stdio::piped());
-    let output = cmd.output().await.ok();
-    if let Some(o) = output {
-        if o.status.success() {
-            let stdout = String::from_utf8_lossy(&o.stdout);
-            // Check if repo status is "enabled"
-            return stdout.contains("Status") && stdout.contains("enabled");
-        }
-    }
-    false
-}
-
 async fn check_cachyos_kernel_status() -> Result<CachyosKernelStatus, String> {
     let kernel_cachyos = check_dnf_package("kernel-cachyos").await;
     let cachyos_settings = check_dnf_package("cachyos-settings").await;
@@ -4104,29 +4086,29 @@ async fn load_proton_builds() -> Result<Vec<ProtonRunner>, String> {
         if cached_runners.is_empty() {
             eprintln!("[DEBUG] Cache is empty, forcing fresh fetch");
         } else {
-            // Still fetch in background to check for updates, but return cached immediately
-            // We'll update the cache if new builds are found, and the UI will refresh on next load
-            let cached_runners_clone = cached_runners.clone();
-            tokio::spawn(async move {
-                eprintln!("[DEBUG] Background: Checking for new builds...");
-                if let Ok(new_runners) = fetch_proton_builds_from_github().await {
-                    eprintln!("[DEBUG] Background: Fetched {} runners from GitHub", new_runners.len());
-                    if has_new_builds(&cached_runners_clone, &new_runners) {
-                        eprintln!("[DEBUG] Background: New builds detected, updating cache");
-                        if let Err(e) = save_proton_cache(&new_runners) {
-                            eprintln!("[DEBUG] Background: Failed to save cache: {}", e);
-                        } else {
-                            eprintln!("[DEBUG] Background: Cache updated successfully");
-                        }
+        // Still fetch in background to check for updates, but return cached immediately
+        // We'll update the cache if new builds are found, and the UI will refresh on next load
+        let cached_runners_clone = cached_runners.clone();
+        tokio::spawn(async move {
+            eprintln!("[DEBUG] Background: Checking for new builds...");
+            if let Ok(new_runners) = fetch_proton_builds_from_github().await {
+                eprintln!("[DEBUG] Background: Fetched {} runners from GitHub", new_runners.len());
+                if has_new_builds(&cached_runners_clone, &new_runners) {
+                    eprintln!("[DEBUG] Background: New builds detected, updating cache");
+                    if let Err(e) = save_proton_cache(&new_runners) {
+                        eprintln!("[DEBUG] Background: Failed to save cache: {}", e);
                     } else {
-                        eprintln!("[DEBUG] Background: No new builds found");
+                        eprintln!("[DEBUG] Background: Cache updated successfully");
                     }
                 } else {
-                    eprintln!("[DEBUG] Background: Failed to fetch from GitHub");
+                    eprintln!("[DEBUG] Background: No new builds found");
                 }
-            });
-            eprintln!("[DEBUG] Returning {} cached runners immediately", cached_runners.len());
-            return Ok(cached_runners);
+            } else {
+                eprintln!("[DEBUG] Background: Failed to fetch from GitHub");
+            }
+        });
+        eprintln!("[DEBUG] Returning {} cached runners immediately", cached_runners.len());
+        return Ok(cached_runners);
         }
     }
     
@@ -4140,7 +4122,7 @@ async fn load_proton_builds() -> Result<Vec<ProtonRunner>, String> {
         if let Err(e) = save_proton_cache(&runners) {
             eprintln!("[DEBUG] Warning: Failed to save cache: {}", e);
         } else {
-            eprintln!("[DEBUG] Saved {} runners to cache", runners.len());
+    eprintln!("[DEBUG] Saved {} runners to cache", runners.len());
         }
     } else {
         eprintln!("[DEBUG] Warning: Fetched 0 runners from GitHub");
@@ -4628,7 +4610,7 @@ fn check_proton_installed(runner_title: &str, release_name: &str, directory_name
                             eprintln!("[DEBUG]   Directory has {} entries", entry_count);
                             if entry_count > 0 {
                                 eprintln!("[DEBUG] ========== check_proton_installed END: FOUND ==========");
-                                return true;
+                return true;
                             } else {
                                 eprintln!("[DEBUG]   Directory exists but is empty, continuing search...");
                             }
@@ -4973,7 +4955,7 @@ async fn install_proton_build(runner_title: String, title: String, tar_path: Str
     if is_gzip {
         let gz = GzDecoder::new(file);
         let mut archive = Archive::new(gz);
-        archive.unpack(&temp_extract)
+    archive.unpack(&temp_extract)
             .map_err(|e| format!("Failed to extract gzip archive: {}", e))?;
     } else if is_zstd {
         // zstd
@@ -5186,7 +5168,7 @@ async fn install_proton_build_with_launcher(
     if is_gzip {
         let gz = GzDecoder::new(file);
         let mut archive = Archive::new(gz);
-        archive.unpack(&temp_extract)
+    archive.unpack(&temp_extract)
             .map_err(|e| format!("Failed to extract gzip archive: {}", e))?;
     } else if is_zstd {
         // zstd

@@ -321,16 +321,16 @@ impl DeviceTab {
             Message::LoadDevices => {
                 // Always reload devices when explicitly requested (e.g., after password entry)
                 // This allows refreshing the device list when returning to the tab
-                self.is_loading = true;
+                    self.is_loading = true;
                     self.loading_message = "Checking device profiles...".into();
                 self.error = None;
-                // First ensure profiles are downloaded and cached
-                iced::Command::perform(ensure_profiles_cached(), |result| {
-                    match result {
-                        Ok(_) => Message::LoadDevicesAfterCache,
-                        Err(e) => Message::Error(format!("Failed to cache profiles: {}", e)),
-                    }
-                })
+                    // First ensure profiles are downloaded and cached
+                    iced::Command::perform(ensure_profiles_cached(), |result| {
+                        match result {
+                            Ok(_) => Message::LoadDevicesAfterCache,
+                            Err(e) => Message::Error(format!("Failed to cache profiles: {}", e)),
+                        }
+                    })
             }
             Message::LoadDevicesAfterCache => {
                 self.loading_message = "Loading device profiles...".into();

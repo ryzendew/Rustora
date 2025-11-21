@@ -624,9 +624,9 @@ impl FlatpakTab {
                     .width(Length::FillPortion(1))
                     .height(Length::Fill),
             ]
-            .spacing(15)
-            .width(Length::Fill)
-            .height(Length::Fill)
+                .spacing(15)
+                .width(Length::Fill)
+                .height(Length::Fill)
         )
         .width(Length::Fill)
         .height(Length::Fill)

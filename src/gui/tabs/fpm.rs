@@ -232,17 +232,17 @@ impl FpmTab {
                 // For RPM files, open RPM dialog
                 if file_path.extension().and_then(|s| s.to_str()) == Some("rpm") {
                     let file_path_str = file_path.to_string_lossy().to_string();
-                    iced::Command::perform(
-                        async move {
-                            use tokio::process::Command as TokioCommand;
-                            let exe_path = std::env::current_exe()
-                                .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
-                            let _ = TokioCommand::new(&exe_path)
+                iced::Command::perform(
+                    async move {
+                        use tokio::process::Command as TokioCommand;
+                        let exe_path = std::env::current_exe()
+                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
+                        let _ = TokioCommand::new(&exe_path)
                                 .arg(&file_path_str)
-                                .spawn();
-                        },
-                        |_| Message::CancelConversion,
-                    )
+                            .spawn();
+                    },
+                    |_| Message::CancelConversion,
+                )
                 } else {
                     iced::Command::none()
                 }
@@ -325,19 +325,19 @@ impl FpmTab {
         // Helper function to create conversion buttons - professional style
         let create_button = |label: &str, msg: Message| -> Element<Message> {
             button(
-                row![
+            row![
                     text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size * 0.9),
                     Space::with_width(Length::Fixed(8.0)),
                     text(label).size(button_font_size * 0.95)
-                ]
+            ]
                 .spacing(0)
-                .align_items(Alignment::Center)
-            )
+            .align_items(Alignment::Center)
+        )
             .on_press(msg)
-            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                is_primary: true,
-                radius: settings.border_radius,
-            })))
+        .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+            is_primary: true,
+            radius: settings.border_radius,
+        })))
             .padding(Padding::from([14.0, 18.0, 14.0, 18.0]))
             .into()
         };
@@ -345,7 +345,7 @@ impl FpmTab {
         // Convert TO RPM section
         let to_rpm_section = container(
             column![
-                row![
+            row![
                     text("Convert TO RPM")
                         .size(body_font_size * 1.15)
                         .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
@@ -370,7 +370,7 @@ impl FpmTab {
                     create_button("TGZ → RPM", Message::ConvertTgzToRpm),
                     Space::with_width(Length::Fixed(12.0)),
                     create_button("ZIP → RPM", Message::ConvertZipToRpm),
-                ]
+            ]
                 .spacing(0)
                 .width(Length::Fill),
                 Space::with_height(Length::Fixed(12.0)),
@@ -424,11 +424,11 @@ impl FpmTab {
             ]
             .spacing(0)
         )
-        .width(Length::Fill)
+            .width(Length::Fill)
         .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
-        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
-            radius: settings.border_radius,
-        })));
+            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
+                radius: settings.border_radius,
+            })));
 
         // Conversion status/progress - professional design
         let status_section = if self.is_converting {
@@ -437,9 +437,9 @@ impl FpmTab {
                     row![
                         text("🔄").size(body_font_size * 1.2),
                         Space::with_width(Length::Fixed(12.0)),
-                        text("Conversion in Progress")
+                    text("Conversion in Progress")
                             .size(body_font_size * 1.1)
-                            .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
+                        .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                     ]
                     .align_items(Alignment::Center),
                     Space::with_height(Length::Fixed(16.0)),
@@ -453,21 +453,21 @@ impl FpmTab {
                         scrollable(
                             column(
                                 if !self.conversion_output.is_empty() {
-                                    self.conversion_output
-                                        .iter()
-                                        .map(|line| {
-                                            text(line)
+                            self.conversion_output
+                                .iter()
+                                .map(|line| {
+                                    text(line)
                                                 .size(body_font_size * 0.85)
-                                                .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
-                                                .shaping(iced::widget::text::Shaping::Advanced)
-                                                .into()
-                                        })
-                                        .collect()
-                                } else {
-                                    vec![text("Waiting for conversion output...")
-                                        .size(body_font_size * 0.85)
                                         .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
-                                        .into()]
+                                        .shaping(iced::widget::text::Shaping::Advanced)
+                                        .into()
+                                })
+                                .collect()
+                        } else {
+                            vec![text("Waiting for conversion output...")
+                                        .size(body_font_size * 0.85)
+                                .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
+                                .into()]
                                 }
                             )
                             .spacing(6)
@@ -491,16 +491,16 @@ impl FpmTab {
                     row![
                         text("❌").size(body_font_size * 1.2),
                         Space::with_width(Length::Fixed(12.0)),
-                        text("Conversion Failed")
+                    text("Conversion Failed")
                             .size(body_font_size * 1.1)
-                            .style(iced::theme::Text::Color(iced::Color::from_rgb(1.0, 0.3, 0.3))),
+                        .style(iced::theme::Text::Color(iced::Color::from_rgb(1.0, 0.3, 0.3))),
                     ]
                     .align_items(Alignment::Center),
                     Space::with_height(Length::Fixed(16.0)),
                     container(
-                        text(error)
+                    text(error)
                             .size(body_font_size * 0.9)
-                            .style(iced::theme::Text::Color(iced::Color::from_rgb(1.0, 0.3, 0.3)))
+                        .style(iced::theme::Text::Color(iced::Color::from_rgb(1.0, 0.3, 0.3)))
                             .shaping(iced::widget::text::Shaping::Advanced)
                     )
                     .width(Length::Fill),
@@ -517,7 +517,7 @@ impl FpmTab {
                 column![
                     row![
                         text("✓").size(body_font_size * 1.2)
-                            .style(iced::theme::Text::Color(iced::Color::from_rgb(0.0, 0.8, 0.0))),
+                        .style(iced::theme::Text::Color(iced::Color::from_rgb(0.0, 0.8, 0.0))),
                         Space::with_width(Length::Fixed(12.0)),
                         text("Conversion Successful")
                             .size(body_font_size * 1.1)
@@ -610,20 +610,20 @@ async fn open_file_picker(conv_type: ConversionType) -> Option<PathBuf> {
         // Try zenity first
         if let Ok(output) = Command::new("zenity")
             .args(["--file-selection", "--title", title, "--directory"])
-            .output()
+        .output()
             .await
         {
-            if output.status.success() {
+        if output.status.success() {
                 if let Some(path) = extract_path_from_output(&output.stdout) {
                     return Some(path);
-                }
             }
         }
-        
-        // Fallback to kdialog
+    }
+    
+    // Fallback to kdialog
         if let Ok(output) = Command::new("kdialog")
             .args(["--getexistingdirectory", "."])
-            .output()
+        .output()
             .await
         {
             if output.status.success() {
@@ -702,11 +702,11 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
                 .as_secs()
         ));
         
-        std::fs::create_dir_all(&temp_dir)
-            .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+            std::fs::create_dir_all(&temp_dir)
+                .map_err(|e| format!("Failed to create temp directory: {}", e))?;
         
         output_lines.push(format!("Extracting {} to: {}", extract_type, temp_dir.display()));
-        
+            
         let temp_dir_str = temp_dir.to_string_lossy();
         let mut extract_cmd = match extract_type {
             "TAR" => {
@@ -729,12 +729,12 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
         
         let result = extract_cmd.output().await
             .map_err(|e| format!("Failed to extract {}: {}", extract_type, e))?;
-        
+            
         if !result.status.success() {
             let error = String::from_utf8_lossy(&result.stderr);
             return Err(format!("Failed to extract {} archive: {}", extract_type, error));
-        }
-        
+            }
+            
         output_lines.push(format!("✓ {} extracted successfully", extract_type));
         Ok(temp_dir)
     }
@@ -925,7 +925,7 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
                 extract_filename_from_line(line, target_ext)
             } else {
                 None
-            }
+        }
         });
     
     output_lines.push(format!("Searching for output file in: {}", parent_dir_abs.display()));
@@ -965,9 +965,9 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
                     output_lines.push(format!("Found file: {}", path.display()));
                     
                     entry.metadata().ok()?.modified().ok().and_then(|modified| {
-                        let now = std::time::SystemTime::now();
+                                let now = std::time::SystemTime::now();
                         let duration = now.duration_since(modified).ok()?;
-                        if duration.as_secs() < 120 {
+                                    if duration.as_secs() < 120 {
                             Some((modified, path))
                         } else {
                             None
@@ -976,7 +976,7 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
                 })
                 .max_by_key(|(modified, _)| *modified)
                 .map(|(_, path)| path);
-        }
+                                        }
     }
     
     if let Some(file) = found_file {

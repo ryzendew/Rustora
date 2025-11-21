@@ -669,16 +669,16 @@ async fn extract_with_progress(
         
         // Create appropriate decoder and extract based on format
         if is_gzip {
-            let gz = GzDecoder::new(file);
-            let mut archive = Archive::new(gz);
-            archive.unpack(&temp_extract_clone)
-                .map_err(|e| {
+        let gz = GzDecoder::new(file);
+        let mut archive = Archive::new(gz);
+        archive.unpack(&temp_extract_clone)
+            .map_err(|e| {
                     let error_msg = format!("Failed to extract gzip archive: {}", e);
-                    if error_msg.contains("failed to iterate") {
-                        format!("Archive appears to be corrupted or in an unsupported format. Please try downloading again. Original error: {}", e)
-                    } else {
-                        error_msg
-                    }
+                if error_msg.contains("failed to iterate") {
+                    format!("Archive appears to be corrupted or in an unsupported format. Please try downloading again. Original error: {}", e)
+                } else {
+                    error_msg
+                }
                 })?;
         } else if is_zstd {
             // zstd

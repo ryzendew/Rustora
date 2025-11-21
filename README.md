@@ -2,7 +2,7 @@
 
 A modern, GUI-based package manager for Fedora and Nobara with comprehensive system management capabilities.
 
-![Rustora Logo](https://raw.githubusercontent.com/ryzendew/Fedora-Forge/main/src/assets/Rustora_logo.png)
+![Rustora Logo](https://raw.githubusercontent.com/ryzendew/Fedora-Forge/main/src/assets/rustora.svg)
 
 ## Overview
 
