@@ -53,13 +53,13 @@ impl MaintenanceDialog {
 
     pub fn run_separate_window(task: MaintenanceTask) -> Result<(), iced::Error> {
         let dialog = Self::new(task);
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(900.0, 600.0);
         window_settings.min_size = Some(iced::Size::new(700.0, 400.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <MaintenanceDialog as Application>::run(iced::Settings {
@@ -117,7 +117,7 @@ impl Application for MaintenanceDialog {
                 let (cmd_name, args) = self.get_task_command();
                 let cmd_name = cmd_name.to_string();
                 let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
-                
+
                 iced::Command::perform(
                     run_maintenance_task_streaming(cmd_name, args),
                     |result| {
@@ -355,11 +355,11 @@ impl MaintenanceDialog {
 async fn run_maintenance_task_streaming(cmd_name: String, args: Vec<String>) -> Result<String, String> {
     let mut cmd = TokioCommand::new(&cmd_name);
     cmd.args(&args);
-    
+
     // Use spawn to get streaming output
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to execute {}: {}", cmd_name, e))?;
@@ -367,15 +367,15 @@ async fn run_maintenance_task_streaming(cmd_name: String, args: Vec<String>) -> 
     // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut combined_output = String::new();
     combined_output.push_str(&format!("$ {} {}\n", cmd_name, args.join(" ")));
     combined_output.push_str("--- Output ---\n");
-    
+
     // Read both stdout and stderr
     loop {
         tokio::select! {
@@ -409,13 +409,13 @@ async fn run_maintenance_task_streaming(cmd_name: String, args: Vec<String>) -> 
             }
         }
     }
-    
+
     // Wait for process to complete
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     if !status.success() {
-        return Err(format!("Process failed (exit code: {}):\n{}", 
+        return Err(format!("Process failed (exit code: {}):\n{}",
             status.code().unwrap_or(-1), combined_output));
     }
 

@@ -55,12 +55,12 @@ impl InstallDialog {
 
     pub fn run_separate_window(package_names: Vec<String>) -> Result<(), iced::Error> {
         let dialog = Self::new(package_names);
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(750.0, 800.0);
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         // Use cached InterVariable font (optimized)
         let default_font = crate::gui::fonts::get_inter_font();
 
@@ -106,7 +106,7 @@ impl InstallDialog {
             } else {
                 format!("Install {} Packages", self.package_info.len())
             };
-            
+
             let title = container(
                     text(&title_text)
                         .size(title_font_size)
@@ -228,7 +228,7 @@ impl InstallDialog {
                 )
                 .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
             };
-            
+
             let info_section = packages_list;
 
             let progress_section = if self.is_installing || self.is_complete {
@@ -434,8 +434,8 @@ impl Application for InstallDialog {
             Message::InstallationProgress(progress) => {
                 let progress_clone = progress.clone();
                 self.installation_progress = progress;
-                if progress_clone.contains("Complete") || 
-                   progress_clone.contains("Installed") || 
+                if progress_clone.contains("Complete") ||
+                   progress_clone.contains("Installed") ||
                    progress_clone.contains("complete") ||
                    progress_clone.to_lowercase().contains("success") {
                     iced::Command::perform(async {}, |_| Message::InstallationComplete)
@@ -476,7 +476,7 @@ async fn load_package_info(package_names: Vec<String>) -> Result<Vec<PackageInfo
     if package_names.is_empty() {
         return Err("No packages specified".to_string());
     }
-    
+
     // Load info for all packages in parallel
     let mut futures = Vec::new();
     for package_name in &package_names {
@@ -485,10 +485,10 @@ async fn load_package_info(package_names: Vec<String>) -> Result<Vec<PackageInfo
             load_single_package_info(name).await
         });
     }
-    
+
     // Wait for all to complete
     let results: Vec<Result<PackageInfo, String>> = future::join_all(futures).await;
-    
+
     // Collect successful results, skip failures
     let mut infos = Vec::new();
     for result in results {
@@ -500,11 +500,11 @@ async fn load_package_info(package_names: Vec<String>) -> Result<Vec<PackageInfo
             }
         }
     }
-    
+
     if infos.is_empty() {
         return Err("Failed to load information for any packages".to_string());
     }
-    
+
     Ok(infos)
 }
 
@@ -517,7 +517,7 @@ async fn load_single_package_info(package_name: String) -> Result<PackageInfo, S
         .map_err(|e| format!("Failed to execute dnf: {}", e))?;
 
     if !output.status.success() {
-        return Err(format!("Failed to read package info for {}: {}", 
+        return Err(format!("Failed to read package info for {}: {}",
             package_name, String::from_utf8_lossy(&output.stderr)));
     }
 
@@ -587,7 +587,7 @@ async fn load_single_package_info(package_name: String) -> Result<PackageInfo, S
                 // Known field names that end description
                 let known_fields = ["URL", "License", "Vendor", "Source", "Repository", "Epoch"];
                 if known_fields.iter().any(|&f| field_name.starts_with(f)) ||
-                   (field_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) && 
+                   (field_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) &&
                     field_name.len() < 20 &&
                     !field_name.eq_ignore_ascii_case("description")) {
                     in_description = false;
@@ -607,7 +607,7 @@ async fn load_single_package_info(package_name: String) -> Result<PackageInfo, S
     if info.description.is_empty() {
         info.description = info.summary.clone();
     }
-    
+
     // If name wasn't found, use the package name we tried to load
     if info.name.is_empty() {
         info.name = package_name;
@@ -622,14 +622,14 @@ fn parse_size(size_str: &str) -> Result<u64, ()> {
     if parts.is_empty() {
         return Err(());
     }
-    
+
     let number: f64 = parts[0].parse().map_err(|_| ())?;
     let unit = if parts.len() > 1 {
         parts[1].to_lowercase()
     } else {
         "b".to_string()
     };
-    
+
     // Handle MiB, KiB, GiB, TiB (binary) and MB, KB, GB, TB (decimal)
     let multiplier = match unit.as_str() {
         "k" | "kb" | "kib" => 1024.0,
@@ -638,7 +638,7 @@ fn parse_size(size_str: &str) -> Result<u64, ()> {
         "t" | "tb" | "tib" => 1024.0 * 1024.0 * 1024.0 * 1024.0,
         _ => 1.0,
     };
-    
+
     Ok((number * multiplier) as u64)
 }
 

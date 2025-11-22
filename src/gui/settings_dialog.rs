@@ -83,12 +83,12 @@ impl SettingsDialog {
             "Device".to_string(),
             "FPM".to_string(),
         ];
-        
+
         // Initialize tab visibility if not set
         for tab in &available_tabs {
             settings.tab_visibility.entry(tab.clone()).or_insert(true);
         }
-        
+
         Self {
             current_category: SettingsCategory::General,
             settings,
@@ -97,18 +97,18 @@ impl SettingsDialog {
             saved_themes: CustomTheme::list(),
         }
     }
-    
+
     pub fn run_separate_window() -> Result<(), iced::Error> {
         let dialog = Self::new();
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(1000.0, 700.0);
         window_settings.min_size = Some(iced::Size::new(800.0, 600.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
-        
+
         <SettingsDialog as Application>::run(iced::Settings {
             window: window_settings,
             flags: dialog,
@@ -119,7 +119,7 @@ impl SettingsDialog {
             fonts: Vec::new(),
         })
     }
-    
+
 }
 
 impl SettingsDialog {
@@ -156,11 +156,11 @@ impl SettingsDialog {
         .spacing(16)
         .into()
     }
-    
+
     fn view_appearance(&self) -> Element<'_, Message> {
         const FONT_FAMILIES: &[&str] = &["Inter Variable", "Fira Code", "DejaVu Sans", "Liberation Sans"];
         let selected_font = FONT_FAMILIES.iter().find(|&f| *f == self.settings.font_family.as_str());
-        
+
         column![
             container(
                 column![
@@ -195,7 +195,7 @@ impl SettingsDialog {
                         .size(16)
                         .style(iced::theme::Text::Color(Color::from_rgb(0.95, 0.95, 0.95))),
                     Space::with_height(Length::Fixed(12.0)),
-                    self.color_picker_row("Background", &self.settings.background_color, 
+                    self.color_picker_row("Background", &self.settings.background_color,
                         Message::BackgroundColorRChanged, Message::BackgroundColorGChanged, Message::BackgroundColorBChanged),
                     Space::with_height(Length::Fixed(12.0)),
                     self.color_picker_row("Text", &self.settings.text_color,
@@ -296,14 +296,14 @@ impl SettingsDialog {
         .spacing(16)
         .into()
     }
-    
-    fn color_picker_row(&self, label: &str, color: &ColorData, 
+
+    fn color_picker_row(&self, label: &str, color: &ColorData,
         on_r: fn(u8) -> Message, on_g: fn(u8) -> Message, on_b: fn(u8) -> Message) -> Element<'_, Message> {
         let preview_color = Color::from_rgba(color.r, color.g, color.b, color.a);
         let r_val = (color.r * 255.0).round() as u8;
         let g_val = (color.g * 255.0).round() as u8;
         let b_val = (color.b * 255.0).round() as u8;
-        
+
         column![
             row![
                 text(format!("{}:", label))
@@ -370,7 +370,7 @@ impl SettingsDialog {
         .spacing(4)
         .into()
     }
-    
+
     fn view_tabs(&self) -> Element<'_, Message> {
         column![
             container(
@@ -411,7 +411,7 @@ impl SettingsDialog {
         .spacing(16)
         .into()
     }
-    
+
     fn view_fonts(&self) -> Element<'_, Message> {
         column![
             // Universal font size slider at top
@@ -468,7 +468,7 @@ impl SettingsDialog {
         .spacing(16)
         .into()
     }
-    
+
     fn view_ui_scale(&self) -> Element<'_, Message> {
         column![
             // Universal UI scale slider at top
@@ -525,7 +525,7 @@ impl SettingsDialog {
         .spacing(16)
         .into()
     }
-    
+
     fn font_size_slider(&self, label: &str, value: f32, on_change: fn(f32) -> Message) -> Element<'_, Message> {
         row![
             text(format!("{}:", label))
@@ -543,7 +543,7 @@ impl SettingsDialog {
         .align_items(Alignment::Center)
         .into()
     }
-    
+
     fn ui_scale_slider(&self, label: &str, value: f32, on_change: fn(f32) -> Message) -> Element<'_, Message> {
         row![
             text(format!("{}:", label))
@@ -562,7 +562,7 @@ impl SettingsDialog {
         .align_items(Alignment::Center)
         .into()
     }
-    
+
 }
 
 impl Application for SettingsDialog {
@@ -570,15 +570,15 @@ impl Application for SettingsDialog {
     type Theme = IcedTheme;
     type Executor = iced::executor::Default;
     type Flags = Self;
-    
+
     fn new(flags: Self) -> (Self, Command<Message>) {
         (flags, Command::none())
     }
-    
+
     fn title(&self) -> String {
         "Settings".to_string()
     }
-    
+
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::CategorySelected(category) => {
@@ -808,11 +808,11 @@ impl Application for SettingsDialog {
             }
         }
     }
-    
+
     fn view(&self) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
         let material_font = glyphs::material_font();
-        
+
         // Left navigation pane
         let nav_items = vec![
             (SettingsCategory::General, "General"),
@@ -821,7 +821,7 @@ impl Application for SettingsDialog {
             (SettingsCategory::UIScale, "UI Scale"),
             (SettingsCategory::Tabs, "Tabs"),
         ];
-        
+
         let nav_pane = container(
             column(
                 nav_items
@@ -853,7 +853,7 @@ impl Application for SettingsDialog {
         .width(Length::Fixed(200.0))
         .padding(Padding::from([20.0, 0.0]))
         .style(iced::theme::Container::Custom(Box::new(NavPaneStyle)));
-        
+
         // Right content pane
         let content = match self.current_category {
             SettingsCategory::General => self.view_general(),
@@ -862,7 +862,7 @@ impl Application for SettingsDialog {
             SettingsCategory::UIScale => self.view_ui_scale(),
             SettingsCategory::Tabs => self.view_tabs(),
         };
-        
+
         let content_pane = container(
             scrollable(
                 column![
@@ -884,7 +884,7 @@ impl Application for SettingsDialog {
         .width(Length::Fill)
         .padding(Padding::from([20.0, 30.0]))
         .style(iced::theme::Container::Custom(Box::new(ContentPaneStyle)));
-        
+
         // Top bar with close button
         let top_bar = container(
             row![
@@ -906,7 +906,7 @@ impl Application for SettingsDialog {
         .width(Length::Fill)
         .padding(Padding::from([16.0, 20.0]))
         .style(iced::theme::Container::Custom(Box::new(TopBarStyle)));
-        
+
         // Bottom bar with save and close buttons
         let bottom_bar = container(
             row![
@@ -937,7 +937,7 @@ impl Application for SettingsDialog {
         .width(Length::Fill)
         .padding(Padding::from([16.0, 20.0]))
         .style(iced::theme::Container::Custom(Box::new(BottomBarStyle)));
-        
+
         container(
             column![
                 top_bar,
@@ -959,7 +959,7 @@ impl Application for SettingsDialog {
         .style(iced::theme::Container::Custom(Box::new(MainContainerStyle)))
         .into()
     }
-    
+
     fn theme(&self) -> IcedTheme {
         IcedTheme::Dark
     }

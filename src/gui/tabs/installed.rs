@@ -355,7 +355,7 @@ impl InstalledTab {
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
         let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
-        
+
         let search_input = text_input("Search installed packages...", &self.search_query)
             .on_input(Message::SearchQueryChanged)
             .size(input_font_size)

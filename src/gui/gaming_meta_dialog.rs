@@ -42,13 +42,13 @@ impl GamingMetaDialog {
 
     pub fn run_separate_window() -> Result<(), iced::Error> {
         let dialog = Self::new();
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(1000.0, 700.0);
         window_settings.min_size = Some(iced::Size::new(800.0, 500.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <GamingMetaDialog as Application>::run(iced::Settings {
@@ -89,7 +89,7 @@ impl Application for GamingMetaDialog {
                 self.terminal_output.clear();
                 self.terminal_output.push_str("Starting Gaming Meta installation...\n");
                 self.terminal_output.push_str("=====================================\n\n");
-                
+
                 Command::perform(install_gaming_meta_streaming(), |result| {
                     match result {
                         Ok((output, progress)) => Message::InstallationProgress(output, progress),
@@ -101,7 +101,7 @@ impl Application for GamingMetaDialog {
                 // Update terminal output and progress
                 self.terminal_output = output.clone();
                 self.progress = progress;
-                
+
                 // Calculate progress based on which step we're on
                 let step_progress = if output.contains("Step 1 completed") {
                     self.progress = 1.0 / 7.0;
@@ -152,9 +152,9 @@ impl Application for GamingMetaDialog {
                     }
                     "Installing Gaming Meta..."
                 };
-                
+
                 self.progress_text = step_progress.to_string();
-                
+
                 // Check if installation is complete (look for success/error indicators)
                 if output.contains("✓ ALL STEPS COMPLETED SUCCESSFULLY!") {
                     self.is_running = false;
@@ -209,7 +209,7 @@ impl Application for GamingMetaDialog {
 impl GamingMetaDialog {
     pub fn view_impl(&self, theme: &crate::gui::Theme, settings: &AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
-        
+
         let title_text = if self.is_complete {
             if self.has_error {
                 "Installation Failed"
@@ -219,11 +219,11 @@ impl GamingMetaDialog {
         } else {
             "Installing Gaming Meta"
         };
-        
+
         let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_font_size = (settings.font_size_body * settings.scale_body).round();
         let icon_font_size = (settings.font_size_icons * settings.scale_icons).round();
-        
+
         let progress_display = if !self.current_step.is_empty() {
             text(&self.current_step).size(body_font_size)
         } else {
@@ -315,7 +315,7 @@ impl GamingMetaDialog {
 
 async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
     let mut output = String::new();
-    
+
     // Step 1: Install core gaming tools
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("Step 1: Installing core gaming tools\n");
@@ -331,7 +331,7 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
             return Err(e);
         }
     }
-    
+
     // Step 2: Check Flatpak availability
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("Step 2: Checking Flatpak availability\n");
@@ -347,7 +347,7 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
             return Err(e);
         }
     }
-    
+
     // Step 3: Install MangoJuice
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("Step 3: Installing MangoJuice (io.github.radiolamp.mangojuice)\n");
@@ -362,7 +362,7 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
             return Err(e);
         }
     }
-    
+
     // Step 4: Install ProtonPlus
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("Step 4: Installing ProtonPlus (com.vysp3r.ProtonPlus)\n");
@@ -377,7 +377,7 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
             return Err(e);
         }
     }
-    
+
     // Step 5: Fetch Heroic Games Launcher release info
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("Step 5: Fetching Heroic Games Launcher release information\n");
@@ -387,7 +387,7 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
         Ok((download_url, filename, info_output)) => {
             output.push_str(&info_output);
             output.push_str("\n✓ Step 5 completed: Release information fetched\n\n");
-            
+
             // Step 6: Download Heroic Games Launcher
             output.push_str("═══════════════════════════════════════════════════════════════\n");
             output.push_str("Step 6: Downloading Heroic Games Launcher\n");
@@ -397,7 +397,7 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
                 Ok((rpm_path, download_output)) => {
                     output.push_str(&download_output);
                     output.push_str("\n✓ Step 6 completed: Download completed\n\n");
-                    
+
                     // Step 7: Install Heroic Games Launcher
                     output.push_str("═══════════════════════════════════════════════════════════════\n");
                     output.push_str("Step 7: Installing Heroic Games Launcher\n");
@@ -427,7 +427,7 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
             return Err(e);
         }
     }
-    
+
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("✓ ALL STEPS COMPLETED SUCCESSFULLY!\n");
     output.push_str("═══════════════════════════════════════════════════════════════\n");
@@ -439,14 +439,14 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
     output.push_str("  • io.github.radiolamp.mangojuice (Flatpak)\n");
     output.push_str("  • com.vysp3r.ProtonPlus (Flatpak)\n");
     output.push_str("  • Heroic Games Launcher\n");
-    
+
     // Return output with 100% progress
     Ok((output, 1.0))
 }
 
 async fn install_core_gaming_tools() -> Result<String, String> {
     let packages = vec!["steam", "lutris", "mangohud", "gamescope"];
-    
+
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("dnf");
     cmd.arg("install");
@@ -454,27 +454,27 @@ async fn install_core_gaming_tools() -> Result<String, String> {
     cmd.args(&packages);
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     // Ensure DISPLAY is set for GUI password dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     let mut child = cmd.spawn()
         .map_err(|e| format!("Failed to execute dnf install: {}", e))?;
-    
+
     // Capture output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut output = String::new();
     output.push_str(&format!("$ pkexec dnf install -y {}\n", packages.join(" ")));
     output.push_str("─────────────────────────────────────────────────────────────\n");
-    
+
     // Read both stdout and stderr
     loop {
         tokio::select! {
@@ -504,19 +504,19 @@ async fn install_core_gaming_tools() -> Result<String, String> {
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for dnf install: {}", e))?;
-    
+
     // Check for pkexec cancellation (exit codes 126/127)
     if status.code() == Some(126) || status.code() == Some(127) {
         return Err("Authentication cancelled or polkit not available. Please try again.".to_string());
     }
-    
+
     if !status.success() {
         return Err(format!("Command failed with exit code: {:?}", status.code()));
     }
-    
+
     Ok(output)
 }
 
@@ -525,14 +525,14 @@ async fn check_flatpak() -> Result<String, String> {
     cmd.arg("flatpak");
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let output = cmd.output().await
         .map_err(|e| format!("Failed to check flatpak: {}", e))?;
-    
+
     let mut result = String::new();
     result.push_str("$ which flatpak\n");
     result.push_str("─────────────────────────────────────────────────────────────\n");
-    
+
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         result.push_str(&stdout);
@@ -552,22 +552,22 @@ async fn install_flatpak_package(package_id: &str, package_name: &str) -> Result
     cmd.arg(package_id);
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd.spawn()
         .map_err(|e| format!("Failed to execute flatpak install: {}", e))?;
-    
+
     // Capture output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut output = String::new();
     output.push_str(&format!("$ flatpak install -y flathub {}\n", package_id));
     output.push_str("─────────────────────────────────────────────────────────────\n");
-    
+
     // Read both stdout and stderr
     loop {
         tokio::select! {
@@ -597,10 +597,10 @@ async fn install_flatpak_package(package_id: &str, package_name: &str) -> Result
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for flatpak install: {}", e))?;
-    
+
     if !status.success() {
         // Check if package is already installed (that's okay)
         if output.contains("already installed") || output.contains("is already installed") {
@@ -609,63 +609,63 @@ async fn install_flatpak_package(package_id: &str, package_name: &str) -> Result
         }
         return Err(format!("Failed to install {}: Command exited with code {:?}", package_name, status.code()));
     }
-    
+
     Ok(output)
 }
 
 async fn fetch_heroic_release_info() -> Result<(String, String, String), String> {
     let client = reqwest::Client::new();
     let releases_url = "https://api.github.com/repos/Heroic-Games-Launcher/HeroicGamesLauncher/releases/latest";
-    
+
     let mut output = String::new();
     output.push_str(&format!("$ curl -s {}\n", releases_url));
     output.push_str("─────────────────────────────────────────────────────────────\n");
     output.push_str("Fetching latest release information from GitHub...\n");
-    
+
     let response = client
         .get(releases_url)
         .header("User-Agent", "Rustora/1.0")
         .send()
         .await
         .map_err(|e| format!("Failed to fetch releases: {}", e))?;
-    
+
     if !response.status().is_success() {
         return Err(format!("Failed to fetch releases: HTTP {}", response.status()));
     }
-    
+
     let release: serde_json::Value = response
         .json()
         .await
         .map_err(|e| format!("Failed to parse release JSON: {}", e))?;
-    
+
     let tag_name = release["tag_name"].as_str().unwrap_or("unknown");
     let release_name = release["name"].as_str().unwrap_or("unknown");
-    
+
     output.push_str(&format!("Release: {}\n", release_name));
     output.push_str(&format!("Tag: {}\n", tag_name));
-    
+
     // Find the x86_64 RPM file
     let assets = release["assets"].as_array()
         .ok_or("No assets found in release")?;
-    
+
     let rpm_asset = assets.iter()
         .find(|asset| {
             let name = asset["name"].as_str().unwrap_or("");
             name.ends_with(".rpm") && name.contains("x86_64")
         })
         .ok_or("No x86_64 RPM file found in release")?;
-    
+
     let download_url = rpm_asset["browser_download_url"].as_str()
         .ok_or("No download URL found")?;
     let filename = rpm_asset["name"].as_str()
         .ok_or("No filename found")?;
     let size = rpm_asset["size"].as_u64().unwrap_or(0);
     let size_mb = size as f64 / 1_048_576.0;
-    
+
     output.push_str(&format!("RPM file: {}\n", filename));
     output.push_str(&format!("Size: {:.2} MB\n", size_mb));
     output.push_str(&format!("Download URL: {}\n", download_url));
-    
+
     Ok((download_url.to_string(), filename.to_string(), output))
 }
 
@@ -673,43 +673,43 @@ async fn download_heroic_rpm(download_url: &str, filename: &str) -> Result<(std:
     let client = reqwest::Client::new();
     let temp_dir = std::env::temp_dir();
     let rpm_path = temp_dir.join(filename);
-    
+
     let mut output = String::new();
     output.push_str(&format!("$ wget {}\n", download_url));
     output.push_str("─────────────────────────────────────────────────────────────\n");
     output.push_str(&format!("Downloading to: {}\n", rpm_path.display()));
-    
+
     let download_response = client
         .get(download_url)
         .header("User-Agent", "Rustora/1.0")
         .send()
         .await
         .map_err(|e| format!("Failed to download RPM: {}", e))?;
-    
+
     if !download_response.status().is_success() {
         return Err(format!("Failed to download RPM: HTTP {}", download_response.status()));
     }
-    
+
     let content_length = download_response.content_length();
     output.push_str("Downloading...\n");
-    
+
     let bytes = download_response
         .bytes()
         .await
         .map_err(|e| format!("Failed to read download: {}", e))?;
-    
+
     if let Some(total) = content_length {
-        output.push_str(&format!("Downloaded: {:.2} MB / {:.2} MB (100%)\n", 
+        output.push_str(&format!("Downloaded: {:.2} MB / {:.2} MB (100%)\n",
             bytes.len() as f64 / 1_048_576.0, total as f64 / 1_048_576.0));
     } else {
         output.push_str(&format!("Downloaded: {:.2} MB\n", bytes.len() as f64 / 1_048_576.0));
     }
-    
+
     std::fs::write(&rpm_path, bytes.as_ref())
         .map_err(|e| format!("Failed to save RPM file: {}", e))?;
-    
+
     output.push_str(&format!("✓ Download completed: {}\n", rpm_path.display()));
-    
+
     Ok((rpm_path, output))
 }
 
@@ -721,27 +721,27 @@ async fn install_heroic_rpm(rpm_path: &std::path::PathBuf) -> Result<String, Str
     cmd.arg(rpm_path.to_str().ok_or("Invalid RPM path")?);
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     // Ensure DISPLAY is set for GUI password dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     let mut child = cmd.spawn()
         .map_err(|e| format!("Failed to execute dnf install: {}", e))?;
-    
+
     // Capture output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut output = String::new();
     output.push_str(&format!("$ pkexec dnf install -y {}\n", rpm_path.display()));
     output.push_str("─────────────────────────────────────────────────────────────\n");
-    
+
     // Read both stdout and stderr
     loop {
         tokio::select! {
@@ -771,22 +771,22 @@ async fn install_heroic_rpm(rpm_path: &std::path::PathBuf) -> Result<String, Str
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for dnf install: {}", e))?;
-    
+
     // Clean up the downloaded file
     let _ = std::fs::remove_file(rpm_path);
-    
+
     // Check for pkexec cancellation (exit codes 126/127)
     if status.code() == Some(126) || status.code() == Some(127) {
         return Err("Authentication cancelled or polkit not available. Please try again.".to_string());
     }
-    
+
     if !status.success() {
         return Err(format!("Command failed with exit code: {:?}", status.code()));
     }
-    
+
     Ok(output)
 }
 

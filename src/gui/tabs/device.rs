@@ -46,49 +46,49 @@ impl PreCheckedPciProfile {
             dependencies: Arc::new(std::sync::RwLock::new(None)),
         }
     }
-    
+
     // Return reference to avoid cloning
     pub fn profile(&self) -> &CfhdbPciProfile {
         &self.profile
     }
-    
+
     #[allow(dead_code)]
     pub fn installed(&self) -> bool {
         *self.installed.read().unwrap()
     }
-    
+
     pub fn update_installed(&self) {
         *self.installed.write().unwrap() = self.profile.get_status();
     }
-    
+
     pub fn driver_version(&self) -> Option<String> {
         self.driver_version.read().unwrap().clone()
     }
-    
+
     pub fn set_driver_version(&self, version: Option<String>) {
         *self.driver_version.write().unwrap() = version;
     }
-    
+
     pub fn repository(&self) -> Option<String> {
         self.repository.read().unwrap().clone()
     }
-    
+
     pub fn set_repository(&self, repo: Option<String>) {
         *self.repository.write().unwrap() = repo;
     }
-    
+
     pub fn package_size(&self) -> Option<String> {
         self.package_size.read().unwrap().clone()
     }
-    
+
     pub fn set_package_size(&self, size: Option<String>) {
         *self.package_size.write().unwrap() = size;
     }
-    
+
     pub fn dependencies(&self) -> Option<Vec<String>> {
         self.dependencies.read().unwrap().clone()
     }
-    
+
     pub fn set_dependencies(&self, deps: Option<Vec<String>>) {
         *self.dependencies.write().unwrap() = deps;
     }
@@ -125,54 +125,54 @@ impl PreCheckedUsbProfile {
             dependencies: Arc::new(std::sync::RwLock::new(None)),
         }
     }
-    
+
     // Return reference to avoid cloning
     pub fn profile(&self) -> &CfhdbUsbProfile {
         &self.profile
     }
-    
+
     #[allow(dead_code)]
     pub fn installed(&self) -> bool {
         *self.installed.read().unwrap()
     }
-    
+
     pub fn update_installed(&self) {
         *self.installed.write().unwrap() = self.profile.get_status();
     }
-    
+
     pub fn driver_version(&self) -> Option<String> {
         self.driver_version.read().unwrap().clone()
     }
-    
+
     pub fn set_driver_version(&self, version: Option<String>) {
         *self.driver_version.write().unwrap() = version;
     }
-    
+
     #[allow(dead_code)]
     pub fn repository(&self) -> Option<String> {
         self.repository.read().unwrap().clone()
     }
-    
+
     #[allow(dead_code)]
     pub fn set_repository(&self, repo: Option<String>) {
         *self.repository.write().unwrap() = repo;
     }
-    
+
     #[allow(dead_code)]
     pub fn package_size(&self) -> Option<String> {
         self.package_size.read().unwrap().clone()
     }
-    
+
     #[allow(dead_code)]
     pub fn set_package_size(&self, size: Option<String>) {
         *self.package_size.write().unwrap() = size;
     }
-    
+
     #[allow(dead_code)]
     pub fn dependencies(&self) -> Option<Vec<String>> {
         self.dependencies.read().unwrap().clone()
     }
-    
+
     #[allow(dead_code)]
     pub fn set_dependencies(&self, deps: Option<Vec<String>>) {
         *self.dependencies.write().unwrap() = deps;
@@ -261,18 +261,18 @@ pub struct DeviceTab {
     // Loading state
     is_loading: bool,
     loading_message: String,
-    
+
     // Device data
     pci_devices: Vec<(String, Vec<PreCheckedPciDevice>)>,
     usb_devices: Vec<(String, Vec<PreCheckedUsbDevice>)>,
     pci_profiles: Vec<Arc<PreCheckedPciProfile>>,
     usb_profiles: Vec<Arc<PreCheckedUsbProfile>>,
-    
+
     // UI state
     selected_category: Option<(CategoryType, String)>,
     selected_device: Option<(DeviceType, String, usize)>,
     selected_profiles: std::collections::HashSet<String>, // Track selected profile codenames for bulk install
-    
+
     // Error state
     error: Option<String>,
 }
@@ -425,12 +425,12 @@ impl DeviceTab {
                 if self.selected_profiles.is_empty() {
                     return iced::Command::none();
                 }
-                
+
                 // Install all selected profiles sequentially
                 // Clone the first profile before clearing the set
                 let first_profile = self.selected_profiles.iter().next().cloned();
                 self.selected_profiles.clear();
-                
+
                 // Start with the first profile
                 if let Some(profile) = first_profile {
                     iced::Command::perform(async {}, move |_| {
@@ -587,7 +587,7 @@ impl DeviceTab {
                                 if let Some(profile) = device.profiles.iter().find(|p| p.profile().codename == profile_codename) {
                                     let p = profile.profile();
                                     let d = &device.device;
-                                    eprintln!("[DEBUG] Found profile: codename={}, desc={}, install_script={:?}", 
+                                    eprintln!("[DEBUG] Found profile: codename={}, desc={}, install_script={:?}",
                                              p.codename, p.i18n_desc, p.install_script.is_some());
                                     // Get driver version from the profile (the one being installed)
                                     let driver_version = profile.driver_version().unwrap_or_default();
@@ -670,7 +670,7 @@ impl DeviceTab {
                         }
                     }
                 };
-                
+
                 if let Some((profile_name, install_script, vendor_name, device_name, driver, driver_version, bus_id, vendor_id, device_id, repositories)) = profile_data {
                     if let Some(script) = install_script {
                         // Spawn separate window for driver installation
@@ -679,7 +679,7 @@ impl DeviceTab {
                         let exe_str = exe_path.to_string_lossy().into_owned();
                         let profile_name_clone = profile_name.clone();
                         let script_clone = script.clone();
-                        
+
                         iced::Command::perform(
                             async move {
                                 use tokio::process::Command as TokioCommand;
@@ -694,7 +694,7 @@ impl DeviceTab {
                                 let encoded_vid = general_purpose::STANDARD.encode(vendor_id.as_bytes());
                                 let encoded_did = general_purpose::STANDARD.encode(device_id.as_bytes());
                                 let encoded_repos = general_purpose::STANDARD.encode(serde_json::to_string(&repositories).unwrap_or_default().as_bytes());
-                                
+
                                 TokioCommand::new(&exe_str)
                                     .arg("device-install-dialog")
                                     .arg("--profile-name")
@@ -813,7 +813,7 @@ impl DeviceTab {
                         }
                     }
                 };
-                
+
                 if let Some((profile_name, remove_script, vendor_name, device_name, driver, driver_version, bus_id, vendor_id, device_id, repositories)) = profile_data {
                     if let Some(script) = remove_script {
                         // Spawn separate window for driver removal
@@ -822,7 +822,7 @@ impl DeviceTab {
                         let exe_str = exe_path.to_string_lossy().into_owned();
                         let profile_name_clone = profile_name.clone();
                         let script_clone = script.clone();
-                        
+
                         iced::Command::perform(
                             async move {
                                 use tokio::process::Command as TokioCommand;
@@ -837,7 +837,7 @@ impl DeviceTab {
                                 let encoded_vid = general_purpose::STANDARD.encode(vendor_id.as_bytes());
                                 let encoded_did = general_purpose::STANDARD.encode(device_id.as_bytes());
                                 let encoded_repos = general_purpose::STANDARD.encode(serde_json::to_string(&repositories).unwrap_or_default().as_bytes());
-                                
+
                                 TokioCommand::new(&exe_str)
                                     .arg("device-remove-dialog")
                                     .arg("--profile-name")
@@ -956,7 +956,7 @@ impl DeviceTab {
                 radius: settings.border_radius,
             })))
             .padding(Padding::new(10.0));
-            
+
             container(
                 column![
                     back_button,
@@ -1007,7 +1007,7 @@ impl DeviceTab {
 
         // Sidebar with categories - wider and cleaner
         let sidebar = self.view_sidebar(theme, &material_font, settings);
-        
+
         // Main content area
         let content = self.view_content(theme, &material_font, settings);
 
@@ -1032,12 +1032,12 @@ impl DeviceTab {
 
     fn view_sidebar(&self, theme: &crate::gui::Theme, material_font: &iced::Font, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
-        
+
         // Calculate font sizes from settings - larger for better readability
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.15).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.2).round();
         let section_font_size = (settings.font_size_body * settings.scale_body * 1.05).round();
-        
+
         let mut sidebar_items = column![].spacing(8);
 
         // Download Profiles Button - larger and more prominent
@@ -1056,7 +1056,7 @@ impl DeviceTab {
             .spacing(10)
             .align_items(Alignment::Center)
         };
-        
+
         let download_button = if self.is_loading && self.loading_message.contains("Downloading") {
             button(download_button_text)
                 .width(Length::Fill)
@@ -1095,7 +1095,7 @@ impl DeviceTab {
             let is_selected = self.selected_category.as_ref()
                 .map(|(t, c)| *t == CategoryType::Pci && c == class)
                 .unwrap_or(false);
-            
+
             let class_button = button(
                 row![
                     text(glyphs::SETTINGS_SYMBOL).font(*material_font).size(icon_size * 0.9),
@@ -1133,7 +1133,7 @@ impl DeviceTab {
             let is_selected = self.selected_category.as_ref()
                 .map(|(t, c)| *t == CategoryType::Usb && c == class)
                 .unwrap_or(false);
-            
+
             let class_button = button(
                 row![
                     text(glyphs::SETTINGS_SYMBOL).font(*material_font).size(icon_size * 0.9),
@@ -1390,7 +1390,7 @@ impl DeviceTab {
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
         use crate::gui::fonts::glyphs;
-        
+
         // Get the device
         let (device_name, device_info, profiles_pci, profiles_usb, status) = match dev_type {
             DeviceType::Pci => {
@@ -1512,9 +1512,9 @@ impl DeviceTab {
                     )
                     .width(Length::Fill)
                     .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
-                    
+
                     Space::with_height(Length::Fixed(20.0)),
-                    
+
                     // Device title and status - larger and more prominent
                     container(
                         row![
@@ -1528,9 +1528,9 @@ impl DeviceTab {
                     )
                     .width(Length::Fill)
                     .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
-                    
+
                     Space::with_height(Length::Fixed(20.0)),
-                    
+
                     // Two-column layout: Status badges on left, Control buttons on right
                     container(
                         row![
@@ -1551,9 +1551,9 @@ impl DeviceTab {
                     )
                     .width(Length::Fill)
                     .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
-                    
+
                     Space::with_height(Length::Fixed(24.0)),
-                    
+
                     // Profiles section - full width
                     container(profiles_section)
                         .width(Length::Fill)
@@ -1675,7 +1675,7 @@ impl DeviceTab {
 
     fn view_control_buttons(&self, _theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, device_info: &DeviceInfo, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
-        
+
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.4).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.1).round();
         let (_started, _enabled) = match device_info {
@@ -1775,13 +1775,13 @@ impl DeviceTab {
 
     fn view_profiles_section_pci(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedPciProfile>], settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
-        
+
         // Larger font sizes for better readability
         let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
         let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.1).round();
-        
+
         if profiles.is_empty() {
             return container(
                 text("No profiles available for this device")
@@ -1806,7 +1806,7 @@ impl DeviceTab {
             // Use cached string reference to avoid repeated allocations
             let a_is_nvidia = a_profile.vendor_ids.contains(&nvidia_vendor_id);
             let b_is_nvidia = b_profile.vendor_ids.contains(&nvidia_vendor_id);
-            
+
             // NVIDIA profiles always first, regardless of device type
             match (a_is_nvidia, b_is_nvidia) {
                 (true, false) => std::cmp::Ordering::Less,  // NVIDIA before non-NVIDIA
@@ -1827,7 +1827,7 @@ impl DeviceTab {
         let selected_count = sorted_profiles.iter()
             .filter(|p| self.selected_profiles.contains(&p.profile().codename))
             .count();
-        
+
         let install_selected_section: Element<Message> = if has_uninstalled && selected_count > 0 {
             container(
                 row![
@@ -1862,7 +1862,7 @@ impl DeviceTab {
             let profile_data = profile.profile();
             let is_installed = profile.installed();
             let is_selected = self.selected_profiles.contains(&profile_data.codename);
-            
+
             // Checkbox for selection (only show for uninstalled profiles)
             let codename_clone = profile_data.codename.clone();
             let class_clone = class.to_string();
@@ -1878,7 +1878,7 @@ impl DeviceTab {
             } else {
                 Space::with_width(Length::Fixed(24.0)).into()
             };
-            
+
             let install_button = if is_installed {
                 button(
                     row![
@@ -1944,7 +1944,7 @@ impl DeviceTab {
             } else {
                 Space::with_width(Length::Shrink).into()
             };
-            
+
             // Format profile name properly - capitalize NVIDIA, etc.
             let display_name = if profile_data.i18n_desc.contains("NVIDIA") {
                 profile_data.i18n_desc.clone()
@@ -2138,9 +2138,9 @@ impl DeviceTab {
                         } else {
                             None
                         };
-                        
+
                         let mut info_rows = column![].spacing(4);
-                        
+
                         if let Some(drv_ver) = driver_version_display {
                             info_rows = info_rows.push(
                                 text(format!("Driver Version: {}", drv_ver))
@@ -2148,7 +2148,7 @@ impl DeviceTab {
                                     .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                             );
                         }
-                        
+
                         // Show repository if available
                         if let Some(repo) = profile.repository() {
                             info_rows = info_rows.push(
@@ -2157,7 +2157,7 @@ impl DeviceTab {
                                     .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                             );
                         }
-                        
+
                         // Show package size if available
                         if let Some(size) = profile.package_size() {
                             info_rows = info_rows.push(
@@ -2166,7 +2166,7 @@ impl DeviceTab {
                                     .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                             );
                         }
-                        
+
                         // Show dependencies count if available
                         if let Some(deps) = profile.dependencies() {
                             if !deps.is_empty() {
@@ -2177,7 +2177,7 @@ impl DeviceTab {
                                 );
                             }
                         }
-                        
+
                         info_rows.width(Length::Fill)
                     },
                     Space::with_height(Length::Fixed(12.0)),
@@ -2240,12 +2240,12 @@ impl DeviceTab {
 
     fn view_profiles_section_usb(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedUsbProfile>], settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
-        
+
         // Larger font sizes for better readability
         let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
-        
+
         if profiles.is_empty() {
             return container(
                 text("No profiles available for this device")
@@ -2268,7 +2268,7 @@ impl DeviceTab {
             let profile_data = profile.profile();
             let is_installed = profile.installed();
             let is_selected = self.selected_profiles.contains(&profile_data.codename);
-            
+
             // Checkbox for selection (only show for uninstalled profiles)
             let codename_clone = profile_data.codename.clone();
             let class_clone = class.to_string();
@@ -2284,7 +2284,7 @@ impl DeviceTab {
             } else {
                 Space::with_width(Length::Fixed(24.0)).into()
             };
-            
+
             let install_button = if is_installed {
                 button(
                     row![
@@ -2350,7 +2350,7 @@ impl DeviceTab {
             } else {
                 Space::with_width(Length::Shrink).into()
             };
-            
+
             // Format profile name properly - capitalize NVIDIA, etc.
             let display_name = if profile_data.i18n_desc.contains("NVIDIA") {
                 profile_data.i18n_desc.clone()
@@ -2450,7 +2450,7 @@ impl DeviceTab {
         }
 
         let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.1).round();
-        
+
         container(
             column![
                 text("Available Profiles")
@@ -2472,7 +2472,7 @@ impl DeviceTab {
 // Load driver versions and installed status for all profiles asynchronously
 async fn load_profile_versions(pci_profiles: Vec<Arc<PreCheckedPciProfile>>, usb_profiles: Vec<Arc<PreCheckedUsbProfile>>) -> () {
     use tokio::task;
-    
+
     // Load PCI profile versions and installed status in parallel
     let pci_handles: Vec<_> = pci_profiles.into_iter().map(|profile| {
         let profile_clone = profile.clone();
@@ -2484,7 +2484,7 @@ async fn load_profile_versions(pci_profiles: Vec<Arc<PreCheckedPciProfile>>, usb
             profile_clone.set_driver_version(Some(version));
         })
     }).collect();
-    
+
     // Load USB profile versions and installed status in parallel
     let usb_handles: Vec<_> = usb_profiles.into_iter().map(|profile| {
         let profile_clone = profile.clone();
@@ -2496,7 +2496,7 @@ async fn load_profile_versions(pci_profiles: Vec<Arc<PreCheckedPciProfile>>, usb
             profile_clone.set_driver_version(Some(version));
         })
     }).collect();
-    
+
     // Wait for all to complete (but don't block UI)
     for handle in pci_handles {
         let _ = handle.await;
@@ -2542,7 +2542,7 @@ fn extract_driver_version_sync(profile: &CfhdbPciProfile) -> String {
             }
         }
     }
-    
+
     // For repository-based Mesa profiles, extract from codename/description
     if profile.codename.starts_with("mesa-") && profile.priority == 90 {
         // Try to extract version from codename (format: "mesa-25.2.4")
@@ -2571,7 +2571,7 @@ fn extract_driver_version_sync(profile: &CfhdbPciProfile) -> String {
             }
         }
     }
-    
+
     // Try to extract from package names first (fast, no blocking)
     let mut version = extract_driver_version_from_packages_fast(&profile.packages);
     if version.is_empty() {
@@ -2690,7 +2690,7 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
                 }
             }
         }
-        
+
         // Fallback: Try dnf list to see what's available (shows what would be installed)
         if let Ok(output) = std::process::Command::new("dnf")
             .args(["list", "--available", "--quiet", &pkg])
@@ -2719,7 +2719,7 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
                 }
             }
         }
-        
+
         // Try dnf info as another fallback
         if let Ok(output) = std::process::Command::new("dnf")
             .args(["info", "--available", "--quiet", &pkg])
@@ -2743,7 +2743,7 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
                 }
             }
         }
-        
+
         // Try rpm -q for installed packages (if already installed)
         if let Ok(output) = std::process::Command::new("rpm")
             .args(["-q", "--qf", "%{VERSION}", &pkg])
@@ -2758,10 +2758,10 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
                 }
             }
         }
-        
+
         Err(())
     });
-    
+
     handle.join().unwrap_or(Err(()))
 }
 
@@ -2769,14 +2769,14 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
 fn query_package_info(profile: &PreCheckedPciProfile, package_names: &[String]) {
     use std::process::Command;
     use std::collections::HashSet;
-    
+
     if package_names.is_empty() {
         return;
     }
-    
+
     // Query total size of all packages in one batch query
     let mut total_size = 0u64;
-    
+
     if let Ok(output) = Command::new("dnf")
         .args(&["repoquery", "--available", "--quiet", "--qf", "%{name}|%{SIZE}"])
         .args(package_names)
@@ -2795,10 +2795,10 @@ fn query_package_info(profile: &PreCheckedPciProfile, package_names: &[String]) 
             }
         }
     }
-    
+
     // Query dependencies in one batch query
     let mut all_deps = HashSet::new();
-    
+
     if let Ok(output) = Command::new("dnf")
         .args(&["repoquery", "--available", "--quiet", "--requires", "--resolve"])
         .args(package_names)
@@ -2815,7 +2815,7 @@ fn query_package_info(profile: &PreCheckedPciProfile, package_names: &[String]) 
             }
         }
     }
-    
+
     // Format total size
     let size_str = if total_size > 0 {
         if total_size > 1024 * 1024 * 1024 {
@@ -2830,7 +2830,7 @@ fn query_package_info(profile: &PreCheckedPciProfile, package_names: &[String]) 
     } else {
         "Unknown".to_string()
     };
-    
+
     profile.set_package_size(Some(size_str));
     profile.set_dependencies(Some(all_deps.into_iter().collect()));
 }
@@ -2881,7 +2881,7 @@ fn get_driver_version(driver: &str) -> String {
     if driver.is_empty() || driver == "none" {
         return String::new();
     }
-    
+
     // For NVIDIA drivers, check /proc/driver/nvidia/version first
     // Format: "NVRM version: NVIDIA UNIX Open Kernel Module for x86_64  580.95.05  Release Build ..."
     if driver == "nvidia" {
@@ -2901,7 +2901,7 @@ fn get_driver_version(driver: &str) -> String {
             }
         }
     }
-    
+
     // Try to get version using modinfo
     if let Ok(output) = std::process::Command::new("modinfo")
         .arg(driver)
@@ -2918,7 +2918,7 @@ fn get_driver_version(driver: &str) -> String {
             }
         }
     }
-    
+
     // If modinfo version fails, try vermagic
     if let Ok(output) = std::process::Command::new("modinfo")
         .arg(driver)
@@ -2938,7 +2938,7 @@ fn get_driver_version(driver: &str) -> String {
             }
         }
     }
-    
+
     String::new()
 }
 
@@ -3008,20 +3008,20 @@ impl From<CategoryType> for DeviceType {
 async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, String> {
     use std::process::Command;
     use tokio::task;
-    
+
     // Run dnf repoquery in a blocking task to avoid blocking the async runtime
     let result = task::spawn_blocking(move || {
         // Query rpmfusion (free and non-free) and negativo17 repositories for NVIDIA driver packages
         // Query each package pattern in parallel using rayon for better performance
         use rayon::prelude::*;
-        
+
         let patterns = vec!["nvidia-driver*", "akmod-nvidia*", "xorg-x11-drv-nvidia*"];
         let all_packages: Vec<String> = patterns
             .par_iter()
             .flat_map(|pattern| {
                 // Query from all enabled repos first (general query)
                 let mut results = Vec::new();
-                
+
                 // Query from RPM Fusion free repositories
                 if let Ok(output) = Command::new("dnf")
                     .args(&["repoquery", "--available", "--quiet", "--qf", "%{name}|%{version}|%{repoid}", "--enablerepo=rpmfusion-free*"])
@@ -3036,7 +3036,7 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                         }
                     }
                 }
-                
+
                 // Query from RPM Fusion non-free repositories
                 // Query each repo separately to ensure we get all packages
                 let rpmfusion_nonfree_repos = vec![
@@ -3044,7 +3044,7 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                     "rpmfusion-nonfree-updates",
                     "rpmfusion-nonfree-nvidia-driver",
                 ];
-                
+
                 for repo in rpmfusion_nonfree_repos {
                     if let Ok(output) = Command::new("dnf")
                         .args(&["repoquery", "--available", "--quiet", "--qf", "%{name}|%{version}|%{repoid}", "--enablerepo", repo])
@@ -3060,7 +3060,7 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                         }
                     }
                 }
-                
+
                 // Query from negativo17/fedora-nvidia repositories
                 if let Ok(output) = Command::new("dnf")
                     .args(&["repoquery", "--available", "--quiet", "--qf", "%{name}|%{version}|%{repoid}"])
@@ -3075,24 +3075,24 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                         }
                     }
                 }
-                
+
                 results
             })
             .collect();
-        
+
         // Process the combined results
         // Note: dnf repoquery --quiet outputs all results on one line without newlines
         // Format: name|version|repoidname|version|repoid...
         // We need to split on package name patterns to separate entries
         let mut packages: Vec<NvidiaDriverPackage> = Vec::new();
-        
+
         // Join all lines (they're already on one line from --quiet)
         let all_text = all_packages.join("");
-        
+
         // Split by finding package name patterns
         // Package names start with: akmod-nvidia, nvidia-driver, or xorg-x11-drv-nvidia
         let package_patterns = vec!["akmod-nvidia", "nvidia-driver", "xorg-x11-drv-nvidia"];
-        
+
         // Find all package name positions
         let mut positions = Vec::new();
         for pattern in &package_patterns {
@@ -3108,7 +3108,7 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
         }
         positions.sort();
         positions.dedup();
-        
+
         // Parse each entry
         for i in 0..positions.len() {
             let start = positions[i];
@@ -3117,10 +3117,10 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
             } else {
                 all_text.len()
             };
-            
+
             let entry = &all_text[start..end];
             let parts: Vec<&str> = entry.split('|').collect();
-            
+
             if parts.len() >= 3 {
                 let name = parts[0].to_string();
                 let version = parts[1].to_string();
@@ -3135,7 +3135,7 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                 } else {
                     repo_full.to_string()
                 };
-                
+
                 // Include packages from:
                 // - RPM Fusion free repositories (rpmfusion-free, rpmfusion-free-updates)
                 // - RPM Fusion non-free repositories (rpmfusion-nonfree, rpmfusion-nonfree-updates, rpmfusion-nonfree-nvidia-driver)
@@ -3143,11 +3143,11 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                 let is_rpmfusion_free = repo.contains("rpmfusion-free");
                 let is_rpmfusion_nonfree = repo.contains("rpmfusion-nonfree");
                 let is_negativo17 = repo.contains("negativo17") || repo.contains("negativo") || repo.contains("fedora-nvidia");
-                
+
                 if is_rpmfusion_free || is_rpmfusion_nonfree || is_negativo17 {
                     // Extract driver version from package name or version
                     let driver_version = extract_nvidia_version(&name, &version);
-                    
+
                     packages.push(NvidiaDriverPackage {
                         name,
                         version,
@@ -3157,12 +3157,12 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                 }
             }
         }
-        
+
         Ok(packages)
     })
     .await
     .map_err(|_| "Task join error".to_string())?;
-    
+
     result
 }
 
@@ -3211,7 +3211,7 @@ fn extract_nvidia_version(package_name: &str, package_version: &str) -> String {
             }
         }
     }
-    
+
     // Try to extract from akmod-nvidia package version (for standard packages like akmod-nvidia)
     if package_name == "akmod-nvidia" || (package_name.contains("akmod-nvidia") && !package_name.contains("-")) {
         // akmod-nvidia version format is usually like "580.95.05-1.fc40"
@@ -3223,7 +3223,7 @@ fn extract_nvidia_version(package_name: &str, package_version: &str) -> String {
             }
         }
     }
-    
+
     // Try to extract version from package name (e.g., "nvidia-driver-580" -> "580")
     if let Some(version_part) = package_name.strip_prefix("nvidia-driver-") {
         // If it's a major version like "580", we need to query for the full version
@@ -3257,7 +3257,7 @@ fn extract_nvidia_version(package_name: &str, package_version: &str) -> String {
             return version_part.to_string();
         }
     }
-    
+
     // Try to extract from xorg-x11-drv-nvidia package version
     if package_name.contains("xorg-x11-drv-nvidia") {
         if let Some(version) = package_version.split('-').next() {
@@ -3266,7 +3266,7 @@ fn extract_nvidia_version(package_name: &str, package_version: &str) -> String {
             }
         }
     }
-    
+
     // Fallback: use package version (extract before dash)
     package_version.split('-').next().unwrap_or(package_version).to_string()
 }
@@ -3284,7 +3284,7 @@ fn extract_mesa_version(package_name: &str, package_version: &str) -> String {
             }
         }
     }
-    
+
     // Fallback: use package version (extract before dash)
     package_version.split('-').next().unwrap_or(package_version).to_string()
 }
@@ -3293,13 +3293,13 @@ fn extract_mesa_version(package_name: &str, package_version: &str) -> String {
 async fn query_mesa_driver_packages() -> Result<Vec<MesaDriverPackage>, String> {
     use std::process::Command;
     use tokio::task;
-    
+
     // Run dnf repoquery in a blocking task to avoid blocking the async runtime
     let result = task::spawn_blocking(move || {
         // Query Mesa driver packages from all enabled repositories
         // Query each package pattern in parallel using rayon for better performance
         use rayon::prelude::*;
-        
+
         let patterns = vec!["mesa-dri-drivers", "mesa-libGL", "mesa-vulkan-drivers"];
         let all_packages: Vec<String> = patterns
             .par_iter()
@@ -3321,7 +3321,7 @@ async fn query_mesa_driver_packages() -> Result<Vec<MesaDriverPackage>, String> 
                 Vec::new()
             })
             .collect();
-        
+
         // Process the combined results
         let packages: Vec<MesaDriverPackage> = all_packages
             .into_iter()
@@ -3331,11 +3331,11 @@ async fn query_mesa_driver_packages() -> Result<Vec<MesaDriverPackage>, String> 
                     let name = parts[0].to_string();
                     let version = parts[1].to_string();
                     let repo = parts[2].to_string();
-                    
+
                     // Include packages from all repositories (Mesa is in Fedora repos)
                     // Extract driver version from package name or version
                     let driver_version = extract_mesa_version(&name, &version);
-                    
+
                     Some(MesaDriverPackage {
                         name,
                         version,
@@ -3347,12 +3347,12 @@ async fn query_mesa_driver_packages() -> Result<Vec<MesaDriverPackage>, String> 
                 }
             })
             .collect();
-        
+
         Ok(packages)
     })
     .await
     .map_err(|_| "Task join error".to_string())?;
-    
+
     result
 }
 
@@ -3360,7 +3360,7 @@ async fn query_mesa_driver_packages() -> Result<Vec<MesaDriverPackage>, String> 
 // Returns (profile, repository_name, package_names)
 fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(CfhdbPciProfile, String, Vec<String>)> {
     let mut profiles = Vec::new();
-    
+
     // Group packages by driver version
     let mut version_groups: HashMap<String, Vec<MesaDriverPackage>> = HashMap::new();
     for pkg in packages {
@@ -3368,7 +3368,7 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
             .or_insert_with(Vec::new)
             .push(pkg);
     }
-    
+
     // Create a profile for each driver version
     for (driver_version, pkgs) in version_groups {
         // Determine repository (prefer updates, then fedora)
@@ -3377,12 +3377,12 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
             .map(|p| p.repo.clone())
             .or_else(|| pkgs.first().map(|p| p.repo.clone()))
             .unwrap_or_default();
-        
+
         // Build install script - Mesa is in standard Fedora repos
         let package_names: Vec<String> = pkgs.iter()
             .map(|p| p.name.clone())
             .collect();
-        
+
         // Store repository name for display (clean it up)
         let repo_display = if repo.contains("updates") {
             "Fedora Updates".to_string()
@@ -3391,9 +3391,9 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
         } else {
             repo.clone()
         };
-        
+
         let install_script = format!("dnf install -y {}", package_names.join(" "));
-        
+
         // Create profile description with full driver version
         // Format: "Mesa Graphics Driver 25.2.4"
         let desc = if driver_version.matches('.').count() >= 2 {
@@ -3405,11 +3405,11 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
         } else {
             format!("Mesa Graphics Driver {}", driver_version)
         };
-        
+
         eprintln!("[DEBUG] Creating Mesa profile for driver version: {}", driver_version);
         eprintln!("[DEBUG] Packages: {:?}", package_names);
         eprintln!("[DEBUG] Repository: {}", repo);
-        
+
         let profile = CfhdbPciProfile {
             codename: format!("mesa-{}", driver_version),
             i18n_desc: desc.clone(),
@@ -3430,13 +3430,13 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
             veiled: false,
             priority: 90, // High priority for repository-based profiles, but below NVIDIA
         };
-        
-        eprintln!("[DEBUG] Created Mesa profile: codename={}, desc={}, vendor_ids={:?}, class_ids={:?}", 
+
+        eprintln!("[DEBUG] Created Mesa profile: codename={}, desc={}, vendor_ids={:?}, class_ids={:?}",
                   profile.codename, profile.i18n_desc, profile.vendor_ids, profile.class_ids);
-        
+
         profiles.push((profile, repo_display, package_names));
     }
-    
+
     profiles.sort_by_key(|(p, _, _)| p.priority);
     profiles
 }
@@ -3446,18 +3446,18 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
 fn version_compare(a: &str, b: &str) -> std::cmp::Ordering {
     let a_parts: Vec<u32> = a.split('.').filter_map(|s| s.parse().ok()).collect();
     let b_parts: Vec<u32> = b.split('.').filter_map(|s| s.parse().ok()).collect();
-    
+
     let max_len = a_parts.len().max(b_parts.len());
     for i in 0..max_len {
         let a_val = a_parts.get(i).copied().unwrap_or(0);
         let b_val = b_parts.get(i).copied().unwrap_or(0);
-        
+
         match a_val.cmp(&b_val) {
             std::cmp::Ordering::Equal => continue,
             other => return other,
         }
     }
-    
+
     std::cmp::Ordering::Equal
 }
 
@@ -3465,7 +3465,7 @@ fn version_compare(a: &str, b: &str) -> std::cmp::Ordering {
 // Returns (profile, repository_name, package_names)
 fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<(CfhdbPciProfile, String, Vec<String>)> {
     let mut profiles = Vec::new();
-    
+
     // Group packages by driver version directly (use the version already extracted from packages)
     // Don't query dnf here to avoid blocking - full versions will be extracted later if needed
     let mut version_groups: HashMap<String, Vec<NvidiaDriverPackage>> = HashMap::new();
@@ -3478,7 +3478,7 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             .push(pkg);
     }
     eprintln!("[DEBUG] Version groups: {:?}", version_groups.keys().collect::<Vec<_>>());
-    
+
     // Create a profile for each driver version
     // Sort by version to ensure consistent ordering (newer versions first)
     let mut version_groups_vec: Vec<(String, Vec<NvidiaDriverPackage>)> = version_groups.into_iter().collect();
@@ -3486,7 +3486,7 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
         // Compare versions numerically (e.g., 580.105.08 > 580.95.05)
         version_compare(&b.0, &a.0)
     });
-    
+
     for (driver_version, pkgs) in version_groups_vec {
         // Determine repository (prefer negativo17/fedora-nvidia, then rpmfusion)
         // For RPM Fusion, prefer rpmfusion-nonfree-nvidia-driver if available (newer driver repo)
@@ -3501,12 +3501,12 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             })
             .or_else(|| pkgs.first().map(|p| p.repo.clone()))
             .unwrap_or_default();
-        
+
         // Build install script
         let package_names: Vec<String> = pkgs.iter()
             .map(|p| p.name.clone())
             .collect();
-        
+
         // Store repository name for display (clean it up)
         let repo_display = if repo.contains("fedora-nvidia") || repo.contains("negativo17") || repo.contains("negativo") {
             "negativo17.org".to_string()
@@ -3519,12 +3519,12 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
         } else {
             repo.clone()
         };
-        
+
         // Build install script with removal of old NVIDIA drivers first
         // Use || true to continue even if packages don't exist (graceful removal)
         // Include legacy driver series in removal (akmod-nvidia-470xx, akmod-nvidia-390xx, etc.)
         let removal_commands = "(dnf remove -y nvidia* || true) && (dnf remove -y kmod-nvidia* || true) && (dnf remove -y akmod-nvidia* || true) && (dnf remove -y dkms-nvidia || true) && (dnf remove -y xorg-x11-drv-nvidia* || true) && (rm -rf /var/lib/dkms/nvidia* || true)";
-        
+
         // Determine package list based on repository
         // negativo17 uses: nvidia-driver, nvidia-settings
         // RPM Fusion uses: akmod-nvidia (pulls in xorg-x11-drv-nvidia automatically)
@@ -3554,13 +3554,13 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             // dnf install akmod-nvidia (or akmod-nvidia-470xx, akmod-nvidia-390xx for legacy drivers)
             // This will automatically pull in xorg-x11-drv-nvidia and all required dependencies
             // CUDA support is optional via xorg-x11-drv-nvidia-cuda (not installed by default)
-            
+
             // Find the actual akmod-nvidia package name (could be akmod-nvidia, akmod-nvidia-470xx, etc.)
             let akmod_pkg = pkgs.iter()
                 .find(|p| p.name.starts_with("akmod-nvidia"))
                 .map(|p| p.name.as_str())
                 .unwrap_or("akmod-nvidia");
-            
+
             let packages = vec![akmod_pkg.to_string()];
             let install_packages = packages.join(" ");
             let script = format!(
@@ -3576,7 +3576,7 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
                 .find(|p| p.name.starts_with("akmod-nvidia"))
                 .map(|p| p.name.as_str())
                 .unwrap_or("akmod-nvidia");
-            
+
             let packages = vec![akmod_pkg.to_string()];
             let install_packages = packages.join(" ");
             let script = format!(
@@ -3592,7 +3592,7 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
                 .find(|p| p.name.starts_with("akmod-nvidia"))
                 .map(|p| p.name.as_str())
                 .unwrap_or("akmod-nvidia");
-            
+
             let packages = vec![akmod_pkg.to_string()];
             let install_packages = packages.join(" ");
             let script = format!(
@@ -3602,7 +3602,7 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             );
             (packages, script)
         };
-        
+
         // Create profile description with full driver version
         // Format: "NVIDIA Graphics Driver 580.95.05" or "NVIDIA Graphics Driver 390.xx.xx"
         let desc = if driver_version.matches('.').count() >= 2 {
@@ -3614,7 +3614,7 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
         } else {
             format!("NVIDIA Graphics Driver {}", driver_version)
         };
-        
+
         let profile = CfhdbPciProfile {
             codename: format!("nvidia-{}", driver_version),
             i18n_desc: desc.clone(),
@@ -3635,10 +3635,10 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             veiled: false,
             priority: 100, // High priority for repository-based profiles
         };
-        
+
         profiles.push((profile, repo_display, package_names));
     }
-    
+
     profiles.sort_by_key(|(p, _, _)| p.priority);
     profiles
 }
@@ -3652,47 +3652,47 @@ async fn load_all_devices() -> Result<(
 ), String> {
     // Load PCI profiles
     let mut pci_profiles = load_pci_profiles().await?;
-    
+
     // Combine all filtering operations into a single pass for better performance
     pci_profiles.retain(|p| {
         // Filter out Nobara profiles for NVIDIA devices (vendor_id "10de")
         let is_nvidia_nobara = p.vendor_ids.contains(&"10de".to_string()) &&
             p.install_script.as_ref().map(|s| s.contains("nobara") || s.contains("Nobara")).unwrap_or(false);
-        
+
         // Filter out Mesa profiles from downloaded profiles (we'll use repository versions instead)
         let is_mesa = p.codename.to_lowercase().contains("mesa") ||
             p.i18n_desc.to_lowercase().contains("mesa") ||
             p.install_script.as_ref().map(|s| s.to_lowercase().contains("mesa")).unwrap_or(false);
-        
+
         // Filter out separate CUDA profiles (CUDA is included in the main driver installation)
         let is_cuda_profile = p.codename.to_lowercase().contains("cuda") ||
-            (p.i18n_desc.to_lowercase().contains("cuda") && 
+            (p.i18n_desc.to_lowercase().contains("cuda") &&
              !p.i18n_desc.to_lowercase().contains("nvidia graphics driver"));
-        
+
         // Keep profile if it's not a Nobara NVIDIA profile, not a Mesa profile, and not a separate CUDA profile
         !is_nvidia_nobara && !is_mesa && !is_cuda_profile
     });
-    
+
     // Query repositories for NVIDIA and Mesa drivers in parallel
     let (nvidia_result, mesa_result) = tokio::join!(
         query_nvidia_driver_packages(),
         query_mesa_driver_packages()
     );
-    
+
     let mut repo_profiles_with_info: Vec<(CfhdbPciProfile, String, Vec<String>)> = Vec::new();
-    
+
     // Process NVIDIA packages
     match nvidia_result {
         Ok(repo_packages) if !repo_packages.is_empty() => {
             eprintln!("[DEBUG] Found {} NVIDIA driver packages", repo_packages.len());
             for pkg in &repo_packages {
-                eprintln!("[DEBUG] Package: {} | Version: {} | Repo: {} | Driver Version: {}", 
+                eprintln!("[DEBUG] Package: {} | Version: {} | Repo: {} | Driver Version: {}",
                     pkg.name, pkg.version, pkg.repo, pkg.driver_version);
             }
             let nvidia_profiles = create_nvidia_profiles_from_repos(repo_packages);
             eprintln!("[DEBUG] Created {} NVIDIA profiles", nvidia_profiles.len());
             for (profile, repo_name, _) in &nvidia_profiles {
-                eprintln!("[DEBUG] Profile: {} | Codename: {} | Repo: {}", 
+                eprintln!("[DEBUG] Profile: {} | Codename: {} | Repo: {}",
                     profile.i18n_desc, profile.codename, repo_name);
             }
             repo_profiles_with_info.extend(nvidia_profiles);
@@ -3706,7 +3706,7 @@ async fn load_all_devices() -> Result<(
             eprintln!("[WARN] Failed to query NVIDIA driver packages: {}", e);
         }
     }
-    
+
     // Process Mesa packages
     match mesa_result {
         Ok(repo_packages) if !repo_packages.is_empty() => {
@@ -3721,9 +3721,9 @@ async fn load_all_devices() -> Result<(
             eprintln!("[WARN] Failed to query Mesa driver packages: {}", e);
         }
     }
-    
+
     // Total PCI profiles after adding repository profiles
-    
+
     // Convert repository profiles and add them to the list
     let mut all_pci_profiles = pci_profiles;
     let mut repo_info_map: HashMap<String, (String, Vec<String>)> = HashMap::new();
@@ -3732,14 +3732,14 @@ async fn load_all_devices() -> Result<(
         repo_info_map.insert(codename, (repo_name, package_names));
         all_pci_profiles.push(profile);
     }
-    
+
     let pci_profiles_arc: Vec<Arc<PreCheckedPciProfile>> = all_pci_profiles
         .into_iter()
         .map(|p| {
             let profile = PreCheckedPciProfile::new(p.clone());
             // Defer update_installed() to avoid blocking - will be called later in background
             // profile.update_installed();
-            
+
             // For NVIDIA profiles from repositories, set the driver version, repository, and query package info
             if p.vendor_ids.contains(&"10de".to_string()) {
                 // Try to extract version from codename (format: "nvidia-580.95.05" or "nvidia-390.157")
@@ -3770,7 +3770,7 @@ async fn load_all_devices() -> Result<(
                         }
                     }
                 }
-                
+
                 // Check if this is a repository profile (high priority and has packages)
                 if p.priority == 100 && p.packages.is_some() {
                     // This is a repository profile - get repo info from the map
@@ -3829,7 +3829,7 @@ async fn load_all_devices() -> Result<(
                         }
                     }
                 }
-                
+
                 // Check if this is a repository profile (priority 90 and has packages)
                 if p.priority == 90 && p.packages.is_some() {
                     // This is a repository profile - get repo info from the map
@@ -3854,7 +3854,7 @@ async fn load_all_devices() -> Result<(
                     }
                 }
             }
-            
+
             Arc::new(profile)
         })
         .collect();
@@ -3874,7 +3874,7 @@ async fn load_all_devices() -> Result<(
             None
         })
         .collect();
-    
+
     // Process package info queries in a single background thread to avoid spawning many threads
     if !profiles_to_query.is_empty() {
         std::thread::spawn(move || {
@@ -3917,7 +3917,7 @@ async fn load_all_devices() -> Result<(
 async fn load_pci_profiles() -> Result<Vec<CfhdbPciProfile>, String> {
     eprintln!("[DEBUG] Starting PCI profile loading...");
     let cached_db_path = Path::new("/var/cache/cfhdb/pci.json");
-    
+
     // Try to read from cache first
     eprintln!("[DEBUG] Checking cache at: {:?}", cached_db_path);
     if cached_db_path.exists() {
@@ -3943,7 +3943,7 @@ async fn load_pci_profiles() -> Result<Vec<CfhdbPciProfile>, String> {
     } else {
         eprintln!("[DEBUG] Cache file does not exist");
     }
-    
+
     // If cache doesn't exist or is unreadable, try to download
     eprintln!("[DEBUG] Getting profile URL config...");
     let profile_url = match get_profile_url_config() {
@@ -3956,7 +3956,7 @@ async fn load_pci_profiles() -> Result<Vec<CfhdbPciProfile>, String> {
             return Err(format!("Failed to read profile config: {}", e));
         }
     };
-    
+
     eprintln!("[DEBUG] Attempting to download PCI profiles from: {}", profile_url.pci_json_url);
     match reqwest::get(&profile_url.pci_json_url).await {
         Ok(response) => {
@@ -4003,7 +4003,7 @@ async fn load_pci_profiles() -> Result<Vec<CfhdbPciProfile>, String> {
 async fn load_usb_profiles() -> Result<Vec<CfhdbUsbProfile>, String> {
     eprintln!("[DEBUG] Starting USB profile loading...");
     let cached_db_path = Path::new("/var/cache/cfhdb/usb.json");
-    
+
     // Try to read from cache first
     eprintln!("[DEBUG] Checking cache at: {:?}", cached_db_path);
     if cached_db_path.exists() {
@@ -4029,7 +4029,7 @@ async fn load_usb_profiles() -> Result<Vec<CfhdbUsbProfile>, String> {
     } else {
         eprintln!("[DEBUG] Cache file does not exist");
     }
-    
+
     // If cache doesn't exist or is unreadable, try to download
     eprintln!("[DEBUG] Getting profile URL config...");
     let profile_url = match get_profile_url_config() {
@@ -4042,7 +4042,7 @@ async fn load_usb_profiles() -> Result<Vec<CfhdbUsbProfile>, String> {
             return Err(format!("Failed to read profile config: {}", e));
         }
     };
-    
+
     eprintln!("[DEBUG] Attempting to download USB profiles from: {}", profile_url.usb_json_url);
     match reqwest::get(&profile_url.usb_json_url).await {
         Ok(response) => {
@@ -4088,14 +4088,14 @@ async fn load_usb_profiles() -> Result<Vec<CfhdbUsbProfile>, String> {
 
 fn get_profile_url_config() -> Result<ProfileUrlConfig, std::io::Error> {
     let file_path = "/etc/cfhdb/profile-config.json";
-    
+
     // Try to read from config file, fallback to defaults if not found
     if let Ok(json_content) = std::fs::read_to_string(file_path) {
         if let Ok(config) = serde_json::from_str::<ProfileUrlConfig>(&json_content) {
             return Ok(config);
         }
     }
-    
+
     // Default URLs (from Nobara project)
     // Using GitHub raw content URLs
     Ok(ProfileUrlConfig {
@@ -4111,7 +4111,7 @@ fn profiles_need_update(cached_path: &Path) -> bool {
         eprintln!("[DEBUG] Profile file does not exist, needs update");
         return true;
     }
-    
+
     // Check file modification time - update if older than 24 hours
     match std::fs::metadata(cached_path) {
         Ok(metadata) => {
@@ -4146,10 +4146,10 @@ fn profiles_need_update(cached_path: &Path) -> bool {
 // Ensure profiles are cached, downloading if needed (force download)
 async fn ensure_profiles_cached_force() -> Result<(), String> {
     eprintln!("[DEBUG] ensure_profiles_cached_force() called - forcing download");
-    
+
     let pci_path = Path::new("/var/cache/cfhdb/pci.json");
     let usb_path = Path::new("/var/cache/cfhdb/usb.json");
-    
+
     eprintln!("[DEBUG] Getting profile URL config...");
     let profile_url = match get_profile_url_config() {
         Ok(url) => {
@@ -4161,7 +4161,7 @@ async fn ensure_profiles_cached_force() -> Result<(), String> {
             return Err(format!("Failed to read profile config: {}", e));
         }
     };
-    
+
     // Force download PCI profiles
     eprintln!("[DEBUG] Force downloading PCI profiles...");
     match reqwest::get(&profile_url.pci_json_url).await {
@@ -4194,7 +4194,7 @@ async fn ensure_profiles_cached_force() -> Result<(), String> {
             return Err(format!("Failed to download PCI profiles: {}", e));
         }
     }
-    
+
     // Force download USB profiles
     eprintln!("[DEBUG] Force downloading USB profiles...");
     match reqwest::get(&profile_url.usb_json_url).await {
@@ -4227,7 +4227,7 @@ async fn ensure_profiles_cached_force() -> Result<(), String> {
             return Err(format!("Failed to download USB profiles: {}", e));
         }
     }
-    
+
     eprintln!("[DEBUG] ensure_profiles_cached_force() completed successfully");
     Ok(())
 }
@@ -4235,10 +4235,10 @@ async fn ensure_profiles_cached_force() -> Result<(), String> {
 // Ensure profiles are cached, downloading if needed
 async fn ensure_profiles_cached() -> Result<(), String> {
     eprintln!("[DEBUG] ensure_profiles_cached() called");
-    
+
     let pci_path = Path::new("/var/cache/cfhdb/pci.json");
     let usb_path = Path::new("/var/cache/cfhdb/usb.json");
-    
+
     eprintln!("[DEBUG] Getting profile URL config...");
     let profile_url = match get_profile_url_config() {
         Ok(url) => {
@@ -4250,7 +4250,7 @@ async fn ensure_profiles_cached() -> Result<(), String> {
             return Err(format!("Failed to read profile config: {}", e));
         }
     };
-    
+
     // Check if we need to download/update PCI profiles
     eprintln!("[DEBUG] Checking PCI profiles...");
     if profiles_need_update(pci_path) {
@@ -4288,7 +4288,7 @@ async fn ensure_profiles_cached() -> Result<(), String> {
     } else {
         eprintln!("[DEBUG] PCI profiles are up to date, skipping download");
     }
-    
+
     // Check if we need to download/update USB profiles
     eprintln!("[DEBUG] Checking USB profiles...");
     if profiles_need_update(usb_path) {
@@ -4326,7 +4326,7 @@ async fn ensure_profiles_cached() -> Result<(), String> {
     } else {
         eprintln!("[DEBUG] USB profiles are up to date, skipping download");
     }
-    
+
     eprintln!("[DEBUG] ensure_profiles_cached() completed successfully");
     Ok(())
 }
@@ -4335,15 +4335,15 @@ async fn ensure_profiles_cached() -> Result<(), String> {
 // Also ensures /var/cache/cfhdb/ directory exists and is writable
 async fn request_permissions() -> Result<(), String> {
     use tokio::process::Command as TokioCommand;
-    
+
     eprintln!("[DEBUG] Requesting elevated permissions via pkexec...");
-    
+
     // Get current user to set ownership
     let current_user = users::get_current_username()
         .ok_or("Failed to get current username")?
         .to_string_lossy()
         .to_string();
-    
+
     // Combine all operations into a single command to reduce sudo prompts
     // mkdir, chown, and chmod all in one pkexec call
     let mut cmd = TokioCommand::new("pkexec");
@@ -4353,12 +4353,12 @@ async fn request_permissions() -> Result<(), String> {
         "mkdir -p /var/cache/cfhdb && chown -R {}:{} /var/cache/cfhdb && chmod -R 777 /var/cache/cfhdb",
         current_user, current_user
     ));
-    
+
     // Ensure DISPLAY is set for GUI dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     let output = cmd
         .output()
         .await
@@ -4366,7 +4366,7 @@ async fn request_permissions() -> Result<(), String> {
             eprintln!("[DEBUG] Failed to execute pkexec: {}", e);
             format!("Failed to request permissions: {}. Make sure polkit is installed.", e)
         })?;
-    
+
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         eprintln!("[DEBUG] Failed to set up directory: {}", stderr);
@@ -4376,7 +4376,7 @@ async fn request_permissions() -> Result<(), String> {
         }
         return Err(format!("Failed to set up directory: {}", stderr));
     }
-    
+
     eprintln!("[DEBUG] Permissions granted and directory prepared successfully");
     Ok(())
 }
@@ -4385,7 +4385,7 @@ async fn request_permissions() -> Result<(), String> {
 async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
     eprintln!("[DEBUG] cache_profile_file() called for: {:?}", path);
     use tokio::process::Command as TokioCommand;
-    
+
     // Try to write directly first (in case we're already root or have permissions)
     eprintln!("[DEBUG] Attempting direct write...");
     if let Some(parent) = path.parent() {
@@ -4408,7 +4408,7 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
             }
         }
     }
-    
+
     // If direct write failed, use sudo to write to /var/cache/
     // Write to a temp file first, then use sudo to move it
     eprintln!("[DEBUG] Using sudo to cache file...");
@@ -4419,7 +4419,7 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
         .as_nanos();
     let temp_file = std::env::temp_dir().join(format!("cfhdb_{}.json", timestamp));
     eprintln!("[DEBUG] Temp file: {:?}", temp_file);
-    
+
     match std::fs::write(&temp_file, content) {
         Ok(_) => eprintln!("[DEBUG] Temp file written successfully"),
         Err(e) => {
@@ -4427,13 +4427,13 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
             return Err(format!("Failed to write temp file: {}", e));
         }
     }
-    
+
     // Use sudo to create directory and copy file - combine all operations into one command
     let parent_dir = path.parent().ok_or("Invalid path")?;
     let parent_str = parent_dir.to_str().ok_or("Invalid path")?;
     let path_str = path.to_str().ok_or("Invalid path")?;
     let temp_str = temp_file.to_str().ok_or("Invalid temp path")?;
-    
+
     // Combine mkdir, chmod (dir), cp, and chmod (file) into a single pkexec command to reduce sudo prompts
     eprintln!("[DEBUG] Creating directory, setting permissions, and copying file with pkexec");
     let mut cmd = TokioCommand::new("pkexec");
@@ -4455,10 +4455,10 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
             let _ = std::fs::remove_file(&temp_file);
             format!("Failed to execute command: {}. Make sure polkit is installed.", e)
         })?;
-    
+
     // Clean up temp file
     let _ = std::fs::remove_file(&temp_file);
-    
+
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         eprintln!("[DEBUG] pkexec command failed: {}", stderr);
@@ -4468,13 +4468,13 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
         }
         return Err(format!("Failed to cache profile: {}", stderr));
     }
-    
+
     eprintln!("[DEBUG] File cached successfully with pkexec");
-    
+
     // Fix permissions on all files in the directory (including check_cmd.sh that cfhdb library needs)
     // Combine both find commands into a single pkexec call
     eprintln!("[DEBUG] Fixing permissions on all files in /var/cache/cfhdb/");
-    
+
     let mut fix_perms_cmd = TokioCommand::new("pkexec");
     fix_perms_cmd.arg("sh");
     fix_perms_cmd.arg("-c");
@@ -4485,7 +4485,7 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
     let fix_perms_output = fix_perms_cmd
         .output()
         .await;
-    
+
     match fix_perms_output {
         Ok(output) if output.status.success() => {
             eprintln!("[DEBUG] File permissions fixed successfully");
@@ -4498,7 +4498,7 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
             eprintln!("[DEBUG] Warning: Failed to execute chmod on files: {}", e);
         }
     }
-    
+
     Ok(())
 }
 
@@ -4511,9 +4511,9 @@ struct ProfileUrlConfig {
 fn parse_pci_profiles(data: &str) -> Result<Vec<CfhdbPciProfile>, String> {
     let res: serde_json::Value = serde_json::from_str(data)
         .map_err(|e| format!("Failed to parse JSON: {}", e))?;
-    
+
     let mut profiles = Vec::new();
-    
+
     if let serde_json::Value::Array(profiles_array) = &res["profiles"] {
         for profile in profiles_array {
             // Parse profile similar to nobara-device-manager
@@ -4521,51 +4521,51 @@ fn parse_pci_profiles(data: &str) -> Result<Vec<CfhdbPciProfile>, String> {
             let i18n_desc = profile["i18n_desc"].as_str().unwrap_or_default().to_string();
             let icon_name = profile["icon_name"].as_str().unwrap_or("package-x-generic").to_string();
             let license = profile["license"].as_str().unwrap_or("unknown").to_string();
-            
+
             let class_ids: Vec<String> = profile["class_ids"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let vendor_ids: Vec<String> = profile["vendor_ids"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let device_ids: Vec<String> = profile["device_ids"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let blacklisted_class_ids: Vec<String> = profile["blacklisted_class_ids"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let blacklisted_vendor_ids: Vec<String> = profile["blacklisted_vendor_ids"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let blacklisted_device_ids: Vec<String> = profile["blacklisted_device_ids"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let packages: Option<Vec<String>> = if profile["packages"].is_string() {
                 None
             } else {
                 profile["packages"].as_array()
                     .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
             };
-            
+
             let check_script = profile["check_script"].as_str().unwrap_or("false").to_string();
-            
+
             let install_script = profile["install_script"].as_str()
                 .and_then(|s| if s == "Option::is_none" { None } else { Some(s.to_string()) });
-            
+
             let remove_script = profile["remove_script"].as_str()
                 .and_then(|s| if s == "Option::is_none" { None } else { Some(s.to_string()) });
-            
+
             let experimental = profile["experimental"].as_bool().unwrap_or(false);
             let removable = profile["removable"].as_bool().unwrap_or(false);
             let veiled = profile["veiled"].as_bool().unwrap_or(false);
             let priority = profile["priority"].as_i64().unwrap_or(0) as i32;
-            
+
             let profile_struct = CfhdbPciProfile {
                 codename,
                 i18n_desc,
@@ -4586,11 +4586,11 @@ fn parse_pci_profiles(data: &str) -> Result<Vec<CfhdbPciProfile>, String> {
                 veiled,
                 priority,
             };
-            
+
             profiles.push(profile_struct);
         }
     }
-    
+
     profiles.sort_by_key(|p| p.priority);
     Ok(profiles)
 }
@@ -4598,9 +4598,9 @@ fn parse_pci_profiles(data: &str) -> Result<Vec<CfhdbPciProfile>, String> {
 fn parse_usb_profiles(data: &str) -> Result<Vec<CfhdbUsbProfile>, String> {
     let res: serde_json::Value = serde_json::from_str(data)
         .map_err(|e| format!("Failed to parse JSON: {}", e))?;
-    
+
     let mut profiles = Vec::new();
-    
+
     if let serde_json::Value::Array(profiles_array) = &res["profiles"] {
         for profile in profiles_array {
             // Similar parsing for USB profiles
@@ -4608,51 +4608,51 @@ fn parse_usb_profiles(data: &str) -> Result<Vec<CfhdbUsbProfile>, String> {
             let i18n_desc = profile["i18n_desc"].as_str().unwrap_or_default().to_string();
             let icon_name = profile["icon_name"].as_str().unwrap_or("package-x-generic").to_string();
             let license = profile["license"].as_str().unwrap_or("unknown").to_string();
-            
+
             let class_codes: Vec<String> = profile["class_codes"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let vendor_ids: Vec<String> = profile["vendor_ids"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let product_ids: Vec<String> = profile["product_ids"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let blacklisted_class_codes: Vec<String> = profile["blacklisted_class_codes"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let blacklisted_vendor_ids: Vec<String> = profile["blacklisted_vendor_ids"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let blacklisted_product_ids: Vec<String> = profile["blacklisted_product_ids"].as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default();
-            
+
             let packages: Option<Vec<String>> = if profile["packages"].is_string() {
                 None
             } else {
                 profile["packages"].as_array()
                     .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
             };
-            
+
             let check_script = profile["check_script"].as_str().unwrap_or("false").to_string();
-            
+
             let install_script = profile["install_script"].as_str()
                 .and_then(|s| if s == "Option::is_none" { None } else { Some(s.to_string()) });
-            
+
             let remove_script = profile["remove_script"].as_str()
                 .and_then(|s| if s == "Option::is_none" { None } else { Some(s.to_string()) });
-            
+
             let experimental = profile["experimental"].as_bool().unwrap_or(false);
             let removable = profile["removable"].as_bool().unwrap_or(false);
             let veiled = profile["veiled"].as_bool().unwrap_or(false);
             let priority = profile["priority"].as_i64().unwrap_or(0) as i32;
-            
+
             let profile_struct = CfhdbUsbProfile {
                 codename,
                 i18n_desc,
@@ -4673,11 +4673,11 @@ fn parse_usb_profiles(data: &str) -> Result<Vec<CfhdbUsbProfile>, String> {
                 veiled,
                 priority,
             };
-            
+
             profiles.push(profile_struct);
         }
     }
-    
+
     profiles.sort_by_key(|p| p.priority);
     Ok(profiles)
 }
@@ -4685,7 +4685,7 @@ fn parse_usb_profiles(data: &str) -> Result<Vec<CfhdbUsbProfile>, String> {
 fn get_pci_devices(profiles: &[Arc<PreCheckedPciProfile>]) -> Option<HashMap<String, Vec<PreCheckedPciDevice>>> {
     let devices = CfhdbPciDevice::get_devices()?;
     let hashmap = CfhdbPciDevice::create_class_hashmap(devices);
-    
+
     Some(
         hashmap
             .into_iter()
@@ -4703,7 +4703,7 @@ fn get_pci_devices(profiles: &[Arc<PreCheckedPciProfile>]) -> Option<HashMap<Str
 fn get_usb_devices(profiles: &[Arc<PreCheckedUsbProfile>]) -> Option<HashMap<String, Vec<PreCheckedUsbDevice>>> {
     let devices = CfhdbUsbDevice::get_devices()?;
     let hashmap = CfhdbUsbDevice::create_class_hashmap(devices);
-    
+
     Some(
         hashmap
             .into_iter()
@@ -4723,22 +4723,22 @@ fn get_pre_checked_pci_device(
     device: CfhdbPciDevice,
 ) -> PreCheckedPciDevice {
     let mut available_profiles = Vec::new();
-    
+
     // Debug: Log device info for NVIDIA devices
     if device.vendor_id == "10de" {
-        eprintln!("[DEBUG] Matching profiles for NVIDIA device: vendor_id={}, device_id={}, class_id={}, name={}", 
+        eprintln!("[DEBUG] Matching profiles for NVIDIA device: vendor_id={}, device_id={}, class_id={}, name={}",
                   device.vendor_id, device.device_id, device.class_id, device.device_name);
     }
-    
+
     for profile_arc in profile_data {
         let profile = profile_arc.profile();
-        
+
         // Debug: Log NVIDIA profiles
         if profile.vendor_ids.contains(&"10de".to_string()) {
-            eprintln!("[DEBUG] Checking NVIDIA profile: {} - vendor_ids={:?}, class_ids={:?}, device_ids={:?}", 
+            eprintln!("[DEBUG] Checking NVIDIA profile: {} - vendor_ids={:?}, class_ids={:?}, device_ids={:?}",
                       profile.i18n_desc, profile.vendor_ids, profile.class_ids, profile.device_ids);
         }
-        
+
         let matching = {
             if (profile.blacklisted_class_ids.contains(&"*".to_owned())
                 || profile.blacklisted_class_ids.contains(&device.class_id))
@@ -4757,7 +4757,7 @@ fn get_pre_checked_pci_device(
                         || profile.device_ids.contains(&device.device_id))
             }
         };
-        
+
         if matching {
             if device.vendor_id == "10de" {
                 eprintln!("[DEBUG] Profile matched: {}", profile.i18n_desc);
@@ -4765,11 +4765,11 @@ fn get_pre_checked_pci_device(
             available_profiles.push(profile_arc.clone());
         }
     }
-    
+
     if device.vendor_id == "10de" {
         eprintln!("[DEBUG] Total profiles matched for NVIDIA device: {}", available_profiles.len());
     }
-    
+
     PreCheckedPciDevice {
         device,
         profiles: available_profiles,
@@ -4781,10 +4781,10 @@ fn get_pre_checked_usb_device(
     device: CfhdbUsbDevice,
 ) -> PreCheckedUsbDevice {
     let mut available_profiles = Vec::new();
-    
+
     for profile_arc in profile_data {
         let profile = profile_arc.profile();
-        
+
         let matching = {
             if (profile.blacklisted_class_codes.contains(&"*".to_owned())
                 || profile.blacklisted_class_codes.contains(&device.class_code))
@@ -4803,12 +4803,12 @@ fn get_pre_checked_usb_device(
                         || profile.product_ids.contains(&device.product_id))
             }
         };
-        
+
         if matching {
             available_profiles.push(profile_arc.clone());
         }
     }
-    
+
     PreCheckedUsbDevice {
         device,
         profiles: available_profiles,
@@ -4879,7 +4879,7 @@ impl ScrollableStyleSheet for SidebarScrollableStyle {
         } else {
             iced::Color::from_rgba(0.5, 0.5, 0.5, 0.5)
         };
-        
+
         ScrollableAppearance {
             container: Appearance {
                 background: None,

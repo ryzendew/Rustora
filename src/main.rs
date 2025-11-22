@@ -13,7 +13,7 @@ struct Cli {
     /// RPM file to open (when opened from file manager)
     #[arg(value_name = "RPM_FILE")]
     rpm_file: Option<String>,
-    
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -220,7 +220,7 @@ enum Commands {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    
+
     // Check if an RPM file was passed as a positional argument (from file manager)
     if let Some(rpm_file) = cli.rpm_file {
         let rpm_path = Path::new(&rpm_file).to_path_buf();
@@ -246,7 +246,7 @@ async fn main() -> Result<()> {
         RpmDialog::run_separate_window(rpm_path)?;
         return Ok(());
     }
-    
+
     match cli.command {
         None => {
             // Default to GUI when no command is provided
@@ -373,7 +373,7 @@ async fn main() -> Result<()> {
             let decoded = general_purpose::STANDARD
                 .decode(&packages_b64)
                 .map_err(|e| anyhow::anyhow!("Failed to decode packages: {}", e))?;
-            let packages: Vec<crate::gui::flatpak_update_dialog::FlatpakUpdateInfo> = 
+            let packages: Vec<crate::gui::flatpak_update_dialog::FlatpakUpdateInfo> =
                 serde_json::from_slice(&decoded)
                     .map_err(|e| anyhow::anyhow!("Failed to parse packages JSON: {}", e))?;
             use crate::gui::flatpak_update_dialog::FlatpakUpdateDialog;
@@ -522,8 +522,8 @@ async fn main() -> Result<()> {
             KernelInstallDialog::run_separate_window(kernel_name)?;
             Ok(())
         }
-        Some(Commands::DeviceInstallDialog { 
-            profile_name, 
+        Some(Commands::DeviceInstallDialog {
+            profile_name,
             install_script,
             vendor_name,
             device_name,
@@ -548,7 +548,7 @@ async fn main() -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("Failed to decode install script: {}", e))?;
             let script = String::from_utf8(decoded_script)
                 .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in install script: {}", e))?;
-            
+
             let vendor = String::from_utf8(general_purpose::STANDARD.decode(&vendor_name).unwrap_or_default())
                 .unwrap_or_default();
             let device = String::from_utf8(general_purpose::STANDARD.decode(&device_name).unwrap_or_default())
@@ -563,12 +563,12 @@ async fn main() -> Result<()> {
                 .unwrap_or_default();
             let did = String::from_utf8(general_purpose::STANDARD.decode(&device_id).unwrap_or_default())
                 .unwrap_or_default();
-            
+
             // Decode repositories (JSON array)
             let repos_json = String::from_utf8(general_purpose::STANDARD.decode(&repositories).unwrap_or_default())
                 .unwrap_or_default();
             let repos: Vec<String> = serde_json::from_str(&repos_json).unwrap_or_default();
-            
+
             use crate::gui::device_install_dialog::{DeviceInstallDialog, DeviceInfo};
             let device_info = DeviceInfo {
                 vendor_name: vendor,
@@ -583,8 +583,8 @@ async fn main() -> Result<()> {
             DeviceInstallDialog::run_separate_window(profile_name, script, device_info, false)?;
             Ok(())
         }
-        Some(Commands::DeviceRemoveDialog { 
-            profile_name, 
+        Some(Commands::DeviceRemoveDialog {
+            profile_name,
             remove_script,
             vendor_name,
             device_name,
@@ -609,7 +609,7 @@ async fn main() -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("Failed to decode remove script: {}", e))?;
             let script = String::from_utf8(decoded_script)
                 .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in remove script: {}", e))?;
-            
+
             let vendor = String::from_utf8(general_purpose::STANDARD.decode(&vendor_name).unwrap_or_default())
                 .unwrap_or_default();
             let device = String::from_utf8(general_purpose::STANDARD.decode(&device_name).unwrap_or_default())
@@ -624,12 +624,12 @@ async fn main() -> Result<()> {
                 .unwrap_or_default();
             let did = String::from_utf8(general_purpose::STANDARD.decode(&device_id).unwrap_or_default())
                 .unwrap_or_default();
-            
+
             // Decode repositories (JSON array)
             let repos_json = String::from_utf8(general_purpose::STANDARD.decode(&repositories).unwrap_or_default())
                 .unwrap_or_default();
             let repos: Vec<String> = serde_json::from_str(&repos_json).unwrap_or_default();
-            
+
             use crate::gui::device_install_dialog::{DeviceInstallDialog, DeviceInfo};
             let device_info = DeviceInfo {
                 vendor_name: vendor,

@@ -156,7 +156,7 @@ impl SearchTab {
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
         let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
-        
+
         let search_input = text_input("Search packages...", &self.search_query)
             .on_input(Message::SearchQueryChanged)
             .on_submit(Message::Search)
@@ -168,9 +168,9 @@ impl SearchTab {
             })));
 
         use crate::gui::fonts::glyphs;
-        
+
         let material_font = crate::gui::fonts::get_material_symbols_font();
-        
+
         let search_button = button(
             row![
                 text(glyphs::SEARCH_SYMBOL).font(material_font).size(icon_size),
@@ -258,14 +258,14 @@ impl SearchTab {
                             .map(|pkg| {
                                 let pkg_name_for_toggle = pkg.name.clone();
                                 let is_selected = self.selected_packages.contains(&pkg.name);
-                                
+
                                 // Professional card layout
                                 let checkbox_widget = checkbox("", is_selected)
                                     .on_toggle(move |_| Message::TogglePackage(pkg_name_for_toggle.clone()))
                                     .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle {
                                         radius: settings.border_radius,
                                     })));
-                                
+
                                 // Package header with name and version
                                 let version_info: Element<Message> = if !pkg.version.is_empty() || !pkg.release.is_empty() {
                                     let version_text = if !pkg.version.is_empty() && !pkg.release.is_empty() {
@@ -287,7 +287,7 @@ impl SearchTab {
                                 } else {
                                     Space::with_height(Length::Shrink).into()
                                 };
-                                
+
                                 let header = row![
                                     checkbox_widget,
                                     column![
@@ -307,7 +307,7 @@ impl SearchTab {
                                 .spacing(12)
                                 .align_items(Alignment::Start)
                                 .width(Length::Fill);
-                                
+
                                 // Package details section
                                 let details = if !pkg.summary.is_empty() || !pkg.description.is_empty() {
                                     let summary_text = if !pkg.summary.is_empty() {
@@ -321,7 +321,7 @@ impl SearchTab {
                                     } else {
                                         summary_text.clone()
                                     };
-                                    
+
                                     column![
                                         text(&display_text)
                                             .size(package_detail_size)
@@ -333,7 +333,7 @@ impl SearchTab {
                                 } else {
                                     column![].spacing(0).width(Length::Fill)
                                 };
-                                
+
                                 // Package metadata (arch, size)
                                 let arch_info: Element<Message> = if !pkg.arch.is_empty() {
                                     row![
@@ -348,7 +348,7 @@ impl SearchTab {
                                 } else {
                                     Space::with_width(Length::Shrink).into()
                                 };
-                                
+
                                 let size_info: Element<Message> = if !pkg.size.is_empty() {
                                     row![
                                         text("Size:")
@@ -362,7 +362,7 @@ impl SearchTab {
                                 } else {
                                     Space::with_width(Length::Shrink).into()
                                 };
-                                
+
                                 let metadata = row![
                                     arch_info,
                                     Space::with_width(Length::Fill),
@@ -370,7 +370,7 @@ impl SearchTab {
                                 ]
                                 .width(Length::Fill)
                                 .spacing(8);
-                                
+
                                 container(
                                     column![
                                         header,
@@ -412,7 +412,7 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
     // Get all info in one query using --qf (queryformat) to avoid multiple dnf info calls
     // Note: %{installsize} gives size in bytes, and we add \n to separate packages
     let queryformat = "%{name}|%{version}|%{release}|%{arch}|%{summary}|%{description}|%{installsize}\n";
-    
+
     let output = tokio::process::Command::new("dnf")
         .args([
             "repoquery",
@@ -462,7 +462,7 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
         // We expect exactly 7 fields. If we get more, descriptions might contain | characters
         // If we get fewer, the line might be malformed
         let parts: Vec<&str> = line.split('|').collect();
-        
+
         // We need at least 4 fields (name, version, release, arch) to be valid
         if parts.len() < 4 {
             continue;
@@ -541,7 +541,7 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
             break;
         }
     }
-    
+
     packages.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(packages)
 }
@@ -619,7 +619,7 @@ async fn load_package_details(package_name: String) -> Result<PackageInfo, Strin
                 let field_name = line.split(':').next().unwrap_or("").trim();
                 let known_fields = ["URL", "License", "Vendor", "Source", "Repository", "Epoch"];
                 if known_fields.iter().any(|&f| field_name.starts_with(f)) ||
-                   (field_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) && 
+                   (field_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) &&
                     field_name.len() < 20 &&
                     !field_name.eq_ignore_ascii_case("description")) {
                     in_description = false;
@@ -651,14 +651,14 @@ fn parse_size(size_str: &str) -> Result<u64, ()> {
     if parts.is_empty() {
         return Err(());
     }
-    
+
     let number: f64 = parts[0].parse().map_err(|_| ())?;
     let unit = if parts.len() > 1 {
         parts[1].to_lowercase()
     } else {
         "b".to_string()
     };
-    
+
     let multiplier = match unit.as_str() {
         "k" | "kb" | "kib" => 1024.0,
         "m" | "mb" | "mib" => 1024.0 * 1024.0,
@@ -666,7 +666,7 @@ fn parse_size(size_str: &str) -> Result<u64, ()> {
         "t" | "tb" | "tib" => 1024.0 * 1024.0 * 1024.0 * 1024.0,
         _ => 1.0,
     };
-    
+
     Ok((number * multiplier) as u64)
 }
 

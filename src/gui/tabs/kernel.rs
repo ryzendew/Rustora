@@ -650,7 +650,7 @@ impl KernelTab {
 
     pub fn view<'a>(&'a self, theme: &'a crate::gui::Theme, settings: &'a crate::gui::settings::AppSettings) -> Element<'a, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
-        
+
         // Calculate font sizes from settings
         let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_font_size = (settings.font_size_body * settings.scale_body).round();
@@ -658,7 +658,7 @@ impl KernelTab {
         let input_font_size = (settings.font_size_inputs * settings.scale_inputs).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         let tab_font_size = (settings.font_size_tabs * settings.scale_tabs).round();
-        
+
         let header = container(
             row![
                 text("Kernel Manager")
@@ -1248,7 +1248,7 @@ impl KernelTab {
         } else {
             "Unknown".to_string()
         };
-        
+
         // For comparison, extract just the scheduler name (without "sched_ext: " prefix and arguments)
         // Normalize by removing "scx_" prefix for comparison
         let current_sched_name_for_comparison = if current_sched_text.starts_with("sched_ext: ") {
@@ -1265,7 +1265,7 @@ impl KernelTab {
             let name = current_sched_text.split_whitespace().next().unwrap_or("").to_lowercase();
             name.strip_prefix("scx_").unwrap_or(&name).to_string()
         };
-        
+
         // Extract current flags from the scheduler text for mode matching
         // Format: "sched_ext: scx_bpfland with arguments "-k -s 5000 -l 5000""
         let current_flags = if current_sched_text.contains("with arguments") {
@@ -1275,7 +1275,7 @@ impl KernelTab {
                 .nth(1)
                 .unwrap_or("")
                 .trim();
-            
+
             // Remove quotes (both single and double) and trim
             flags_part
                 .strip_prefix('"')
@@ -1315,7 +1315,7 @@ impl KernelTab {
                             // Check if this scheduler is currently active
                             // Normalize scheduler names for comparison (handle both "scx_bpfland" and "bpfland")
                             let scheduler_base = scheduler_name.strip_prefix("scx_").unwrap_or(&scheduler_name).to_lowercase();
-                            
+
                             let is_current = if current_sched_text.contains("sched_ext") {
                                 // SCX scheduler is running - compare base names
                                 // current_sched_name_for_comparison is already normalized (lowercase, no prefix)
@@ -1325,7 +1325,7 @@ impl KernelTab {
                                 // No SCX scheduler running - only scx_disabled should be marked as current
                                 scheduler_name == "scx_disabled"
                             };
-                            
+
                             button(
                                 container(
                                     row![
@@ -1362,7 +1362,7 @@ impl KernelTab {
                                                             // Check if this mode matches the current flags
                                                             // Normalize scheduler names for comparison
                                                             let scheduler_base = scheduler_name.strip_prefix("scx_").unwrap_or(&scheduler_name).to_lowercase();
-                                                            let is_mode_current = !current_flags.is_empty() && 
+                                                            let is_mode_current = !current_flags.is_empty() &&
                                                                 current_sched_name_for_comparison == scheduler_base &&
                                                                 current_flags.trim() == mode.flags.trim();
                                                             button(
@@ -1480,7 +1480,7 @@ impl KernelTab {
         .into();
 
         // Enable apply button if scheduler changed or flags changed
-        let can_apply = self.selected_scheduler.is_some() && 
+        let can_apply = self.selected_scheduler.is_some() &&
                        (self.selected_scheduler.as_ref() != self.current_scheduler.as_ref() ||
                         !self.scheduler_extra_flags.trim().is_empty());
 
@@ -1614,15 +1614,15 @@ async fn load_kernel_branches() -> Result<Vec<KernelBranch>, String> {
         for entry in entries {
             let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
             let path = entry.path();
-            
+
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
                 let content = fs::read_to_string(&path)
                     .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
-                
+
                 // Parse as JSON value first (same as original)
                 let branch_json: serde_json::Value = serde_json::from_str(&content)
                     .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))?;
-                
+
                 let branch = KernelBranch {
                     name: branch_json["name"]
                         .as_str()
@@ -1638,7 +1638,7 @@ async fn load_kernel_branches() -> Result<Vec<KernelBranch>, String> {
                         .to_string(),
                     db: None,
                 };
-                
+
                 branches.push(branch);
             }
         }
@@ -1652,14 +1652,14 @@ async fn load_kernel_branches() -> Result<Vec<KernelBranch>, String> {
             for entry in entries {
                 let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
                 let path = entry.path();
-                
+
                 if path.extension().and_then(|s| s.to_str()) == Some("json") {
                     let content = fs::read_to_string(&path)
                         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
-                    
+
                     let branch_json: serde_json::Value = serde_json::from_str(&content)
                         .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))?;
-                    
+
                     let branch = KernelBranch {
                         name: branch_json["name"]
                             .as_str()
@@ -1675,7 +1675,7 @@ async fn load_kernel_branches() -> Result<Vec<KernelBranch>, String> {
                             .to_string(),
                         db: None,
                     };
-                    
+
                     branches.push(branch);
                 }
             }
@@ -1720,30 +1720,30 @@ async fn detect_running_kernel_branch(branches: Vec<KernelBranch>) -> Option<Str
 
     // Check kernel version string for branch identifiers
     let version_lower = kernel_version.to_lowercase();
-    
+
     // Check each branch to see if it matches the running kernel
     for branch in &branches {
         let branch_lower = branch.name.to_lowercase();
-        
+
         // Check for CachyOS kernel
         if branch_lower.contains("cachyos") {
-            if version_lower.contains("cachyos") || 
+            if version_lower.contains("cachyos") ||
                kernel_package.as_ref().map(|p| p.to_lowercase().contains("cachyos")).unwrap_or(false) {
                 return Some(branch.name.clone());
             }
         }
-        
+
         // Check for other specific kernel types
         // Add more patterns here as needed
     }
 
     // If no specific match, check if it's the default kernel
     // Default kernel typically doesn't have special identifiers
-    if !version_lower.contains("cachyos") && 
+    if !version_lower.contains("cachyos") &&
        !kernel_package.as_ref().map(|p| p.to_lowercase().contains("cachyos")).unwrap_or(false) {
         // Look for default/RPM branch
         for branch in &branches {
-            if branch.name.contains("RPM Default") || 
+            if branch.name.contains("RPM Default") ||
                branch.name.contains("kernel") && !branch.name.to_lowercase().contains("cachyos") {
                 return Some(branch.name.clone());
             }
@@ -1761,7 +1761,7 @@ async fn select_branch_and_load_kernels(branch_name: String, branches: Vec<Kerne
         .ok_or_else(|| {
             format!("Branch not found: {}", branch_name)
         })?;
-    
+
 
     // Run init script
     if branch.init_script != "true" {
@@ -1773,7 +1773,7 @@ async fn select_branch_and_load_kernels(branch_name: String, branches: Vec<Kerne
             .map_err(|e| {
                 format!("Failed to run init script: {}", e)
             })?;
-        
+
         if !output.status.success() {
             return Err(format!("Init script failed: {}", String::from_utf8_lossy(&output.stderr)));
         }
@@ -1825,7 +1825,7 @@ async fn select_branch_and_load_kernels(branch_name: String, branches: Vec<Kerne
         } else {
             PathBuf::from("fedora-kernel-manager-main/data/scripts/generate_package_info.sh")
         };
-        
+
         if script.exists() {
             TokioCommand::new(&script)
                 .args(["version", pkg])
@@ -2001,7 +2001,7 @@ async fn get_current_scheduler(version: &str) -> String {
                         .and_then(|s| s.split_whitespace().next())
                         .unwrap_or("")
                         .to_lowercase();
-                    
+
                     if !scheduler_name.is_empty() {
                         // Format with full info: "sched_ext: scx_bpfland with arguments..."
                         let full_info = sched.strip_prefix("running ").unwrap_or(&sched);
@@ -2038,7 +2038,7 @@ async fn get_current_scheduler(version: &str) -> String {
         .args(["-n", "kernel.sched_bore"])
         .output()
         .await;
-    
+
     if let Ok(output) = bore_check {
         if let Ok(stdout) = String::from_utf8(output.stdout) {
             if stdout.trim() == "1" {
@@ -2102,7 +2102,7 @@ async fn search_repo_kernels(
         }
 
         // Skip headers packages
-        if pkg_name.contains("kernel-headers") || 
+        if pkg_name.contains("kernel-headers") ||
            pkg_name.contains("headers") ||
            pkg_name.contains("kernel-devel") ||
            pkg_name.contains("kernel-debug") ||
@@ -2140,7 +2140,7 @@ async fn search_repo_kernels(
         kernel_packages.push(EnhancedKernelInfo {
             name: kernel_name.clone(),
             main_package: pkg_name.to_string(),
-            packages: format!("{} kernel-headers-{}", pkg_name, 
+            packages: format!("{} kernel-headers-{}", pkg_name,
                 if let Some(ver) = pkg_name.strip_prefix("kernel-") {
                     ver
                 } else {
@@ -2375,7 +2375,7 @@ async fn apply_scx_scheduler(scheduler_name: String, flags: String) -> Result<()
         .output()
         .await
         .ok();
-    
+
     let has_running_scheduler = check_output
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .map(|s| {
@@ -2415,7 +2415,7 @@ async fn apply_scx_scheduler(scheduler_name: String, flags: String) -> Result<()
             ))
             .output()
             .await;
-        
+
         // Wait a moment for the scheduler to apply
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         Ok(())

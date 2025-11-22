@@ -22,13 +22,13 @@ use std::path::PathBuf;
 
 async fn open_file_picker() -> Option<PathBuf> {
     use tokio::process::Command;
-    
+
     // Try zenity first (GNOME), then kdialog (KDE), then fallback to a simple approach
     let output = Command::new("zenity")
         .args(["--file-selection", "--title=Select RPM Package to Install", "--file-filter=*.rpm"])
         .output()
         .await;
-    
+
     if let Ok(output) = output {
         if output.status.success() {
             let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -37,13 +37,13 @@ async fn open_file_picker() -> Option<PathBuf> {
             }
         }
     }
-    
+
     // Fallback to kdialog
     let output = Command::new("kdialog")
         .args(["--getopenfilename", ".", "*.rpm"])
         .output()
         .await;
-    
+
     if let Ok(output) = output {
         if output.status.success() {
             let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -52,7 +52,7 @@ async fn open_file_picker() -> Option<PathBuf> {
             }
         }
     }
-    
+
     None
 }
 
@@ -159,7 +159,7 @@ impl Application for RustoraApp {
                 let old_settings = self.settings.clone();
                 self.settings = new_settings.clone();
                 // If nothing critical changed, just update tab visibility
-                if old_settings.font_size == self.settings.font_size 
+                if old_settings.font_size == self.settings.font_size
                     && old_settings.font_family == self.settings.font_family
                     && old_settings.scaling == self.settings.scaling
                     && old_settings.border_radius == self.settings.border_radius
@@ -297,23 +297,23 @@ impl Application for RustoraApp {
 
     fn view(&self) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
-        
+
         // Use cached Material Symbols font (optimized - loaded once)
         let material_font = glyphs::material_font();
-        
+
         // Create icon text with Material Symbols font
         let download_icon = text(glyphs::DOWNLOAD_SYMBOL).font(material_font);
         let theme_icon = text(glyphs::THEME_SYMBOL).font(material_font);
         let search_icon = text(glyphs::SEARCH_SYMBOL).font(material_font);
         let installed_icon = text(glyphs::INSTALLED_SYMBOL).font(material_font);
         let refresh_icon = text(glyphs::REFRESH_SYMBOL).font(material_font);
-        
+
         // Use individual font sizes and scales
         let button_font_size = self.settings.font_size_buttons * self.settings.scale_buttons;
         let tab_font_size = self.settings.font_size_tabs * self.settings.scale_tabs;
         let icon_size = (self.settings.font_size_icons * self.settings.scale_icons).round();
         let title_font_size = (self.settings.font_size_titles * self.settings.scale_titles).round();
-        
+
         let install_rpm_button = button(
             row![
                 download_icon.size(icon_size),
@@ -351,7 +351,7 @@ impl Application for RustoraApp {
             })))
             .width(Length::Shrink)
             .padding(Padding::new(14.0));
-        
+
         let settings_icon = text(glyphs::SETTINGS_SYMBOL).font(material_font);
         let settings_button = button(
             row![
@@ -570,15 +570,15 @@ impl Application for RustoraApp {
             .padding(Padding::new(14.0));
 
         use iced::widget::scrollable;
-        
+
         // Determine if we should use sidebar layout based on scale
-        let use_sidebar_layout = self.settings.scale_tabs > 1.8 || 
+        let use_sidebar_layout = self.settings.scale_tabs > 1.8 ||
                                   (self.settings.font_size_tabs * self.settings.scale_tabs) > 20.0;
-        
+
         // Show only icons when scale is very high
-        let show_icons_only = self.settings.scale_tabs > 2.8 || 
+        let show_icons_only = self.settings.scale_tabs > 2.8 ||
                               (self.settings.font_size_tabs * self.settings.scale_tabs) > 28.0;
-        
+
         // Build tab buttons for horizontal layout (original buttons)
         let mut tab_buttons_horizontal = Vec::new();
         if self.settings.is_tab_visible("Search") {
@@ -611,15 +611,15 @@ impl Application for RustoraApp {
         if self.settings.is_tab_visible("Tweaks") {
             tab_buttons_horizontal.push(tweaks_button.into());
         }
-        
+
         // Create sidebar buttons (separate instances to avoid move issues)
         let install_rpm_button_sidebar: Element<Message> = {
             let download_icon_sidebar = text(glyphs::DOWNLOAD_SYMBOL).font(material_font);
-            let icon_size_for_button = if show_icons_only { 
+            let icon_size_for_button = if show_icons_only {
                 // Make icons larger when icons-only to fill the button space
                 (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-            } else { 
-                icon_size 
+            } else {
+                icon_size
             };
             let button_content: Element<Message> = if show_icons_only {
                 container(download_icon_sidebar.size(icon_size_for_button))
@@ -650,11 +650,11 @@ impl Application for RustoraApp {
 
         let theme_button_sidebar: Element<Message> = {
             let theme_icon_sidebar = text(glyphs::THEME_SYMBOL).font(material_font);
-            let icon_size_for_button = if show_icons_only { 
+            let icon_size_for_button = if show_icons_only {
                 // Make icons larger when icons-only to fill the button space
                 (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-            } else { 
-                icon_size 
+            } else {
+                icon_size
             };
             let button_content: Element<Message> = if show_icons_only {
                 container(theme_icon_sidebar.size(icon_size_for_button))
@@ -685,11 +685,11 @@ impl Application for RustoraApp {
 
         let settings_button_sidebar: Element<Message> = {
             let settings_icon_sidebar = text(glyphs::SETTINGS_SYMBOL).font(material_font);
-            let icon_size_for_button = if show_icons_only { 
+            let icon_size_for_button = if show_icons_only {
                 // Make icons larger when icons-only to fill the button space
                 (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-            } else { 
-                icon_size 
+            } else {
+                icon_size
             };
             let button_content: Element<Message> = if show_icons_only {
                 container(settings_icon_sidebar.size(icon_size_for_button))
@@ -765,18 +765,18 @@ impl Application for RustoraApp {
             // Text + icon mode: wider to accommodate text
             220.0 + 24.0 // 24px more total
         };
-        
+
         // Tab bar for horizontal layout (when scale is low)
         let (sidebar, tab_bar) = if use_sidebar_layout {
             // Create tab buttons for sidebar (separate instances)
             let mut tab_buttons_sidebar = Vec::new();
             if self.settings.is_tab_visible("Search") {
                 let search_icon_sidebar = text(glyphs::SEARCH_SYMBOL).font(material_font);
-                let icon_size_for_button = if show_icons_only { 
+                let icon_size_for_button = if show_icons_only {
                     // Make icons larger when icons-only to fill the button space
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-                } else { 
-                    icon_size 
+                } else {
+                    icon_size
                 };
                 let button_content: Element<Message> = if show_icons_only {
                     container(search_icon_sidebar.size(icon_size_for_button))
@@ -795,11 +795,11 @@ impl Application for RustoraApp {
             }
             if self.settings.is_tab_visible("Installed") {
                 let installed_icon_sidebar = text(glyphs::INSTALLED_SYMBOL).font(material_font);
-                let icon_size_for_button = if show_icons_only { 
+                let icon_size_for_button = if show_icons_only {
                     // Make icons larger when icons-only to fill the button space
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-                } else { 
-                    icon_size 
+                } else {
+                    icon_size
                 };
                 let button_content: Element<Message> = if show_icons_only {
                     container(installed_icon_sidebar.size(icon_size_for_button))
@@ -818,11 +818,11 @@ impl Application for RustoraApp {
             }
             if self.settings.is_tab_visible("Updates") {
                 let refresh_icon_sidebar = text(glyphs::REFRESH_SYMBOL).font(material_font);
-                let icon_size_for_button = if show_icons_only { 
+                let icon_size_for_button = if show_icons_only {
                     // Make icons larger when icons-only to fill the button space
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-                } else { 
-                    icon_size 
+                } else {
+                    icon_size
                 };
                 let button_content: Element<Message> = if show_icons_only {
                     container(refresh_icon_sidebar.size(icon_size_for_button))
@@ -841,11 +841,11 @@ impl Application for RustoraApp {
             }
             if self.settings.is_tab_visible("Flatpak") {
                 let flatpak_icon_sidebar = text(glyphs::INSTALLED_SYMBOL).font(material_font);
-                let icon_size_for_button = if show_icons_only { 
+                let icon_size_for_button = if show_icons_only {
                     // Make icons larger when icons-only to fill the button space
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-                } else { 
-                    icon_size 
+                } else {
+                    icon_size
                 };
                 let button_content: Element<Message> = if show_icons_only {
                     container(flatpak_icon_sidebar.size(icon_size_for_button))
@@ -864,11 +864,11 @@ impl Application for RustoraApp {
             }
             if self.settings.is_tab_visible("Maintenance") {
                 let maintenance_icon_sidebar = text(glyphs::SETTINGS_SYMBOL).font(material_font);
-                let icon_size_for_button = if show_icons_only { 
+                let icon_size_for_button = if show_icons_only {
                     // Make icons larger when icons-only to fill the button space
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-                } else { 
-                    icon_size 
+                } else {
+                    icon_size
                 };
                 let button_content: Element<Message> = if show_icons_only {
                     container(maintenance_icon_sidebar.size(icon_size_for_button))
@@ -887,11 +887,11 @@ impl Application for RustoraApp {
             }
             if self.settings.is_tab_visible("Repositories") {
                 let repo_icon_sidebar = text(glyphs::INSTALLED_SYMBOL).font(material_font);
-                let icon_size_for_button = if show_icons_only { 
+                let icon_size_for_button = if show_icons_only {
                     // Make icons larger when icons-only to fill the button space
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-                } else { 
-                    icon_size 
+                } else {
+                    icon_size
                 };
                 let button_content: Element<Message> = if show_icons_only {
                     container(repo_icon_sidebar.size(icon_size_for_button))
@@ -910,11 +910,11 @@ impl Application for RustoraApp {
             }
             if self.settings.is_tab_visible("Kernel") {
                 let kernel_icon_sidebar = text(glyphs::SETTINGS_SYMBOL).font(material_font);
-                let icon_size_for_button = if show_icons_only { 
+                let icon_size_for_button = if show_icons_only {
                     // Make icons larger when icons-only to fill the button space
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-                } else { 
-                    icon_size 
+                } else {
+                    icon_size
                 };
                 let button_content: Element<Message> = if show_icons_only {
                     container(kernel_icon_sidebar.size(icon_size_for_button))
@@ -933,11 +933,11 @@ impl Application for RustoraApp {
             }
             if self.settings.is_tab_visible("Device") {
                 let device_icon_sidebar = text(glyphs::SETTINGS_SYMBOL).font(material_font);
-                let icon_size_for_button = if show_icons_only { 
+                let icon_size_for_button = if show_icons_only {
                     // Make icons larger when icons-only to fill the button space
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-                } else { 
-                    icon_size 
+                } else {
+                    icon_size
                 };
                 let button_content: Element<Message> = if show_icons_only {
                     container(device_icon_sidebar.size(icon_size_for_button))
@@ -956,11 +956,11 @@ impl Application for RustoraApp {
             }
             if self.settings.is_tab_visible("FPM") {
                 let fpm_icon_sidebar = text(glyphs::DOWNLOAD_SYMBOL).font(material_font);
-                let icon_size_for_button = if show_icons_only { 
+                let icon_size_for_button = if show_icons_only {
                     // Make icons larger when icons-only to fill the button space
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-                } else { 
-                    icon_size 
+                } else {
+                    icon_size
                 };
                 let button_content: Element<Message> = if show_icons_only {
                     container(fpm_icon_sidebar.size(icon_size_for_button))
@@ -979,10 +979,10 @@ impl Application for RustoraApp {
             }
             if self.settings.is_tab_visible("Tweaks") {
                 let tweaks_icon_sidebar = text(glyphs::SETTINGS_SYMBOL).font(material_font);
-                let icon_size_for_button = if show_icons_only { 
+                let icon_size_for_button = if show_icons_only {
                     (self.settings.font_size_icons * self.settings.scale_icons * 1.5).max(24.0).min(40.0)
-                } else { 
-                    icon_size 
+                } else {
+                    icon_size
                 };
                 let button_content: Element<Message> = if show_icons_only {
                     container(tweaks_icon_sidebar.size(icon_size_for_button))
@@ -999,7 +999,7 @@ impl Application for RustoraApp {
                 };
                 tab_buttons_sidebar.push(button(button_content).on_press(Message::TabSelected(Tab::Tweaks)).style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle { is_primary: self.current_tab == Tab::Tweaks, radius: self.settings.border_radius, primary_color: Color::from(self.settings.primary_color.clone()), text_color: Color::from(self.settings.text_color.clone()), background_color: Color::from(self.settings.background_color.clone()) }))).width(Length::Fill).padding(Padding::new(14.0)).into());
             }
-            
+
             let sidebar = container(
                 column![
                     scrollable(
@@ -1308,7 +1308,7 @@ impl ScrollableStyleSheet for CustomScrollableStyle {
         } else {
             iced::Color::from_rgb(0.15, 0.45, 0.65)
         };
-        
+
         ScrollableAppearance {
             container: Appearance {
                 background: None,
@@ -1347,7 +1347,7 @@ impl ScrollableStyleSheet for CustomScrollableStyle {
         } else {
             iced::Color::from_rgb(0.15, 0.45, 0.65)
         };
-        
+
         appearance.scrollbar.scroller.color = if is_dark {
             iced::Color::from_rgba(primary_color.r, primary_color.g, primary_color.b, 0.7)
         } else {
@@ -1364,7 +1364,7 @@ impl ScrollableStyleSheet for CustomScrollableStyle {
         } else {
             iced::Color::from_rgb(0.15, 0.45, 0.65)
         };
-        
+
         appearance.scrollbar.scroller.color = if is_dark {
             iced::Color::from_rgba(primary_color.r, primary_color.g, primary_color.b, 0.9)
         } else {

@@ -54,12 +54,12 @@ impl PackageDialog {
 
     pub fn run_separate_window(package_names: Vec<String>) -> Result<(), iced::Error> {
         let dialog = Self::new(package_names);
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(750.0, 800.0);
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         // Use cached InterVariable font (optimized)
         let default_font = crate::gui::fonts::get_inter_font();
 
@@ -98,7 +98,7 @@ impl PackageDialog {
             } else {
                 format!("Remove {} Packages", self.package_names.len())
             };
-            
+
             let title = container(
                     text(&title_text)
                         .size(20)
@@ -365,8 +365,8 @@ impl Application for PackageDialog {
             Message::RemovalProgress(progress) => {
                 let progress_clone = progress.clone();
                 self.removal_progress = progress;
-                if progress_clone.contains("Complete") || 
-                   progress_clone.contains("Removed") || 
+                if progress_clone.contains("Complete") ||
+                   progress_clone.contains("Removed") ||
                    progress_clone.contains("complete") ||
                    progress_clone.to_lowercase().contains("success") {
                     iced::Command::perform(async {}, |_| Message::RemovalComplete)
@@ -406,7 +406,7 @@ impl Application for PackageDialog {
 async fn load_package_info(package_names: Vec<String>) -> Result<PackageInfo, String> {
     // Get info for the first package (or combine info if multiple)
     let package_name = package_names.first().ok_or("No packages specified")?;
-    
+
     // Use rpm -qi for installed packages to get complete information
     let output = TokioCommand::new("rpm")
         .args(["-qi", package_name])

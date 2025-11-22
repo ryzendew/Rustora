@@ -42,13 +42,13 @@ impl HyprlandDialog {
 
     pub fn run_separate_window() -> Result<(), iced::Error> {
         let dialog = Self::new();
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(1000.0, 700.0);
         window_settings.min_size = Some(iced::Size::new(800.0, 500.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <HyprlandDialog as Application>::run(iced::Settings {
@@ -91,7 +91,7 @@ impl Application for HyprlandDialog {
                 self.terminal_output.clear();
                 self.terminal_output.push_str("Starting Hyprland installation...\n");
                 self.terminal_output.push_str("=====================================\n\n");
-                
+
                 // Start with step 0
                 Command::perform(run_installation_step(0), |result| {
                     match result {
@@ -113,13 +113,13 @@ impl Application for HyprlandDialog {
                 }
                 self.terminal_output.push_str(&output);
                 self.progress = progress;
-                
+
                 // Update progress text based on current step
                 self.progress_text = get_step_progress_text(self.current_step_num);
-                
+
                 // Check if this step is complete
                 let step_complete = output.contains("completed") || output.contains("failed");
-                
+
                 if step_complete {
                     // Check if installation is fully complete
                     if output.contains("✓ ALL STEPS COMPLETED SUCCESSFULLY!") {
@@ -129,10 +129,10 @@ impl Application for HyprlandDialog {
                         self.progress_text = "Installation completed successfully!".to_string();
                         return Command::none();
                     }
-                    
+
                     // Continue to next step
                     self.current_step_num += 1;
-                    
+
                     if self.current_step_num < 10 {
                         Command::perform(run_installation_step(self.current_step_num), |result| {
                             match result {
@@ -196,7 +196,7 @@ impl Application for HyprlandDialog {
 impl HyprlandDialog {
     pub fn view_impl(&self, theme: &crate::gui::Theme, settings: &AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
-        
+
         let title_text = if self.is_complete {
             if self.has_error {
                 "Installation Failed"
@@ -206,11 +206,11 @@ impl HyprlandDialog {
         } else {
             "Installing Hyprland & Dependencies"
         };
-        
+
         let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_font_size = (settings.font_size_body * settings.scale_body).round();
         let icon_font_size = (settings.font_size_icons * settings.scale_icons).round();
-        
+
         let progress_display = text(&self.progress_text).size(body_font_size);
 
         let terminal_output = scrollable(
@@ -305,7 +305,7 @@ fn get_step_progress_text(step: usize) -> String {
 
 async fn run_installation_step(step: usize) -> Result<(String, usize, f32), String> {
     let progress = (step as f32 + 1.0) / 2.0;
-    
+
     match step {
         0 => {
             // Enable COPR repos (only quickshell and hyprland)
@@ -340,7 +340,7 @@ async fn execute_command_with_output(cmd: &mut TokioCommand, description: &str) 
     let mut stderr_reader = BufReader::new(stderr).lines();
 
     let mut output = String::new();
-    
+
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -394,14 +394,14 @@ async fn enable_copr_repos() -> Result<String, String> {
     cmd.arg("-y");
     cmd.arg("solopasha/hyprland");
     cmd.arg("errornointernet/quickshell");
-    
+
     let mut output = String::new();
     output.push_str("$ pkexec dnf copr enable -y solopasha/hyprland errornointernet/quickshell\n");
     output.push_str("─────────────────────────────────────────────────────────────\n");
-    
+
     let cmd_output = execute_command_with_output(&mut cmd, "COPR repositories").await?;
     output.push_str(&cmd_output);
-    
+
     Ok(output)
 }
 
@@ -420,21 +420,21 @@ async fn update_cache_and_install() -> Result<String, String> {
         "slurp",
         "swappy",
     ];
-    
+
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("sh");
     cmd.arg("-c");
     cmd.arg(&format!("dnf makecache && dnf install -y {}", packages.join(" ")));
-    
+
     let mut output = String::new();
     output.push_str("$ pkexec dnf makecache && dnf install -y ");
     output.push_str(&packages.join(" "));
     output.push_str("\n");
     output.push_str("─────────────────────────────────────────────────────────────\n");
-    
+
     let cmd_output = execute_command_with_output(&mut cmd, "cache update and package installation").await?;
     output.push_str(&cmd_output);
-    
+
     Ok(output)
 }
 

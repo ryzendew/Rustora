@@ -54,7 +54,7 @@ impl UpdateDialog {
     pub fn new() -> Self {
         Self::new_with_packages(Vec::new())
     }
-    
+
     pub fn new_with_packages(packages: Vec<String>) -> Self {
         Self {
             updates: Vec::new(),
@@ -86,15 +86,15 @@ impl UpdateDialog {
         } else {
             Vec::new()
         };
-        
+
         let dialog = Self::new_with_packages(packages);
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(1000.0, 700.0);
         window_settings.min_size = Some(iced::Size::new(800.0, 500.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <UpdateDialog as Application>::run(iced::Settings {
@@ -152,7 +152,7 @@ impl UpdateDialog {
                                     InstallStatus::Installed => ("✓", "Installed", iced::Color::from_rgb(0.0, 0.8, 0.0)),
                                     InstallStatus::Failed => ("✗", "Failed", iced::Color::from_rgb(0.8, 0.0, 0.0)),
                                 };
-                                
+
                                 container(
                                     row![
                                         text(status_text.0).size(18).style(iced::theme::Text::Color(status_text.2)),
@@ -238,7 +238,7 @@ impl UpdateDialog {
                                     InstallStatus::Failed => ("✗", "Failed", iced::Color::from_rgb(0.8, 0.0, 0.0)),
                                     _ => ("?", "Unknown", iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0)),
                                 };
-                                
+
                                 container(
                                     row![
                                         text(status_text.0).size(18).style(iced::theme::Text::Color(status_text.2)),
@@ -278,7 +278,7 @@ impl UpdateDialog {
             } else {
                 iced::Color::from_rgb(0.0, 0.8, 0.0)
             };
-            
+
             container(
                 column![
                     text(&title_text).size(18).style(iced::theme::Text::Color(title_color)),
@@ -370,7 +370,7 @@ impl UpdateDialog {
             } else {
                 &self.updates
             };
-            
+
             let title = container(
                 text(format!("{} Package(s) to Install", packages_to_show.len()))
                     .size(20)
@@ -517,7 +517,7 @@ impl Application for UpdateDialog {
                 self.is_installing = true;
                 self.installation_progress = "Preparing installation...".to_string();
                 self.terminal_output = String::new();
-                
+
                 // Determine which packages to install
                 // Priority: use packages_with_info if available (they were verified to have updates)
                 // Otherwise fall back to packages_to_install (the original selected packages)
@@ -534,18 +534,18 @@ impl Application for UpdateDialog {
                     eprintln!("[DEBUG] WARNING: No packages to install!");
                     return iced::Command::perform(async {}, |_| Message::InstallationError("No packages selected for installation".to_string()));
                 };
-                
+
                 if packages.is_empty() {
                     return iced::Command::perform(async {}, |_| Message::InstallationError("No packages available for installation".to_string()));
                 }
-                
+
                 eprintln!("[DEBUG] Installing packages: {:?}", packages);
-                
+
                 // Mark all packages as installing
                 for pkg in &packages {
                     self.package_status.insert(pkg.clone(), InstallStatus::Installing);
                 }
-                
+
                 let packages_with_info = self.packages_with_info.clone();
                 let package_names: std::collections::HashSet<String> = packages.iter().cloned().collect();
                 iced::Command::perform(install_updates_streaming(packages, packages_with_info, package_names), |result| {
@@ -568,38 +568,38 @@ impl Application for UpdateDialog {
                     .filter(|line| !current_output.contains(line))
                     .collect::<Vec<_>>()
                     .join("\n");
-                
+
                 if !new_content.is_empty() {
                     self.terminal_output.push_str(&new_content);
                     if !self.terminal_output.ends_with('\n') {
                         self.terminal_output.push('\n');
                     }
                 }
-                
+
                 // Parse output line by line to track individual package progress
                 let lines: Vec<&str> = output.lines().collect();
                 let mut new_lines = Vec::new();
-                
+
                 for line in lines {
                     // Skip if we've already processed this line
                     if new_lines.contains(&line) {
                         continue;
                     }
                     new_lines.push(line);
-                    
+
                     let line_lower = line.to_lowercase();
-                    
+
                     // Parse dnf output patterns to detect package installation
                     // DNF output formats:
                     // - "Installing: package-name-version.arch"
-                    // - "Upgrading: package-name-version.arch"  
+                    // - "Upgrading: package-name-version.arch"
                     // - "Installed: package-name-version.arch"
                     // - "Complete!"
                     // - Progress: "[====>  ] 50% package-name"
-                    
+
                     // Extract package name from dnf output lines
                     // Format: "Installing: package-name-version.arch" or "Upgrading: package-name-version.arch"
-                    if line_lower.starts_with("installing:") || 
+                    if line_lower.starts_with("installing:") ||
                        line_lower.starts_with("upgrading:") ||
                        line_lower.starts_with("installed:") {
                         // Extract package name after the colon
@@ -614,11 +614,11 @@ impl Application for UpdateDialog {
                             for (pkg_name, status) in &mut self.package_status {
                                 let pkg_lower = pkg_name.to_lowercase();
                                 // Check if the package name matches (handle version suffixes)
-                                if pkg_name_part.to_lowercase().starts_with(&pkg_lower) || 
+                                if pkg_name_part.to_lowercase().starts_with(&pkg_lower) ||
                                    pkg_lower == pkg_name_part.to_lowercase().split('-').next().unwrap_or("") {
                                     if line_lower.starts_with("installed:") {
                                         *status = InstallStatus::Installed;
-                                    } else if line_lower.starts_with("installing:") || 
+                                    } else if line_lower.starts_with("installing:") ||
                                               line_lower.starts_with("upgrading:") {
                                         *status = InstallStatus::Installing;
                                     }
@@ -626,31 +626,31 @@ impl Application for UpdateDialog {
                             }
                         }
                     }
-                    
+
                     // Also check for package mentions in progress lines and other contexts
                     for (pkg_name, status) in &mut self.package_status {
                         let pkg_lower = pkg_name.to_lowercase();
-                        
+
                         // Check if this line mentions the package (more flexible matching)
-                        if line_lower.contains(&pkg_lower) || 
+                        if line_lower.contains(&pkg_lower) ||
                            (pkg_lower.len() > 3 && line_lower.contains(&pkg_lower[..pkg_lower.len().min(10)])) {
                             // Detect installation completion
-                            if line_lower.contains("installed") || 
-                               line_lower.contains("upgraded") || 
+                            if line_lower.contains("installed") ||
+                               line_lower.contains("upgraded") ||
                                (line_lower.contains("package") && line_lower.contains("already installed")) ||
                                (line_lower.contains("complete") && line_lower.contains(&pkg_lower)) {
                                 *status = InstallStatus::Installed;
-                            } 
+                            }
                             // Detect errors
-                            else if line_lower.contains("error") || 
+                            else if line_lower.contains("error") ||
                                     line_lower.contains("failed") ||
                                     line_lower.contains("cannot") ||
                                     line_lower.contains("dependency") {
                                 *status = InstallStatus::Failed;
                             }
                             // Detect active installation (if not already installed)
-                            else if (*status != InstallStatus::Installed) && 
-                                    (line_lower.contains("installing") || 
+                            else if (*status != InstallStatus::Installed) &&
+                                    (line_lower.contains("installing") ||
                                      line_lower.contains("upgrading") ||
                                      line_lower.contains("downloading") ||
                                      line_lower.contains("verifying")) {
@@ -658,7 +658,7 @@ impl Application for UpdateDialog {
                             }
                         }
                     }
-                    
+
                     // Update overall progress text
                     if line_lower.contains("downloading") {
                         self.installation_progress = "Downloading packages...".to_string();
@@ -679,7 +679,7 @@ impl Application for UpdateDialog {
                         self.installation_progress = "Installation complete!".to_string();
                     }
                 }
-                
+
                 // Append new lines to terminal output
                 if !new_lines.is_empty() {
                     if !self.terminal_output.is_empty() {
@@ -687,10 +687,10 @@ impl Application for UpdateDialog {
                     }
                     self.terminal_output.push_str(&new_lines.join("\n"));
                 }
-                
+
                 // Check if we should mark as complete
                 let output_lower = output.to_lowercase();
-                if output_lower.contains("complete") || 
+                if output_lower.contains("complete") ||
                    output_lower.contains("finished") ||
                    output_lower.contains("nothing to do") ||
                    output_lower.contains("no packages marked") {
@@ -789,7 +789,7 @@ async fn load_all_updates() -> Result<Vec<UpdateInfo>, String> {
         .map_err(|e| format!("Failed to execute dnf check-update: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // If stdout is empty, no updates available
     if stdout.trim().is_empty() {
         return Ok(Vec::new());
@@ -800,7 +800,7 @@ async fn load_all_updates() -> Result<Vec<UpdateInfo>, String> {
         .args(["list", "--installed", "--quiet"])
         .output()
         .await;
-    
+
     let mut installed_versions = std::collections::HashMap::new();
     if let Ok(installed) = installed_output {
         if installed.status.success() {
@@ -816,20 +816,20 @@ async fn load_all_updates() -> Result<Vec<UpdateInfo>, String> {
     }
 
     let mut updates = Vec::new();
-    
+
     // Parse check-update output: "package.arch  version  repository"
     for line in stdout.lines() {
         let line = line.trim();
         // Skip header lines and empty lines
-        if line.is_empty() || 
-           line.starts_with("Last metadata") || 
+        if line.is_empty() ||
+           line.starts_with("Last metadata") ||
            line.starts_with("Dependencies") ||
            line.starts_with("Upgrade") ||
            line.starts_with("Obsoleting") ||
            line.contains("Matched fields:") {
             continue;
         }
-        
+
         // Split by whitespace - format is: package.arch  version  repository
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 3 {
@@ -837,13 +837,13 @@ async fn load_all_updates() -> Result<Vec<UpdateInfo>, String> {
             let name = full_name.split('.').next().unwrap_or(full_name);
             let available_version = parts[1].to_string();
             let repository = parts[2].to_string();
-            
+
             // Get current version from installed packages
             let current_version = installed_versions
                 .get(name)
                 .cloned()
                 .unwrap_or_else(|| "Unknown".to_string());
-            
+
             updates.push(UpdateInfo {
                 name: name.to_string(),
                 current_version,
@@ -858,7 +858,7 @@ async fn load_all_updates() -> Result<Vec<UpdateInfo>, String> {
 
 async fn load_package_update_info(packages: Vec<String>) -> Result<Vec<UpdateInfo>, String> {
     eprintln!("[DEBUG] load_package_update_info called with {} packages: {:?}", packages.len(), packages);
-    
+
     // Get all available updates
     let output = TokioCommand::new("dnf")
         .args(["check-update", "--quiet"])
@@ -867,9 +867,9 @@ async fn load_package_update_info(packages: Vec<String>) -> Result<Vec<UpdateInf
         .map_err(|e| format!("Failed to execute dnf check-update: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     eprintln!("[DEBUG] dnf check-update output length: {} bytes", stdout.len());
-    
+
     // If stdout is empty, no updates available
     if stdout.trim().is_empty() {
         eprintln!("[DEBUG] No updates available according to dnf check-update");
@@ -881,7 +881,7 @@ async fn load_package_update_info(packages: Vec<String>) -> Result<Vec<UpdateInf
         .args(["list", "--installed", "--quiet"])
         .output()
         .await;
-    
+
     let mut installed_versions = std::collections::HashMap::new();
     if let Ok(installed) = installed_output {
         if installed.status.success() {
@@ -905,40 +905,40 @@ async fn load_package_update_info(packages: Vec<String>) -> Result<Vec<UpdateInf
 
     let mut updates = Vec::new();
     let mut found_packages = std::collections::HashSet::new();
-    
+
     // Parse check-update output: "package.arch  version  repository"
     for line in stdout.lines() {
         let line = line.trim();
         // Skip header lines and empty lines
-        if line.is_empty() || 
-           line.starts_with("Last metadata") || 
+        if line.is_empty() ||
+           line.starts_with("Last metadata") ||
            line.starts_with("Dependencies") ||
            line.starts_with("Upgrade") ||
            line.starts_with("Obsoleting") ||
            line.contains("Matched fields:") {
             continue;
         }
-        
+
         // Split by whitespace - format is: package.arch  version  repository
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 3 {
             let full_name = parts[0];
             let name = full_name.split('.').next().unwrap_or(full_name);
             let name_lower = name.to_lowercase();
-            
+
             // Only include packages that are in our list
             if packages_set.contains(&name_lower) {
                 let available_version = parts[1].to_string();
                 let repository = parts[2].to_string();
-                
+
                 // Get current version from installed packages
                 let current_version = installed_versions
                     .get(name)
                     .cloned()
                     .unwrap_or_else(|| "Unknown".to_string());
-                
+
                 eprintln!("[DEBUG] Found package in updates: {} ({} -> {})", name, current_version, available_version);
-                
+
                 updates.push(UpdateInfo {
                     name: name.to_string(),
                     current_version,
@@ -949,62 +949,62 @@ async fn load_package_update_info(packages: Vec<String>) -> Result<Vec<UpdateInf
             }
         }
     }
-    
+
     // Log packages that weren't found
     for pkg in &packages_set {
         if !found_packages.contains(pkg) {
             eprintln!("[DEBUG] WARNING: Package '{}' not found in dnf check-update output", pkg);
         }
     }
-    
+
     eprintln!("[DEBUG] Found {}/{} packages in updates", updates.len(), packages.len());
 
     Ok(updates)
 }
 
 async fn install_updates_streaming(
-    packages: Vec<String>, 
+    packages: Vec<String>,
     _packages_with_info: Vec<UpdateInfo>,
     _package_names: std::collections::HashSet<String>
 ) -> Result<String, String> {
     // Load settings
     let settings = UpdateSettings::load();
-    
+
     // Clone packages for display before moving
     let packages_display = packages.clone();
-    
+
     eprintln!("[DEBUG] install_updates_streaming called with {} packages", packages.len());
     eprintln!("[DEBUG] Package names: {:?}", packages);
-    
+
     if packages.is_empty() {
         return Err("No packages specified for installation".to_string());
     }
-    
+
     // Use dnf upgrade with package names
     // dnf upgrade will upgrade to the latest available version for each package
     let mut dnf_args: Vec<String> = vec!["dnf".to_string(), "upgrade".to_string(), "-y".to_string(), "--assumeyes".to_string()];
-    
+
     // Add settings-based arguments first (flags should come before package names)
     dnf_args.extend(settings.to_dnf_args());
-    
+
     // Add package names to upgrade
     dnf_args.extend(packages.clone());
-    
+
     eprintln!("[DEBUG] dnf command: pkexec {}", dnf_args.join(" "));
-    
+
     // Use pkexec for privilege escalation (better than sudo for GUI apps)
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args(&dnf_args);
-    
+
     // Ensure DISPLAY is set for GUI password dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     // Use spawn to get streaming output
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to execute dnf upgrade: {}", e))?;
@@ -1012,18 +1012,18 @@ async fn install_updates_streaming(
     // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut combined_output = String::new();
     combined_output.push_str("Starting system update...\n");
     if !packages_display.is_empty() {
         combined_output.push_str(&format!("Upgrading packages: {}\n", packages_display.join(", ")));
     }
     combined_output.push_str("--- Output ---\n");
-    
+
     // Read both stdout and stderr line by line
     // Send each line as it comes for real-time progress tracking
     loop {
@@ -1064,7 +1064,7 @@ async fn install_updates_streaming(
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
@@ -1074,23 +1074,23 @@ async fn install_updates_streaming(
     eprintln!("[DEBUG] dnf command finished with exit code: {}", exit_code);
     eprintln!("[DEBUG] Output length: {} bytes", combined_output.len());
     eprintln!("[DEBUG] Output preview: {}", combined_output.chars().take(500).collect::<String>());
-    
+
     // Check for common error patterns in output even if exit code is 0
     let output_lower = combined_output.to_lowercase();
-    let has_error = output_lower.contains("error") || 
+    let has_error = output_lower.contains("error") ||
                     output_lower.contains("failed") ||
                     output_lower.contains("cannot") ||
                     output_lower.contains("no package") ||
                     output_lower.contains("nothing provides") ||
                     output_lower.contains("problem") ||
                     output_lower.contains("conflict");
-    
+
     // dnf upgrade returns exit code 0 on success, but also returns 0 if nothing to do
     // Check if there's actual output indicating work was done
-    let has_output = !combined_output.trim().is_empty() && 
+    let has_output = !combined_output.trim().is_empty() &&
                      combined_output.trim() != "Starting system update...\n--- Output ---\n" &&
                      !combined_output.trim().ends_with("Starting system update...\n--- Output ---");
-    
+
     // Always return the output so it can be displayed, even on failure
     // The UI will handle showing errors appropriately
     if !success {
@@ -1099,7 +1099,7 @@ async fn install_updates_streaming(
         // Include the full output so users can see what went wrong
         return Err(format!("Update installation failed (exit code: {}):\n\n{}", exit_code, combined_output));
     }
-    
+
     // Check for errors in output even if exit code is 0
     if has_error {
         return Err(format!("Update installation encountered errors:\n{}", combined_output));

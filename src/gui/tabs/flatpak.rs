@@ -72,27 +72,27 @@ pub struct FlatpakTab {
     search_query: String,
     search_results: Vec<FlatpakInfo>,
     is_searching: bool,
-    
+
     // Install state
     selected_packages: std::collections::HashSet<String>,
     is_installing: bool,
-    
+
     // Installed list state
     installed_flatpaks: Vec<FlatpakInfo>,
     is_loading_installed: bool,
-    
+
     // Remove state
     is_removing: bool,
-    
+
     // Update state
     updates: Vec<FlatpakInfo>,
     is_checking_updates: bool,
     is_updating: bool,
     update_error: Option<String>,
-    
+
     // View mode
     view_mode: ViewMode,
-    
+
     // Package details panel
     selected_package: Option<String>,
     package_details: Option<FlatpakDetails>,
@@ -211,7 +211,7 @@ impl FlatpakTab {
                         .iter()
                         .find(|p| &p.application_id == first_pkg)
                         .and_then(|p| p.remote.clone());
-                    
+
                     let app_id = first_pkg.clone();
                     let remote_clone = remote.clone();
                     iced::Command::perform(
@@ -320,17 +320,17 @@ impl FlatpakTab {
                         remote: u.remote.clone(),
                     })
                     .collect();
-                
+
                 iced::Command::perform(
                     async move {
                         use tokio::process::Command as TokioCommand;
                         use base64::{Engine as _, engine::general_purpose};
-                        
+
                         // Serialize to JSON and encode as base64
                         let json = serde_json::to_string(&updates)
                             .unwrap_or_else(|_| "[]".to_string());
                         let encoded = general_purpose::STANDARD.encode(json.as_bytes());
-                        
+
                         let exe_path = std::env::current_exe()
                             .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         let _ = TokioCommand::new(&exe_path)
@@ -387,9 +387,9 @@ impl FlatpakTab {
     pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let tab_font_size = settings.font_size_tabs * settings.scale_tabs;
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
-        
+
         let material_font = crate::gui::fonts::get_material_symbols_font();
-        
+
         // Mode selector buttons
         let search_mode_button = button(
             row![
@@ -711,7 +711,7 @@ impl FlatpakTab {
                                 .spacing(12)
                                 .into(),
                             ];
-                            
+
                             if !details.license.is_empty() {
                                 items.push(Space::with_height(Length::Fixed(8.0)).into());
                                 items.push(
@@ -723,7 +723,7 @@ impl FlatpakTab {
                                     .into()
                                 );
                             }
-                            
+
                             column(items).spacing(0)
                         })
                         .padding(Padding::new(18.0))
@@ -789,7 +789,7 @@ impl FlatpakTab {
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
         let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
-        
+
         let refresh_button = button(
             row![
                 text(crate::gui::fonts::glyphs::REFRESH_SYMBOL).font(material_font).size(icon_size),
@@ -905,7 +905,7 @@ impl FlatpakTab {
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
         let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
-        
+
         let check_button = if self.is_checking_updates {
             button(
                 row![
@@ -1092,7 +1092,7 @@ async fn search_flatpaks(query: String) -> Result<Vec<FlatpakInfo>, String> {
         if line.is_empty() {
             continue;
         }
-        
+
         // Parse tab-separated values: name, application, description, version, remotes
         // Format: name<TAB>application<TAB>description<TAB>version<TAB>remotes
         let parts: Vec<&str> = line.split('\t').collect();
@@ -1106,7 +1106,7 @@ async fn search_flatpaks(query: String) -> Result<Vec<FlatpakInfo>, String> {
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .map(|s| s.split(',').next().unwrap_or(s).trim().to_string());
-            
+
             results.push(FlatpakInfo {
                 name,
                 application_id,
@@ -1158,7 +1158,7 @@ async fn load_installed_flatpaks() -> Result<Vec<FlatpakInfo>, String> {
         if line.is_empty() {
             continue;
         }
-        
+
         // Parse tab-separated values: name, application, version, origin
         // Note: version can be empty for some entries (like runtimes)
         let parts: Vec<&str> = line.split('\t').collect();
@@ -1167,7 +1167,7 @@ async fn load_installed_flatpaks() -> Result<Vec<FlatpakInfo>, String> {
             let application_id = parts[1].trim().to_string();
             let version = parts.get(2).map(|s| s.trim()).unwrap_or("").to_string();
             let remote = parts.get(3).map(|s| s.trim()).filter(|s| !s.is_empty()).map(|s| s.to_string());
-            
+
             packages.push(FlatpakInfo {
                 name,
                 application_id,
@@ -1213,7 +1213,7 @@ async fn check_flatpak_updates() -> Result<Vec<FlatpakInfo>, String> {
         .map_err(|e| format!("Failed to execute flatpak list: {}", e))?;
 
     if !installed_output.status.success() {
-        return Err(format!("Failed to list installed flatpaks: {}", 
+        return Err(format!("Failed to list installed flatpaks: {}",
             String::from_utf8_lossy(&installed_output.stderr)));
     }
 
@@ -1298,14 +1298,14 @@ async fn check_flatpak_updates() -> Result<Vec<FlatpakInfo>, String> {
                 if line.is_empty() {
                     continue;
                 }
-                
+
                 let parts: Vec<&str> = line.split('\t').collect();
                 if parts.len() >= 2 {
                     let name = parts[0].trim().to_string();
                     let application_id = parts[1].trim().to_string();
                     let version = parts.get(2).map(|s| s.trim()).unwrap_or("").to_string();
                     let remote = parts.get(3).map(|s| s.trim()).filter(|s| !s.is_empty()).map(|s| s.to_string());
-                    
+
                     // Only add if not already in updates list
                     if !updates.iter().any(|u| u.application_id == application_id) {
                         updates.push(FlatpakInfo {

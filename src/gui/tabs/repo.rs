@@ -133,7 +133,7 @@ impl RepoTab {
                 .cloned()
                 .collect()
         };
-        
+
         // Filter by view (NVIDIA sub-tab shows only NVIDIA-related repos, RPM Fusion shows RPM Fusion repos)
         if self.current_view == RepoView::Nvidia {
             filtered = filtered
@@ -157,7 +157,7 @@ impl RepoTab {
                 })
                 .collect();
         }
-        
+
         self.filtered_repositories = filtered;
     }
 
@@ -176,13 +176,13 @@ impl RepoTab {
                 self.is_loading = false;
                 self.repositories = repos;
                 self.filter_repositories();
-                
+
                 // Reload details if panel is open to reflect changes
                 if let Some(ref repo_id) = self.selected_repository {
                     let repo_id = repo_id.clone();
                     return iced::Command::perform(load_repository_details(repo_id), Message::RepositoryDetailsLoaded);
                 }
-                
+
                 iced::Command::none()
             }
             Message::SearchQueryChanged(query) => {
@@ -263,7 +263,7 @@ impl RepoTab {
             Message::OpenAddRepoTerminal => {
                 self.terminal_open = true;
                 self.terminal_command = String::new();
-                self.terminal_output = vec!["# Add Repository Terminal".to_string(), 
+                self.terminal_output = vec!["# Add Repository Terminal".to_string(),
                                              "# Commands requiring root privileges (dnf, yum, rpm) will prompt for sudo password".to_string(),
                                              "# Enter a command to add a repository, e.g.:".to_string(),
                                              "# dnf config-manager --add-repo https://example.com/repo.repo".to_string(),
@@ -343,7 +343,7 @@ impl RepoTab {
                         }
                     );
                 }
-                
+
                 self.terminal_is_executing = false;
                 if !stdout.is_empty() {
                     for line in stdout.lines() {
@@ -440,7 +440,7 @@ impl RepoTab {
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         if let Some(ref details) = self.repository_details {
             let material_font = crate::gui::fonts::get_material_symbols_font();
-            
+
             container(
                 scrollable(
                     column![
@@ -742,7 +742,7 @@ impl RepoTab {
 
     pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
-        
+
         // Calculate font sizes from settings
         let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_font_size = (settings.font_size_body * settings.scale_body).round();
@@ -750,7 +750,7 @@ impl RepoTab {
         let input_font_size = (settings.font_size_inputs * settings.scale_inputs).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         let tab_font_size = (settings.font_size_tabs * settings.scale_tabs).round();
-        
+
         // Header section
         let header = container(
             column![
@@ -946,7 +946,7 @@ impl RepoTab {
                                 } else {
                                     iced::Color::from_rgb(0.6, 0.6, 0.6)
                                 };
-                                
+
                                 let url_display = repo.baseurl.as_ref()
                                     .or(repo.metalink.as_ref())
                                     .map(|u| {
@@ -1135,7 +1135,7 @@ impl RepoTab {
                                 } else {
                                     iced::Color::from_rgb(0.6, 0.6, 0.6)
                                 };
-                                
+
                                 let url_display = repo.baseurl.as_ref()
                                     .or(repo.metalink.as_ref())
                                     .map(|u| {
@@ -1298,7 +1298,7 @@ impl RepoTab {
                             } else {
                                 iced::Color::from_rgb(0.6, 0.6, 0.6)
                             };
-                            
+
                             let url_display = repo.baseurl.as_ref()
                                 .or(repo.metalink.as_ref())
                             .cloned()
@@ -1643,7 +1643,7 @@ impl RepoTab {
 
 async fn load_repositories() -> Result<Vec<RepositoryInfo>, String> {
     let repos_dir = PathBuf::from("/etc/yum.repos.d");
-    
+
     if !repos_dir.exists() {
         return Err("Repository directory not found".to_string());
     }
@@ -1657,7 +1657,7 @@ async fn load_repositories() -> Result<Vec<RepositoryInfo>, String> {
     for entry in entries {
         let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
         let path = entry.path();
-        
+
         if path.extension().and_then(|s| s.to_str()) == Some("repo") {
             if let Ok(content) = std::fs::read_to_string(&path) {
                 let repos = parse_repo_file(&content, path.to_string_lossy().to_string());
@@ -1683,7 +1683,7 @@ fn shorten_repo_id(id: &str) -> String {
             }
         }
     }
-    
+
     // For other long IDs, truncate if too long
     if id.len() > 40 {
         format!("{}...", &id[..37])
@@ -1699,7 +1699,7 @@ fn parse_repo_file(content: &str, file_path: String) -> Vec<RepositoryInfo> {
 
     for line in content.lines() {
         let line = line.trim();
-        
+
         // Skip comments and empty lines
         if line.is_empty() || line.starts_with('#') {
             continue;
@@ -1741,14 +1741,14 @@ fn build_repository_info(section_id: &str, data: &HashMap<String, String>, file_
         .map(|s| s.replace("$releasever", "40").replace("$basearch", "x86_64"));
     let metalink = data.get("metalink").filter(|s| !s.trim().is_empty() && !s.starts_with('#'))
         .map(|s| s.replace("$releasever", "40").replace("$basearch", "x86_64"));
-    
+
     let enabled = data.get("enabled")
         .map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true"))
         .unwrap_or(true);
-    
+
     let gpgcheck = data.get("gpgcheck")
         .map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true"));
-    
+
     let repo_gpgcheck = data.get("repo_gpgcheck")
         .map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true"));
 
@@ -1767,7 +1767,7 @@ fn build_repository_info(section_id: &str, data: &HashMap<String, String>, file_
 async fn load_repository_details(repo_id: String) -> RepositoryDetails {
     // Reload repositories to get full details
     let repos = load_repositories().await.unwrap_or_default();
-    
+
     if let Some(repo) = repos.iter().find(|r| r.id == repo_id) {
         // Read the file again to get all details
         if let Ok(content) = std::fs::read_to_string(&repo.file_path) {
@@ -1801,7 +1801,7 @@ fn parse_repo_details(content: &str, repo_id: &str, file_path: &str) -> Option<R
 
     for line in content.lines() {
         let line = line.trim();
-        
+
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
@@ -1831,7 +1831,7 @@ fn parse_repo_details(content: &str, repo_id: &str, file_path: &str) -> Option<R
         .map(|s| s.replace("$releasever", "40").replace("$basearch", "x86_64"));
     let metalink = data.get("metalink").filter(|s| !s.trim().is_empty() && !s.starts_with('#'))
         .map(|s| s.replace("$releasever", "40").replace("$basearch", "x86_64"));
-    
+
     let enabled = data.get("enabled")
         .map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true"))
         .unwrap_or(true);
@@ -1855,17 +1855,17 @@ fn parse_repo_details(content: &str, repo_id: &str, file_path: &str) -> Option<R
 
 async fn toggle_repository(repo_id: String, enable: bool) -> Result<String, String> {
     use tokio::process::Command as TokioCommand;
-    
+
     let action = if enable { "set-enabled" } else { "set-disabled" };
-    
+
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args(["dnf", "config-manager", &format!("--{}", action), &repo_id]);
-    
+
     // Ensure DISPLAY is set for GUI password dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     let output = cmd
         .output()
         .await
@@ -1874,18 +1874,18 @@ async fn toggle_repository(repo_id: String, enable: bool) -> Result<String, Stri
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         // Check if user cancelled the password dialog
         if output.status.code() == Some(126) || output.status.code() == Some(127) {
             return Err("Authentication cancelled or failed. Please try again.".to_string());
         }
-        
-        return Err(format!("Failed to {} repository: {}\n{}", 
+
+        return Err(format!("Failed to {} repository: {}\n{}",
             if enable { "enable" } else { "disable" },
             stderr, stdout));
     }
 
-    Ok(format!("Repository {} {}", 
+    Ok(format!("Repository {} {}",
         repo_id,
         if enable { "enabled" } else { "disabled" }))
 }
@@ -2191,21 +2191,21 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
 // Install NVIDIA repository
 async fn install_nvidia_repo() -> Result<(), String> {
     use tokio::process::Command as TokioCommand;
-    
+
     // Check if repository already exists
     let check_cmd = TokioCommand::new("dnf")
         .arg("repoinfo")
         .arg("fedora-nvidia")
         .output()
         .await;
-    
+
     // If repo exists, return success without adding
     if let Ok(output) = check_cmd {
         if output.status.success() {
             return Ok(()); // Repository already exists
         }
     }
-    
+
     // Use pkexec to run with elevated privileges
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("dnf");
@@ -2213,15 +2213,15 @@ async fn install_nvidia_repo() -> Result<(), String> {
     cmd.arg("addrepo");
     cmd.arg("--from-repofile");
     cmd.arg("https://negativo17.org/repos/fedora-nvidia.repo");
-    
+
     // Ensure DISPLAY is set for GUI dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     let output = cmd.output().await
         .map_err(|e| format!("Failed to execute command: {}", e))?;
-    
+
     if output.status.success() {
         Ok(())
     } else {
@@ -2233,25 +2233,25 @@ async fn install_nvidia_repo() -> Result<(), String> {
 async fn install_rpmfusion_repos() -> Result<(), String> {
     use tokio::process::Command as TokioCommand;
     use std::process::Command as StdCommand;
-    
+
     // First, get the Fedora version
     let fedora_version_output = StdCommand::new("rpm")
         .args(&["-E", "%fedora"])
         .output()
         .map_err(|e| format!("Failed to get Fedora version: {}", e))?;
-    
+
     if !fedora_version_output.status.success() {
         return Err("Failed to determine Fedora version".to_string());
     }
-    
+
     let fedora_version = String::from_utf8_lossy(&fedora_version_output.stdout)
         .trim()
         .to_string();
-    
+
     if fedora_version.is_empty() {
         return Err("Fedora version is empty".to_string());
     }
-    
+
     // Build URLs for RPM Fusion repos
     let free_repo_url = format!(
         "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-{}.noarch.rpm",
@@ -2261,42 +2261,42 @@ async fn install_rpmfusion_repos() -> Result<(), String> {
         "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{}.noarch.rpm",
         fedora_version
     );
-    
+
     // Install free repo first
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("dnf");
     cmd.arg("install");
     cmd.arg("-y");
     cmd.arg(&free_repo_url);
-    
+
     // Ensure DISPLAY is set for GUI dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     let output = cmd.output().await
         .map_err(|e| format!("Failed to execute command: {}", e))?;
-    
+
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("Failed to install RPM Fusion Free repository: {}", stderr));
     }
-    
+
     // Install nonfree repo
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("dnf");
     cmd.arg("install");
     cmd.arg("-y");
     cmd.arg(&nonfree_repo_url);
-    
+
     // Ensure DISPLAY is set for GUI dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     let output = cmd.output().await
         .map_err(|e| format!("Failed to execute command: {}", e))?;
-    
+
     if output.status.success() {
         Ok(())
     } else {
@@ -2317,7 +2317,7 @@ fn detect_prompt(output: &str) -> Option<String> {
         "Continue?",
         "Proceed?",
     ];
-    
+
     // Check each line for prompt patterns
     for line in output.lines().rev() {
         let line_lower = line.to_lowercase();
@@ -2338,7 +2338,7 @@ fn detect_prompt(output: &str) -> Option<String> {
 // Show a yes/no dialog using zenity or kdialog
 async fn show_prompt_dialog(prompt_text: String) -> Option<bool> {
     use tokio::process::Command as TokioCommand;
-    
+
     // Try zenity first (GNOME)
     let zenity_cmd = TokioCommand::new("zenity")
         .args([
@@ -2351,12 +2351,12 @@ async fn show_prompt_dialog(prompt_text: String) -> Option<bool> {
         ])
         .output()
         .await;
-    
+
     if let Ok(output) = zenity_cmd {
         // zenity returns 0 for yes, 1 for no
         return Some(output.status.code() == Some(0));
     }
-    
+
     // Fallback to kdialog (KDE)
     let kdialog_cmd = TokioCommand::new("kdialog")
         .args([
@@ -2366,12 +2366,12 @@ async fn show_prompt_dialog(prompt_text: String) -> Option<bool> {
         ])
         .output()
         .await;
-    
+
     if let Ok(output) = kdialog_cmd {
         // kdialog returns 0 for yes, 1 for no
         return Some(output.status.code() == Some(0));
     }
-    
+
     // If both fail, return None (user cancelled or no dialog available)
     None
 }
@@ -2391,38 +2391,38 @@ async fn execute_terminal_command_interactive(command: String) -> Result<(String
 // Send prompt response by re-running command with answer
 async fn send_prompt_response(original_command: String, _prompt_text: String, response: String) -> Result<(String, String, bool), String> {
     use tokio::process::Command as TokioCommand;
-    
+
     // Parse the original command
     let parts: Vec<&str> = original_command.trim().split_whitespace().collect();
     if parts.is_empty() {
         return Err("Empty command".to_string());
     }
-    
+
     let program = parts[0];
     let args = &parts[1..];
-    
+
     // Use echo to pipe the response, then run the command
     // Format: echo "y" | pkexec dnf ...
-    let needs_root = program == "dnf" || program == "yum" || program == "rpm" || 
+    let needs_root = program == "dnf" || program == "yum" || program == "rpm" ||
                      (program == "sudo" && args.get(0).map(|a| *a == "dnf" || *a == "yum" || *a == "rpm").unwrap_or(false));
-    
+
     let output = if needs_root {
         // Build command: echo "y" | pkexec dnf ...
         let mut cmd = TokioCommand::new("sh");
         cmd.arg("-c");
-        
+
         let cmd_str = if program == "sudo" {
             format!("echo \"{}\" | pkexec {}", response, args.join(" "))
         } else {
             format!("echo \"{}\" | pkexec {} {}", response, program, args.join(" "))
         };
         cmd.arg(&cmd_str);
-        
+
         // Ensure DISPLAY is set for GUI password dialog
         if let Ok(display) = std::env::var("DISPLAY") {
             cmd.env("DISPLAY", display);
         }
-        
+
         cmd.output().await
     } else {
         let mut cmd = TokioCommand::new("sh");
@@ -2431,17 +2431,17 @@ async fn send_prompt_response(original_command: String, _prompt_text: String, re
         cmd.arg(&cmd_str);
         cmd.output().await
     };
-    
+
     match output {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             let success = output.status.success();
-            
+
             if !success && (output.status.code() == Some(126) || output.status.code() == Some(127)) {
                 return Err("Authentication cancelled or failed. Please try again.".to_string());
             }
-            
+
             Ok((stdout, stderr, success))
         }
         Err(e) => Err(format!("Failed to execute command: {}. Make sure polkit is installed.", e)),
@@ -2460,9 +2460,9 @@ async fn execute_terminal_command(command: String) -> Result<(String, String, bo
 
     // Use pkexec for commands that need root privileges (like dnf config-manager)
     // This includes dnf, yum, rpm, and any command that modifies system repositories
-    let needs_root = program == "dnf" || program == "yum" || program == "rpm" || 
+    let needs_root = program == "dnf" || program == "yum" || program == "rpm" ||
                      (program == "sudo" && args.get(0).map(|a| *a == "dnf" || *a == "yum" || *a == "rpm").unwrap_or(false));
-    
+
     let output = if needs_root {
         let mut cmd = TokioCommand::new("pkexec");
         // If command starts with sudo, remove it since pkexec handles elevation
@@ -2472,12 +2472,12 @@ async fn execute_terminal_command(command: String) -> Result<(String, String, bo
             cmd.arg(program);
             cmd.args(args);
         }
-        
+
         // Ensure DISPLAY is set for GUI password dialog
         if let Ok(display) = std::env::var("DISPLAY") {
             cmd.env("DISPLAY", display);
         }
-        
+
         cmd.output().await
     } else {
         let mut cmd = TokioCommand::new(program);
@@ -2490,12 +2490,12 @@ async fn execute_terminal_command(command: String) -> Result<(String, String, bo
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             let success = output.status.success();
-            
+
             // Check if user cancelled the password dialog (exit code 126 or 127)
             if !success && (output.status.code() == Some(126) || output.status.code() == Some(127)) {
                 return Err("Authentication cancelled or failed. Please try again.".to_string());
             }
-            
+
             Ok((stdout, stderr, success))
         }
         Err(e) => Err(format!("Failed to execute command: {}. Make sure polkit is installed.", e)),

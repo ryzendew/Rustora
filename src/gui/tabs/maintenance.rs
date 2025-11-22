@@ -143,13 +143,13 @@ impl MaintenanceTab {
 
     pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
-        
+
         // Calculate font sizes from settings
         let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_font_size = (settings.font_size_body * settings.scale_body).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
-        
+
         // Header section
         let header = container(
             column![
@@ -479,11 +479,11 @@ impl MaintenanceTab {
 async fn rebuild_kernel_modules_streaming() -> Result<String, String> {
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args(["akmods", "--force", "--rebuild"]);
-    
+
     // Use spawn to get streaming output and prevent blocking
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to execute akmods: {}", e))?;
@@ -491,15 +491,15 @@ async fn rebuild_kernel_modules_streaming() -> Result<String, String> {
     // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut combined_output = String::new();
     combined_output.push_str("Running: akmods --force --rebuild\n");
     combined_output.push_str("--- Output ---\n");
-    
+
     // Read both stdout and stderr
     loop {
         tokio::select! {
@@ -539,12 +539,12 @@ async fn rebuild_kernel_modules_streaming() -> Result<String, String> {
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     if !status.success() {
-        return Err(format!("Kernel module rebuild failed (exit code: {}):\n{}", 
+        return Err(format!("Kernel module rebuild failed (exit code: {}):\n{}",
             status.code().unwrap_or(-1), combined_output));
     }
 
@@ -554,25 +554,25 @@ async fn rebuild_kernel_modules_streaming() -> Result<String, String> {
 async fn regenerate_initramfs_streaming() -> Result<String, String> {
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args(["dracut", "-f", "regenerate-all"]);
-    
+
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to execute dracut: {}", e))?;
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut combined_output = String::new();
     combined_output.push_str("Running: dracut -f regenerate-all\n");
     combined_output.push_str("--- Output ---\n");
-    
+
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -611,12 +611,12 @@ async fn regenerate_initramfs_streaming() -> Result<String, String> {
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     if !status.success() {
-        return Err(format!("Initramfs regeneration failed (exit code: {}):\n{}", 
+        return Err(format!("Initramfs regeneration failed (exit code: {}):\n{}",
             status.code().unwrap_or(-1), combined_output));
     }
 
@@ -641,26 +641,26 @@ async fn remove_orphaned_packages_streaming() -> Result<String, String> {
     // Remove orphaned packages with streaming
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args(["dnf", "autoremove", "-y", "--assumeyes"]);
-    
+
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to remove orphaned packages: {}", e))?;
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut combined_output = String::new();
     combined_output.push_str(&format!("Found {} orphaned package(s)\n", orphaned_count));
     combined_output.push_str("Running: dnf autoremove -y\n");
     combined_output.push_str("--- Output ---\n");
-    
+
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -699,12 +699,12 @@ async fn remove_orphaned_packages_streaming() -> Result<String, String> {
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     if !status.success() {
-        return Err(format!("Failed to remove orphaned packages (exit code: {}):\n{}", 
+        return Err(format!("Failed to remove orphaned packages (exit code: {}):\n{}",
             status.code().unwrap_or(-1), combined_output));
     }
 
@@ -714,25 +714,25 @@ async fn remove_orphaned_packages_streaming() -> Result<String, String> {
 async fn clean_package_cache_streaming() -> Result<String, String> {
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args(["dnf", "clean", "all"]);
-    
+
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to clean package cache: {}", e))?;
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut combined_output = String::new();
     combined_output.push_str("Running: dnf clean all\n");
     combined_output.push_str("--- Output ---\n");
-    
+
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -771,12 +771,12 @@ async fn clean_package_cache_streaming() -> Result<String, String> {
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     if !status.success() {
-        return Err(format!("Package cache cleanup failed (exit code: {}):\n{}", 
+        return Err(format!("Package cache cleanup failed (exit code: {}):\n{}",
             status.code().unwrap_or(-1), combined_output));
     }
 

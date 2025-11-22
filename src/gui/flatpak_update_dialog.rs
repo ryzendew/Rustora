@@ -52,14 +52,14 @@ impl FlatpakUpdateDialog {
 
     pub fn run_separate_window(packages: Vec<FlatpakUpdateInfo>) -> Result<(), iced::Error> {
         let dialog = Self::new(packages);
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(900.0, 700.0);
         window_settings.min_size = Some(iced::Size::new(700.0, 500.0));
         window_settings.max_size = None;
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <FlatpakUpdateDialog as Application>::run(iced::Settings {
@@ -80,9 +80,9 @@ impl FlatpakUpdateDialog {
         let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
         let _button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
-        
+
         let material_font = crate::gui::fonts::get_material_symbols_font();
-        
+
         let title = container(
             row![
                 column![
@@ -154,7 +154,7 @@ impl FlatpakUpdateDialog {
             } else {
                 self.progress_text.clone()
             };
-            
+
             container(
                 column![
                     text("Update Progress").size(15).style(iced::theme::Text::Color(theme.primary())),
@@ -349,11 +349,11 @@ impl Application for FlatpakUpdateDialog {
                 self.has_error = false;
                 self.progress_text = "Starting update...".to_string();
                 self.terminal_output = String::new();
-                
+
                 let packages_to_update: Vec<String> = self.packages.iter()
                     .map(|p| p.application_id.clone())
                     .collect();
-                
+
                 iced::Command::perform(update_flatpaks_streaming(packages_to_update), |result| {
                     match result {
                         Ok(output) => Message::UpdateProgress(output),
@@ -367,23 +367,23 @@ impl Application for FlatpakUpdateDialog {
                     self.terminal_output.push('\n');
                 }
                 self.terminal_output.push_str(&output);
-                
+
                 // Update progress text
                 self.progress_text = output.clone();
-                
+
                 // Try to detect which package is being updated
                 let output_lower = output.to_lowercase();
                 for pkg in &self.packages {
-                    if output_lower.contains(&pkg.name.to_lowercase()) || 
+                    if output_lower.contains(&pkg.name.to_lowercase()) ||
                        output_lower.contains(&pkg.application_id.to_lowercase()) {
                         self.current_package = Some(pkg.application_id.clone());
                         break;
                     }
                 }
-                
+
                 // Check if update is complete
-                if output.contains("Complete") || 
-                   output.contains("Installed") || 
+                if output.contains("Complete") ||
+                   output.contains("Installed") ||
                    output.contains("complete") ||
                    output.to_lowercase().contains("success") ||
                    output.contains("Nothing to do") {
@@ -431,20 +431,20 @@ impl Application for FlatpakUpdateDialog {
 async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, String> {
     let mut cmd = TokioCommand::new("flatpak");
     cmd.args(["update", "--app", "-y", "--noninteractive", "--verbose"]);
-    
+
     // Add specific packages if provided
     if !packages.is_empty() {
         cmd.args(&packages);
     }
-    
+
     // Log the command being executed
-    let command_str = format!("flatpak update --app -y --noninteractive --verbose {}", 
+    let command_str = format!("flatpak update --app -y --noninteractive --verbose {}",
         packages.join(" "));
-    
+
     // Use spawn to get streaming output
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to execute flatpak update: {}", e))?;
@@ -452,15 +452,15 @@ async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, Stri
     // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut combined_output = String::new();
     combined_output.push_str(&format!("Command: {}\n", command_str));
     combined_output.push_str("--- Output ---\n");
-    
+
     // Read both stdout and stderr
     loop {
         tokio::select! {
@@ -500,13 +500,13 @@ async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, Stri
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     let success = status.success();
     let exit_code = status.code().unwrap_or(-1);
-    
+
     // Write log file
     let packages_str = packages.join(", ");
     write_flatpak_log("update", &packages_str, None, &combined_output, success).await;
@@ -514,12 +514,12 @@ async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, Stri
     if !success {
         // Check if it's a known "no updates" case
         let output_lower = combined_output.to_lowercase();
-        if output_lower.contains("nothing to do") || 
+        if output_lower.contains("nothing to do") ||
            output_lower.contains("no updates") {
             // This is actually a success case
             return Ok(format!("No updates needed.\n\n{}", combined_output));
         }
-        
+
         // For other failures, return error with full output
         return Err(format!("Update failed (exit code: {}):\n{}", exit_code, combined_output));
     }
@@ -530,7 +530,7 @@ async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, Stri
     } else {
         // Check if output indicates success
         let output_lower = combined_output.to_lowercase();
-        if output_lower.contains("complete") || 
+        if output_lower.contains("complete") ||
            output_lower.contains("installed") ||
            output_lower.contains("success") {
             Ok(combined_output)
@@ -548,10 +548,10 @@ async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String
             eprintln!("Failed to create log directory: {}", e);
             return;
         }
-        
+
         let timestamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S");
         let log_file = log_dir.join(format!("flatpak_{}_{}.log", operation, timestamp));
-        
+
         let mut log_content = String::new();
         log_content.push_str(&format!("=== Flatpak {} Log ===\n", operation));
         log_content.push_str(&format!("Timestamp: {}\n", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")));
@@ -563,7 +563,7 @@ async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String
         log_content.push_str("\n--- Command Output ---\n");
         log_content.push_str(output);
         log_content.push_str("\n--- End of Log ---\n");
-        
+
         if let Err(e) = fs::write(&log_file, log_content).await {
             eprintln!("Failed to write log file: {}", e);
         }

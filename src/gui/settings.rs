@@ -74,7 +74,7 @@ impl AppSettings {
                 return settings;
             }
         }
-        
+
         // Default settings
         AppSettings {
             tab_visibility: HashMap::new(),
@@ -106,18 +106,18 @@ impl AppSettings {
             scale_package_cards: 1.0,
         }
     }
-    
+
     pub fn save(&self) {
         let settings_path = Self::settings_path();
         if let Some(parent) = settings_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        
+
         if let Ok(json) = serde_json::to_string_pretty(self) {
             let _ = fs::write(&settings_path, json);
         }
     }
-    
+
     pub fn settings_path() -> PathBuf {
         if let Ok(home) = std::env::var("HOME") {
             PathBuf::from(home).join(".config").join("rustora").join("settings.json")
@@ -125,7 +125,7 @@ impl AppSettings {
             PathBuf::from(".config").join("rustora").join("settings.json")
         }
     }
-    
+
     pub fn themes_path() -> PathBuf {
         if let Ok(home) = std::env::var("HOME") {
             PathBuf::from(home).join(".config").join("rustora").join("themes")
@@ -133,7 +133,7 @@ impl AppSettings {
             PathBuf::from(".config").join("rustora").join("themes")
         }
     }
-    
+
     pub fn is_tab_visible(&self, tab_name: &str) -> bool {
         self.tab_visibility.get(tab_name).copied().unwrap_or(true)
     }
@@ -143,22 +143,22 @@ impl CustomTheme {
     pub fn save(name: &str, settings: &AppSettings) {
         let themes_dir = AppSettings::themes_path();
         let _ = fs::create_dir_all(&themes_dir);
-        
+
         let theme = CustomTheme {
             name: name.to_string(),
             settings: settings.clone(),
         };
-        
+
         if let Ok(json) = serde_json::to_string_pretty(&theme) {
             let theme_path = themes_dir.join(format!("{}.json", name));
             let _ = fs::write(&theme_path, json);
         }
     }
-    
+
     pub fn load(name: &str) -> Option<AppSettings> {
         let themes_dir = AppSettings::themes_path();
         let theme_path = themes_dir.join(format!("{}.json", name));
-        
+
         if let Ok(content) = fs::read_to_string(&theme_path) {
             if let Ok(theme) = serde_json::from_str::<CustomTheme>(&content) {
                 return Some(theme.settings);
@@ -166,7 +166,7 @@ impl CustomTheme {
         }
         None
     }
-    
+
     pub fn list() -> Vec<String> {
         let themes_dir = AppSettings::themes_path();
         if let Ok(entries) = fs::read_dir(&themes_dir) {
@@ -183,7 +183,7 @@ impl CustomTheme {
             Vec::new()
         }
     }
-    
+
     pub fn delete(name: &str) {
         let themes_dir = AppSettings::themes_path();
         let theme_path = themes_dir.join(format!("{}.json", name));

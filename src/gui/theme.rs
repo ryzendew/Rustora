@@ -103,8 +103,8 @@ impl Theme {
             let custom_primary = Color::from(settings.primary_color.clone());
             // Primary colors can be any brightness, but we'll use them if they're reasonable
             // Check if primary color has reasonable saturation (not too gray)
-            let saturation = ((custom_primary.r - custom_primary.g).abs() + 
-                             (custom_primary.g - custom_primary.b).abs() + 
+            let saturation = ((custom_primary.r - custom_primary.g).abs() +
+                             (custom_primary.g - custom_primary.b).abs() +
                              (custom_primary.b - custom_primary.r).abs()) / 3.0;
             if saturation > 0.1 {
                 return custom_primary;

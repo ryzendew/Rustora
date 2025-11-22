@@ -65,14 +65,14 @@ impl FlatpakDialog {
 
     pub fn run_separate_window(application_id: String, remote: Option<String>) -> Result<(), iced::Error> {
         let dialog = Self::new(application_id, remote);
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(768.0, 612.0);
         window_settings.min_size = Some(iced::Size::new(640.0, 480.0));
         window_settings.max_size = None;
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <FlatpakDialog as Application>::run(iced::Settings {
@@ -299,7 +299,7 @@ impl FlatpakDialog {
             };
 
             let material_font = crate::gui::fonts::get_material_symbols_font();
-            
+
             let buttons = if self.is_complete {
                 row![
                     Space::with_width(Length::Fill),
@@ -473,13 +473,13 @@ impl Application for FlatpakDialog {
                     self.terminal_output.push('\n');
                 }
                 self.terminal_output.push_str(&output);
-                
+
                 // Update progress text
                 self.installation_progress = output.clone();
-                
+
                 // Check if installation is complete
-                if output.contains("Complete") || 
-                   output.contains("Installed") || 
+                if output.contains("Complete") ||
+                   output.contains("Installed") ||
                    output.contains("complete") ||
                    output.to_lowercase().contains("success") ||
                    output.contains("already installed") {
@@ -622,10 +622,10 @@ async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String
             eprintln!("Failed to create log directory: {}", e);
             return;
         }
-        
+
         let timestamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S");
         let log_file = log_dir.join(format!("flatpak_{}_{}.log", operation, timestamp));
-        
+
         let mut log_content = String::new();
         log_content.push_str(&format!("=== Flatpak {} Log ===\n", operation));
         log_content.push_str(&format!("Timestamp: {}\n", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")));
@@ -637,7 +637,7 @@ async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String
         log_content.push_str("\n--- Command Output ---\n");
         log_content.push_str(output);
         log_content.push_str("\n--- End of Log ---\n");
-        
+
         if let Err(e) = fs::write(&log_file, log_content).await {
             eprintln!("Failed to write log file: {}", e);
         }
@@ -651,7 +651,7 @@ async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Re
     // Use verbose mode to get more output for debugging
     // --assumeyes (-y) and --noninteractive for automated installation
     cmd.args(["install", "-y", "--noninteractive", "--verbose"]);
-    
+
     // If remote is provided, add it before the app_id
     // Format: flatpak install [OPTIONS] [REMOTE] [REF...]
     if let Some(ref remote_name) = remote {
@@ -659,19 +659,19 @@ async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Re
             cmd.arg(remote_name);
         }
     }
-    
+
     // Add the application ID (full ref like org.app.id or just the ID)
     cmd.arg(&app_id);
-    
+
     // Log the command being executed
-    let command_str = format!("flatpak install -y --noninteractive --verbose {} {}", 
-        remote.as_ref().map(|r| r.as_str()).unwrap_or(""), 
+    let command_str = format!("flatpak install -y --noninteractive --verbose {} {}",
+        remote.as_ref().map(|r| r.as_str()).unwrap_or(""),
         &app_id);
-    
+
     // Use spawn to get streaming output
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to execute flatpak install: {}", e))?;
@@ -679,15 +679,15 @@ async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Re
     // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut combined_output = String::new();
     combined_output.push_str(&format!("Command: {}\n", command_str));
     combined_output.push_str("--- Output ---\n");
-    
+
     // Read both stdout and stderr
     loop {
         tokio::select! {
@@ -727,26 +727,26 @@ async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Re
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     let success = status.success();
     let exit_code = status.code().unwrap_or(-1);
-    
+
     // Write log file
     write_flatpak_log("install", &app_id, remote.as_ref(), &combined_output, success).await;
 
     if !success {
         // Check if it's a known "no updates" or "already installed" case
         let output_lower = combined_output.to_lowercase();
-        if output_lower.contains("already installed") || 
+        if output_lower.contains("already installed") ||
            output_lower.contains("is already installed") ||
            output_lower.contains("nothing to do") {
             // This is actually a success case
             return Ok(format!("Application is already installed.\n\n{}", combined_output));
         }
-        
+
         // For other failures, return error with full output
         return Err(format!("Installation failed (exit code: {}):\n{}", exit_code, combined_output));
     }
@@ -757,7 +757,7 @@ async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Re
     } else {
         // Check if output indicates success
         let output_lower = combined_output.to_lowercase();
-        if output_lower.contains("complete") || 
+        if output_lower.contains("complete") ||
            output_lower.contains("installed") ||
            output_lower.contains("success") {
             Ok(combined_output)

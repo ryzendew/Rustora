@@ -152,11 +152,11 @@ impl FpmTab {
                 self.conversion_output.clear();
                 self.error = None;
                 self.converted_file = None;
-                
+
                 // Add initial output
                 self.conversion_output.push(format!("Selected file: {}", path.display()));
                 self.conversion_output.push("Starting conversion with fpm...".to_string());
-                
+
                 let path_str = path.to_string_lossy().into_owned();
                 iced::Command::perform(convert_package_streaming(path_str, conv_type), |result| {
                     match result {
@@ -183,22 +183,22 @@ impl FpmTab {
                     }
                 }
                 self.conversion_progress = "Conversion in progress...".to_string();
-                
+
                 // Check if this output contains the completion marker with the path
                 if output.contains("COMPLETE_PATH:") {
                     if let Some(start) = output.find("COMPLETE_PATH:") {
                         let path_line = output[start..].lines().next()
                             .and_then(|line| line.strip_prefix("COMPLETE_PATH:"))
                             .map(|s| s.trim().to_string());
-                        
+
                         if let Some(path) = path_line {
                             self.conversion_output.retain(|line| !line.contains("COMPLETE_PATH:"));
-                            
+
                             return iced::Command::perform(async {}, |_| Message::ConversionComplete(PathBuf::from(path)));
                         }
                     }
                 }
-                
+
                 // Fallback: try to extract from success messages
                 let file_path = if output.contains("✓ Successfully found converted file:") {
                     output.lines()
@@ -213,7 +213,7 @@ impl FpmTab {
                 } else {
                     None
                 };
-                
+
                 if let Some(path) = file_path {
                     iced::Command::perform(async {}, |_| Message::ConversionComplete(PathBuf::from(path)))
                 } else {
@@ -228,7 +228,7 @@ impl FpmTab {
                 self.is_converting = false;
                 self.converted_file = Some(file_path.clone());
                 self.conversion_progress = "Conversion completed successfully!".to_string();
-                
+
                 // For RPM files, open RPM dialog
                 if file_path.extension().and_then(|s| s.to_str()) == Some("rpm") {
                     let file_path_str = file_path.to_string_lossy().to_string();
@@ -265,13 +265,13 @@ impl FpmTab {
 
     pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
-        
+
         // Calculate font sizes from settings
         let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_font_size = (settings.font_size_body * settings.scale_body).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
-        
+
         // Header section
         let header = container(
             column![
@@ -591,7 +591,7 @@ fn extract_path_from_output(output: &[u8]) -> Option<PathBuf> {
 
 async fn open_file_picker(conv_type: ConversionType) -> Option<PathBuf> {
     use tokio::process::Command;
-    
+
     let (title, filter) = match conv_type {
         ConversionType::DebToRpm => ("Select DEB Package to Convert", "*.deb"),
         ConversionType::RpmToRpm | ConversionType::RpmToDeb | ConversionType::RpmToTar | ConversionType::RpmToDir | ConversionType::RpmToZip => ("Select RPM Package to Convert", "*.rpm"),
@@ -604,7 +604,7 @@ async fn open_file_picker(conv_type: ConversionType) -> Option<PathBuf> {
         ConversionType::CpanToRpm => ("Select CPAN Package", "*.tar.gz"),
         ConversionType::ZipToRpm => ("Select ZIP Archive to Convert", "*.zip"),
     };
-    
+
     // For directories, use directory selection
     if conv_type == ConversionType::DirToRpm {
         // Try zenity first
@@ -619,7 +619,7 @@ async fn open_file_picker(conv_type: ConversionType) -> Option<PathBuf> {
             }
         }
     }
-    
+
     // Fallback to kdialog
         if let Ok(output) = Command::new("kdialog")
             .args(["--getexistingdirectory", "."])
@@ -634,7 +634,7 @@ async fn open_file_picker(conv_type: ConversionType) -> Option<PathBuf> {
         }
         return None;
     }
-    
+
     // Try zenity first (GNOME)
     if let Ok(output) = Command::new("zenity")
         .args(["--file-selection", "--title", title, "--file-filter", filter])
@@ -647,7 +647,7 @@ async fn open_file_picker(conv_type: ConversionType) -> Option<PathBuf> {
             }
         }
     }
-    
+
     // Fallback to kdialog
     if let Ok(output) = Command::new("kdialog")
         .args(["--getopenfilename", ".", filter])
@@ -660,34 +660,34 @@ async fn open_file_picker(conv_type: ConversionType) -> Option<PathBuf> {
             }
         }
     }
-    
+
     None
 }
 
 async fn convert_package_streaming(file_path: String, conv_type: ConversionType) -> Result<(Vec<String>, String), String> {
     let input_path = PathBuf::from(&file_path);
-    
+
     if !input_path.exists() {
         return Err(format!("File not found: {}", file_path));
     }
-    
+
     // Get the absolute directory where the input file is located
     let parent_dir = input_path.parent()
         .unwrap_or_else(|| std::path::Path::new("."))
         .to_path_buf();
-    
+
     let parent_dir_abs = parent_dir.canonicalize()
         .unwrap_or_else(|_| parent_dir.clone());
     let parent_dir_str = parent_dir_abs.to_string_lossy().to_string();
-    
+
     let input_file_abs = input_path.canonicalize()
         .unwrap_or_else(|_| input_path.clone());
     let input_file_str = input_file_abs.to_string_lossy().to_string();
-    
+
     let mut output_lines = Vec::new();
     output_lines.push(format!("Input file: {}", input_file_str));
     output_lines.push(format!("Working directory: {}", parent_dir_str));
-    
+
     // Helper function to extract archive to temp directory
     async fn extract_archive(
         archive_path: &str,
@@ -701,12 +701,12 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
                 .unwrap_or_default()
                 .as_secs()
         ));
-        
+
             std::fs::create_dir_all(&temp_dir)
                 .map_err(|e| format!("Failed to create temp directory: {}", e))?;
-        
+
         output_lines.push(format!("Extracting {} to: {}", extract_type, temp_dir.display()));
-            
+
         let temp_dir_str = temp_dir.to_string_lossy();
         let mut extract_cmd = match extract_type {
             "TAR" => {
@@ -726,19 +726,19 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
             }
             _ => return Err(format!("Unknown extract type: {}", extract_type)),
         };
-        
+
         let result = extract_cmd.output().await
             .map_err(|e| format!("Failed to extract {}: {}", extract_type, e))?;
-            
+
         if !result.status.success() {
             let error = String::from_utf8_lossy(&result.stderr);
             return Err(format!("Failed to extract {} archive: {}", extract_type, error));
             }
-            
+
         output_lines.push(format!("✓ {} extracted successfully", extract_type));
         Ok(temp_dir)
     }
-    
+
     // Determine source type, target type, and any special handling
     let (source_type, target_type, temp_extract_dir, target_ext) = match conv_type {
         ConversionType::DebToRpm => ("deb", "rpm", None, "rpm"),
@@ -765,27 +765,27 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
         ConversionType::RpmToDir => ("rpm", "dir", None, ""),
         ConversionType::RpmToZip => ("rpm", "zip", None, "zip"),
     };
-    
+
     output_lines.push(format!("Source type: {}, Target type: {}", source_type, target_type));
-    
+
     // Build fpm command according to FPM documentation
     // Structure: fpm [OPTIONS] [ARGS]
     // Where OPTIONS come first, then ARGS (input files/directories)
     let mut cmd = TokioCommand::new("fpm");
-    
+
     // Set source type (-s, --input-type)
     cmd.arg("-s").arg(source_type);
-    
+
     // Set target type (-t, --output-type)
     cmd.arg("-t").arg(target_type);
-    
+
     // Add options before input arguments (FPM best practice)
     // -f, --force: Force output even if it will overwrite an existing file
     cmd.arg("-f");
-    
+
     // --verbose: Enable verbose output
     cmd.arg("--verbose");
-    
+
     // Handle dependencies for DEB to RPM conversion
     // Filter out Debian package names that don't exist in Fedora
     // This prevents dependency resolution errors
@@ -802,38 +802,38 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
         output_lines.push("  • libxdo3 → xdotool".to_string());
         output_lines.push("Install Fedora equivalents first, then install the converted RPM".to_string());
     }
-    
+
     // Add input source (ARGS) - comes after options
     if let Some(ref extract_dir) = temp_extract_dir {
         cmd.arg(extract_dir.to_string_lossy().as_ref());
     } else {
         cmd.arg(&input_file_str);
     }
-    
-    output_lines.push(format!("Running: fpm -s {} -t {} -f --verbose {} (in directory: {})", 
-        source_type, 
+
+    output_lines.push(format!("Running: fpm -s {} -t {} -f --verbose {} (in directory: {})",
+        source_type,
         target_type,
         if let Some(ref d) = temp_extract_dir { d.display().to_string() } else { input_file_str.clone() },
         parent_dir_str));
     output_lines.push("--- Output ---".to_string());
-    
+
     // Use spawn to get streaming output
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
     cmd.current_dir(&parent_dir_abs);
-    
+
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to execute fpm: {}. Make sure fpm is installed (run: gem install fpm)", e))?;
-    
+
     // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     // Read both stdout and stderr line by line
     loop {
         tokio::select! {
@@ -869,24 +869,24 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
             }
         }
     }
-    
+
     // Wait for process to complete
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for fpm process: {}", e))?;
-    
+
     output_lines.push(format!("--- Process exited with code: {:?} ---", status.code()));
-    
+
     if !status.success() {
         let error_output = output_lines.join("\n");
         return Err(format!("Conversion failed:\n{}", error_output));
     }
-    
+
     // Clean up temp extraction directory if we created one
     if let Some(ref temp_dir) = temp_extract_dir {
         let _ = std::fs::remove_dir_all(temp_dir);
         output_lines.push(format!("Cleaned up temp directory: {}", temp_dir.display()));
     }
-    
+
     // Helper function to extract filename from a line
     fn extract_filename_from_line(line: &str, target_ext: &str) -> Option<String> {
         // Try to extract path from {:path=>"..."} format
@@ -899,7 +899,7 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
                 }
             }
         }
-        
+
         // Fallback: look for file extension in the line
         for part in line.split_whitespace() {
             let cleaned = part.trim_matches(['"', '\'', ',', '}']);
@@ -911,28 +911,28 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
         }
         None
     }
-    
+
     // Parse the output filename from fpm's output
     let generated_file_name = output_lines
         .iter()
         .find_map(|line| {
             if line.contains("Created package") {
                 extract_filename_from_line(line, target_ext)
-            } else if !target_ext.is_empty() 
-                && line.contains(target_ext) 
-                && !line.contains("Searching") 
+            } else if !target_ext.is_empty()
+                && line.contains(target_ext)
+                && !line.contains("Searching")
                 && !line.contains("Looking") {
                 extract_filename_from_line(line, target_ext)
             } else {
                 None
         }
         });
-    
+
     output_lines.push(format!("Searching for output file in: {}", parent_dir_abs.display()));
-    
+
     // Look for the output file
     let mut found_file: Option<PathBuf> = None;
-    
+
     // First, try the parsed name
     if let Some(ref file_name) = generated_file_name {
         output_lines.push(format!("Looking for file: {}", file_name));
@@ -942,11 +942,11 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
             found_file = Some(file_path);
         }
     }
-    
+
     // If we didn't find it by name, search for recently created files
     if found_file.is_none() {
         output_lines.push("Parsed file name not found, searching for recently created files...".to_string());
-        
+
         if let Ok(entries) = std::fs::read_dir(&parent_dir_abs) {
             found_file = entries
                 .flatten()
@@ -957,13 +957,13 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
                     } else {
                         path.is_dir()
                     };
-                    
+
                     if !matches {
                         return None;
                     }
-                    
+
                     output_lines.push(format!("Found file: {}", path.display()));
-                    
+
                     entry.metadata().ok()?.modified().ok().and_then(|modified| {
                                 let now = std::time::SystemTime::now();
                         let duration = now.duration_since(modified).ok()?;
@@ -978,13 +978,13 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
                 .map(|(_, path)| path);
                                         }
     }
-    
+
     if let Some(file) = found_file {
         output_lines.push(format!("✓ Successfully found converted file: {}", file.display()));
         Ok((output_lines, file.to_string_lossy().to_string()))
     } else {
         let error_output = output_lines.join("\n");
-        Err(format!("Output file was not created. Searched in: {}. FPM output:\n{}", 
+        Err(format!("Output file was not created. Searched in: {}. FPM output:\n{}",
             parent_dir_abs.display(),
             error_output))
     }

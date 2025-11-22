@@ -68,13 +68,13 @@ impl DeviceInstallDialog {
 
     pub fn run_separate_window(profile_name: String, install_script: String, device_info: DeviceInfo, is_removal: bool) -> Result<(), iced::Error> {
         let dialog = Self::new(profile_name, install_script, device_info, is_removal);
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(1000.0, 700.0);
         window_settings.min_size = Some(iced::Size::new(800.0, 500.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <DeviceInstallDialog as Application>::run(iced::Settings {
@@ -114,7 +114,7 @@ impl Application for DeviceInstallDialog {
                 self.terminal_output.clear();
                 let script = self.install_script.clone();
                 let is_removal = self.is_removal;
-                
+
                 iced::Command::perform(
                     execute_install_script(script, is_removal),
                     |result| match result {
@@ -128,13 +128,13 @@ impl Application for DeviceInstallDialog {
                 self.terminal_output = output;
                 self.is_running = false;
                 self.is_complete = true;
-                
+
                 // Only run post-install commands for NVIDIA driver installation (not removal)
                 if !self.is_removal {
                     // Check if this is an NVIDIA driver and run post-install commands
-                    let is_nvidia = self.device_info.vendor_id == "10de" || 
+                    let is_nvidia = self.device_info.vendor_id == "10de" ||
                                     self.device_info.driver.to_lowercase().contains("nvidia");
-                    
+
                     if is_nvidia {
                         // Start post-installation steps
                         self.is_post_install = true;
@@ -331,13 +331,13 @@ impl DeviceInstallDialog {
             } else {
                 format!("{} Driver", action)
             };
-            
+
             let output_text: String = if self.is_post_install {
                 "Post-Installation Output:".to_string()
             } else {
                 format!("{} Output:", action)
             };
-            
+
             let combined_output = if self.is_post_install {
                 let mut combined = self.terminal_output.clone();
                 if !combined.is_empty() && !self.post_install_output.is_empty() {
@@ -348,7 +348,7 @@ impl DeviceInstallDialog {
             } else {
                 self.terminal_output.clone()
             };
-            
+
             let terminal_scroll: Element<Message> = scrollable(
                 container(
                     text(&combined_output)
@@ -361,7 +361,7 @@ impl DeviceInstallDialog {
             )
             .height(Length::Fill)
             .into();
-            
+
             container(
                 column![
                     text(title_text)
@@ -455,7 +455,7 @@ impl DeviceInstallDialog {
             } else {
                 format!("{} Complete", action)
             };
-            
+
             let combined_output = if self.post_install_complete {
                 let mut combined = self.terminal_output.clone();
                 if !combined.is_empty() && !self.post_install_output.is_empty() {
@@ -466,7 +466,7 @@ impl DeviceInstallDialog {
             } else {
                 self.terminal_output.clone()
             };
-            
+
             container(
                 column![
                     text(success_title)
@@ -541,13 +541,13 @@ impl DeviceInstallDialog {
 // Execute install/remove script with streaming output
 async fn execute_install_script(script: String, is_removal: bool) -> Result<String, String> {
     use tokio::io::{AsyncBufReadExt, BufReader};
-    
+
     // Write script to temporary file
     use std::io::Write;
     let mut temp_file = std::env::temp_dir();
     let file_prefix = if is_removal { "rustora_remove" } else { "rustora_install" };
     temp_file.push(format!("{}_{}.sh", file_prefix, std::process::id()));
-    
+
     {
         let mut file = std::fs::File::create(&temp_file)
             .map_err(|e| format!("Failed to create temporary script file: {}", e))?;
@@ -556,7 +556,7 @@ async fn execute_install_script(script: String, is_removal: bool) -> Result<Stri
         file.write_all(b"\n")
             .map_err(|e| format!("Failed to write script: {}", e))?;
     }
-    
+
     // Make script executable
     use std::os::unix::fs::PermissionsExt;
     let mut perms = std::fs::metadata(&temp_file)
@@ -565,34 +565,34 @@ async fn execute_install_script(script: String, is_removal: bool) -> Result<Stri
     perms.set_mode(0o755);
     std::fs::set_permissions(&temp_file, perms)
         .map_err(|e| format!("Failed to set script permissions: {}", e))?;
-    
+
     // Use pkexec to run the script with elevated privileges
     let script_path = temp_file.to_string_lossy().to_string();
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("bash");
     cmd.arg(&script_path);
-    
+
     // Ensure DISPLAY is set for GUI dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     // Set up process with stdout and stderr captured
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd.spawn()
         .map_err(|e| {
             let _ = std::fs::remove_file(&temp_file);
             format!("Failed to start installation: {}", e)
         })?;
-    
+
     let mut output = String::new();
-    
+
     // Read stdout and stderr concurrently
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
-    
+
     // Read stdout
     if let Some(stdout) = stdout {
         let mut reader = BufReader::new(stdout);
@@ -610,7 +610,7 @@ async fn execute_install_script(script: String, is_removal: bool) -> Result<Stri
             }
         }
     }
-    
+
     // Read stderr
     if let Some(stderr) = stderr {
         let mut reader = BufReader::new(stderr);
@@ -628,17 +628,17 @@ async fn execute_install_script(script: String, is_removal: bool) -> Result<Stri
             }
         }
     }
-    
+
     // Wait for process to complete
     let status = child.wait().await
         .map_err(|e| {
             let _ = std::fs::remove_file(&temp_file);
             format!("Failed to wait for process: {}", e)
         })?;
-    
+
     // Clean up temp file
     let _ = std::fs::remove_file(&temp_file);
-    
+
     if status.success() {
         if output.is_empty() {
             let success_msg = if is_removal {
@@ -663,29 +663,29 @@ async fn execute_install_script(script: String, is_removal: bool) -> Result<Stri
 // Run akmods --force --rebuild for NVIDIA drivers
 async fn run_nvidia_post_install() -> Result<String, String> {
     use tokio::io::{AsyncBufReadExt, BufReader};
-    
+
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("akmods");
     cmd.arg("--force");
     cmd.arg("--rebuild");
-    
+
     // Ensure DISPLAY is set for GUI dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd.spawn()
         .map_err(|e| format!("Failed to start akmods: {}", e))?;
-    
+
     let mut output = String::new();
-    
+
     // Read stdout and stderr concurrently
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
-    
+
     // Read stdout
     if let Some(stdout) = stdout {
         let mut reader = BufReader::new(stdout);
@@ -703,7 +703,7 @@ async fn run_nvidia_post_install() -> Result<String, String> {
             }
         }
     }
-    
+
     // Read stderr
     if let Some(stderr) = stderr {
         let mut reader = BufReader::new(stderr);
@@ -721,11 +721,11 @@ async fn run_nvidia_post_install() -> Result<String, String> {
             }
         }
     }
-    
+
     // Wait for process to complete
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for akmods: {}", e))?;
-    
+
     if status.success() {
         if output.is_empty() {
             output = "akmods --force --rebuild completed successfully.".to_string();
@@ -740,29 +740,29 @@ async fn run_nvidia_post_install() -> Result<String, String> {
 // Run dracut -f --regenerate-all for NVIDIA drivers
 async fn run_dracut_regenerate() -> Result<String, String> {
     use tokio::io::{AsyncBufReadExt, BufReader};
-    
+
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("dracut");
     cmd.arg("-f");
     cmd.arg("--regenerate-all");
-    
+
     // Ensure DISPLAY is set for GUI dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd.spawn()
         .map_err(|e| format!("Failed to start dracut: {}", e))?;
-    
+
     let mut output = String::new();
-    
+
     // Read stdout and stderr concurrently
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
-    
+
     // Read stdout
     if let Some(stdout) = stdout {
         let mut reader = BufReader::new(stdout);
@@ -780,7 +780,7 @@ async fn run_dracut_regenerate() -> Result<String, String> {
             }
         }
     }
-    
+
     // Read stderr
     if let Some(stderr) = stderr {
         let mut reader = BufReader::new(stderr);
@@ -798,11 +798,11 @@ async fn run_dracut_regenerate() -> Result<String, String> {
             }
         }
     }
-    
+
     // Wait for process to complete
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for dracut: {}", e))?;
-    
+
     if status.success() {
         if output.is_empty() {
             output = "dracut -f --regenerate-all completed successfully.".to_string();

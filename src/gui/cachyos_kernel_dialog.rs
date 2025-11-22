@@ -42,13 +42,13 @@ impl CachyosKernelDialog {
 
     pub fn run_separate_window() -> Result<(), iced::Error> {
         let dialog = Self::new();
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(1000.0, 700.0);
         window_settings.min_size = Some(iced::Size::new(800.0, 500.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <CachyosKernelDialog as Application>::run(iced::Settings {
@@ -90,7 +90,7 @@ impl Application for CachyosKernelDialog {
                 self.terminal_output.clear();
                 self.terminal_output.push_str("Starting Cachyos Kernel installation...\n");
                 self.terminal_output.push_str("=====================================\n\n");
-                
+
                 // Start with step 0
                 Command::perform(run_installation_step(0), |result| {
                     match result {
@@ -112,13 +112,13 @@ impl Application for CachyosKernelDialog {
                 }
                 self.terminal_output.push_str(&output);
                 self.progress = progress;
-                
+
                 // Update progress text based on current step
                 self.progress_text = get_step_progress_text(self.current_step_num);
-                
+
                 // Check if this step is complete
                 let step_complete = output.contains("completed") || output.contains("failed");
-                
+
                 if step_complete {
                     // Check if installation is fully complete
                     if output.contains("✓ ALL STEPS COMPLETED SUCCESSFULLY!") {
@@ -128,10 +128,10 @@ impl Application for CachyosKernelDialog {
                         self.progress_text = "Installation completed successfully!".to_string();
                         return Command::none();
                     }
-                    
+
                     // Continue to next step
                     self.current_step_num += 1;
-                    
+
                     if self.current_step_num < 8 {
                         Command::perform(run_installation_step(self.current_step_num), |result| {
                             match result {
@@ -195,7 +195,7 @@ impl Application for CachyosKernelDialog {
 impl CachyosKernelDialog {
     pub fn view_impl(&self, theme: &crate::gui::Theme, settings: &AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
-        
+
         let title_text = if self.is_complete {
             if self.has_error {
                 "Installation Failed"
@@ -205,11 +205,11 @@ impl CachyosKernelDialog {
         } else {
             "Installing Cachyos Kernel"
         };
-        
+
         let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_font_size = (settings.font_size_body * settings.scale_body).round();
         let icon_font_size = (settings.font_size_icons * settings.scale_icons).round();
-        
+
         let progress_display = text(&self.progress_text).size(body_font_size);
 
         let terminal_output = scrollable(
@@ -313,7 +313,7 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
     const TOTAL_STEPS: f32 = 8.0;
     let mut step_output = String::new();
     let progress = ((step + 1) as f32) / TOTAL_STEPS;
-    
+
     match step {
         0 => {
             // Step 1: Enable kernel-cachyos repo
@@ -434,7 +434,7 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str(&format!("Step 7: GPU detected - {}\n", gpu_type));
             step_output.push_str("═══════════════════════════════════════════════════════════════\n\n");
-            
+
             if gpu_type == "NVIDIA" {
                 step_output.push_str("NVIDIA GPU detected - rebuilding kernel modules...\n\n");
                 match rebuild_kernel_modules().await {
@@ -467,7 +467,7 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
                     return Err(e);
                 }
             }
-            
+
             // Final summary
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("✓ ALL STEPS COMPLETED SUCCESSFULLY!\n");
@@ -486,7 +486,7 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
             return Ok((String::new(), step, 1.0));
         }
     }
-    
+
     Ok((step_output, step, progress))
 }
 
@@ -500,25 +500,25 @@ async fn execute_command_with_output(
     cmd.args(args);
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     let mut child = cmd.spawn()
         .map_err(|e| format!("Failed to execute {}: {}", cmd_name, e))?;
-    
+
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut output = String::new();
     output.push_str(command_line);
     output.push_str("\n─────────────────────────────────────────────────────────────\n");
-    
+
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -543,18 +543,18 @@ async fn execute_command_with_output(
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for {}: {}", cmd_name, e))?;
-    
+
     if status.code() == Some(126) || status.code() == Some(127) {
         return Err("Authentication cancelled or polkit not available. Please try again.".to_string());
     }
-    
+
     if !status.success() {
         return Err(format!("Command failed with exit code: {:?}", status.code()));
     }
-    
+
     Ok(output)
 }
 
@@ -575,35 +575,35 @@ async fn install_packages(packages: &[&str]) -> Result<String, String> {
     cmd.args(packages);
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     let mut child = cmd.spawn()
         .map_err(|e| format!("Failed to execute dnf install: {}", e))?;
-    
+
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     let mut output = String::new();
     output.push_str(&format!("$ pkexec dnf install -y --allowerasing {}\n", packages.join(" ")));
     output.push_str("─────────────────────────────────────────────────────────────\n");
-    
+
     let mut already_installed = false;
     let mut nothing_to_do = false;
-    
+
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
                 match result {
                     Ok(Some(line)) => {
                         let line_lower = line.to_lowercase();
-                        if line_lower.contains("already installed") || 
+                        if line_lower.contains("already installed") ||
                            line_lower.contains("is already installed") {
                             already_installed = true;
                         }
@@ -621,7 +621,7 @@ async fn install_packages(packages: &[&str]) -> Result<String, String> {
                 match result {
                     Ok(Some(line)) => {
                         let line_lower = line.to_lowercase();
-                        if line_lower.contains("already installed") || 
+                        if line_lower.contains("already installed") ||
                            line_lower.contains("is already installed") {
                             already_installed = true;
                         }
@@ -637,28 +637,28 @@ async fn install_packages(packages: &[&str]) -> Result<String, String> {
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for dnf install: {}", e))?;
-    
+
     if status.code() == Some(126) || status.code() == Some(127) {
         return Err("Authentication cancelled or polkit not available. Please try again.".to_string());
     }
-    
+
     // If packages are already installed or nothing to do, treat as success
     if already_installed || nothing_to_do {
         output.push_str("\nℹ️  Note: Some packages were already installed. Continuing...\n");
         return Ok(output);
     }
-    
+
     // Check for actual errors
     if !status.success() {
         let output_lower = output.to_lowercase();
-        if output_lower.contains("error") || 
+        if output_lower.contains("error") ||
            output_lower.contains("failed") ||
            output_lower.contains("no package") ||
            output_lower.contains("cannot find") {
-            return Err(format!("Installation failed with exit code: {:?}\n\nOutput:\n{}", 
+            return Err(format!("Installation failed with exit code: {:?}\n\nOutput:\n{}",
                 status.code(), output));
         }
         // If exit code is 1 but no clear error, might be "nothing to do" case
@@ -666,10 +666,10 @@ async fn install_packages(packages: &[&str]) -> Result<String, String> {
             output.push_str("\nℹ️  Note: Installation completed (exit code 1, but no clear errors detected). Continuing...\n");
             return Ok(output);
         }
-        return Err(format!("Command failed with exit code: {:?}\n\nOutput:\n{}", 
+        return Err(format!("Command failed with exit code: {:?}\n\nOutput:\n{}",
             status.code(), output));
     }
-    
+
     Ok(output)
 }
 
@@ -687,7 +687,7 @@ async fn detect_gpu() -> String {
     cmd.arg("-k");
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     if let Ok(output) = cmd.output().await {
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -702,7 +702,7 @@ async fn detect_gpu() -> String {
             }
         }
     }
-    
+
     "Unknown".to_string()
 }
 

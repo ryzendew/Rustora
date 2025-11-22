@@ -87,13 +87,13 @@ impl UpdateTab {
                         .filter_map(|&idx| self.updates.get(idx).map(|u| u.name.clone()))
                         .collect()
                 };
-                
+
                 // Base64 encode the package list to pass as argument
                 use base64::{Engine as _, engine::general_purpose};
                 let packages_json = serde_json::to_string(&packages_to_install)
                     .unwrap_or_else(|_| "[]".to_string());
                 let packages_b64 = general_purpose::STANDARD.encode(packages_json.as_bytes());
-                
+
                 // Spawn a separate window for update installation
                 iced::Command::perform(
                     async move {
@@ -141,7 +141,7 @@ impl UpdateTab {
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         let package_name_size = settings.font_size_package_names * settings.scale_package_cards;
         let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
-        
+
         let material_font = crate::gui::fonts::get_material_symbols_font();
         let check_button = if self.is_checking {
             button(
@@ -326,7 +326,7 @@ async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
         .map_err(|e| format!("Failed to execute dnf check-update: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     // If stdout is empty, no updates available
     if stdout.trim().is_empty() {
         return Ok(Vec::new());
@@ -337,7 +337,7 @@ async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
         .args(["list", "--installed", "--quiet"])
         .output()
         .await;
-    
+
     let mut installed_versions = std::collections::HashMap::new();
     if let Ok(installed) = installed_output {
         if installed.status.success() {
@@ -353,20 +353,20 @@ async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
     }
 
     let mut updates = Vec::new();
-    
+
     // Parse check-update output: "package.arch  version  repository"
     for line in stdout.lines() {
         let line = line.trim();
         // Skip header lines and empty lines
-        if line.is_empty() || 
-           line.starts_with("Last metadata") || 
+        if line.is_empty() ||
+           line.starts_with("Last metadata") ||
            line.starts_with("Dependencies") ||
            line.starts_with("Upgrade") ||
            line.starts_with("Obsoleting") ||
            line.contains("Matched fields:") {
             continue;
         }
-        
+
         // Split by whitespace - format is: package.arch  version  repository
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 3 {
@@ -374,13 +374,13 @@ async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
             let name = full_name.split('.').next().unwrap_or(full_name);
             let available_version = parts[1].to_string();
             let repository = parts[2].to_string();
-            
+
             // Get current version from installed packages
             let current_version = installed_versions
                 .get(name)
                 .cloned()
                 .unwrap_or_else(|| "Unknown".to_string());
-            
+
             updates.push(UpdateInfo {
                 name: name.to_string(),
                 current_version,

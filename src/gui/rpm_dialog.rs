@@ -56,7 +56,7 @@ impl RpmDialog {
 
     pub fn run_separate_window(rpm_path: PathBuf) -> Result<(), iced::Error> {
         let dialog = Self::new(rpm_path);
-        
+
         let mut window_settings = iced::window::Settings::default();
         // Optimized for 720p (1280x720) and up, with tiling manager support
         // Width: ~60% of 1280px = 768px, fits comfortably in tiling layouts
@@ -66,7 +66,7 @@ impl RpmDialog {
         window_settings.max_size = None; // Allow full screen for larger displays
         window_settings.resizable = true;
         window_settings.decorations = true; // Keep decorations for tiling manager compatibility
-        
+
         // Use cached InterVariable font (optimized)
         let default_font = crate::gui::fonts::get_inter_font();
 
@@ -268,7 +268,7 @@ impl RpmDialog {
             };
 
             let material_font = crate::gui::fonts::get_material_symbols_font();
-            
+
             let buttons = if self.is_complete {
                 // Show only Exit button when installation is complete
                 row![
@@ -438,8 +438,8 @@ impl Application for RpmDialog {
                 let progress_clone = progress.clone();
                 self.installation_progress = progress.clone();
                 // Check if installation is complete
-                if progress_clone.contains("Complete") || 
-                   progress_clone.contains("Installed") || 
+                if progress_clone.contains("Complete") ||
+                   progress_clone.contains("Installed") ||
                    progress_clone.contains("complete") ||
                    progress_clone.to_lowercase().contains("success") {
                     iced::Command::perform(async {}, |_| Message::InstallationComplete)
@@ -477,7 +477,7 @@ impl Application for RpmDialog {
 
 async fn load_rpm_info(rpm_path: PathBuf) -> Result<RpmInfo, String> {
     let path_str = rpm_path.to_string_lossy().to_string();
-    
+
     // Run both RPM queries in parallel for faster loading
     let (info_output, deps_output) = tokio::join!(
         TokioCommand::new("rpm")
@@ -517,7 +517,7 @@ async fn load_rpm_info(rpm_path: PathBuf) -> Result<RpmInfo, String> {
         if found_fields == ALL_FIELDS && !in_description {
             break; // Early exit when all fields are found
         }
-        
+
         if line.starts_with("Name        :") && (found_fields & 0b00000001) == 0 {
             info.name = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
             found_fields |= 0b00000001;
@@ -561,7 +561,7 @@ async fn load_rpm_info(rpm_path: PathBuf) -> Result<RpmInfo, String> {
             }
         }
     }
-    
+
     if !description_lines.is_empty() {
         info.description = description_lines.join("\n");
     }
@@ -590,19 +590,19 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
     // Note: We do NOT use --allowerasing as it can remove critical system packages and break the system
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args([
-        "dnf", 
-        "install", 
-        "-y", 
+        "dnf",
+        "install",
+        "-y",
         "--assumeyes",
         "--nogpgcheck",  // Skip GPG checks for local/converted RPMs (safe for local files)
         &path_str
     ]);
-    
+
     // Ensure DISPLAY is set for GUI password dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
-    
+
     let output = cmd
         .output()
         .await
@@ -611,19 +611,19 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         // Check for Debian package name dependencies (common in converted packages)
-        let has_debian_deps = stderr.contains("libc6") || stderr.contains("libgtk-3-0") || 
+        let has_debian_deps = stderr.contains("libc6") || stderr.contains("libgtk-3-0") ||
                              stderr.contains("libwebkit") || stderr.contains("libxdo") ||
                              stdout.contains("libc6") || stdout.contains("libgtk-3-0") ||
                              stdout.contains("libwebkit") || stdout.contains("libxdo");
-        
+
         // Check if the error is due to file conflicts
         let has_file_conflicts = stderr.contains("conflicts with file") || stdout.contains("conflicts with file");
-        
+
         // Check for "nothing provides" errors (dependency resolution failures)
         let has_missing_deps = stderr.contains("nothing provides") || stdout.contains("nothing provides");
-        
+
         let error_msg = if has_debian_deps || has_missing_deps {
             format!(
                 "Installation failed due to dependency resolution issues.\n\n\
@@ -668,7 +668,7 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
         } else {
             format!("Installation failed:\n{}\n{}", stderr, stdout)
         };
-        
+
         return Err(error_msg);
     }
 

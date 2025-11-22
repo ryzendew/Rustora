@@ -53,12 +53,12 @@ impl FlatpakRemoveDialog {
 
     pub fn run_separate_window(application_ids: Vec<String>) -> Result<(), iced::Error> {
         let dialog = Self::new(application_ids);
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(750.0, 800.0);
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <FlatpakRemoveDialog as Application>::run(iced::Settings {
@@ -197,7 +197,7 @@ impl FlatpakRemoveDialog {
             };
 
             let material_font = crate::gui::fonts::get_material_symbols_font();
-            
+
             let buttons = if self.is_complete {
                 row![
                     Space::with_width(Length::Fill),
@@ -364,8 +364,8 @@ impl Application for FlatpakRemoveDialog {
             Message::RemovalProgress(progress) => {
                 let progress_clone = progress.clone();
                 self.removal_progress = progress.clone();
-                if progress_clone.contains("Complete") || 
-                   progress_clone.contains("Removed") || 
+                if progress_clone.contains("Complete") ||
+                   progress_clone.contains("Removed") ||
                    progress_clone.contains("complete") ||
                    progress_clone.to_lowercase().contains("success") {
                     iced::Command::perform(async {}, |_| Message::RemovalComplete)
@@ -401,7 +401,7 @@ impl Application for FlatpakRemoveDialog {
 
 async fn load_flatpak_infos(application_ids: Vec<String>) -> Result<Vec<FlatpakInfo>, String> {
     let mut infos = Vec::new();
-    
+
     for app_id in application_ids {
         let output = TokioCommand::new("flatpak")
             .args(["info", &app_id])
@@ -455,10 +455,10 @@ async fn write_flatpak_remove_log(application_ids: &[String], output: &str, succ
     if let Ok(home) = std::env::var("HOME") {
         let log_dir = PathBuf::from(&home).join(".rustora");
         let _ = fs::create_dir_all(&log_dir).await;
-        
+
         let timestamp = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S");
         let log_file = log_dir.join(format!("flatpak_remove_{}.log", timestamp));
-        
+
         let mut log_content = String::new();
         log_content.push_str("=== Flatpak Remove Log ===\n");
         log_content.push_str(&format!("Timestamp: {}\n", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")));
@@ -467,14 +467,14 @@ async fn write_flatpak_remove_log(application_ids: &[String], output: &str, succ
         log_content.push_str("\n--- Command Output ---\n");
         log_content.push_str(output);
         log_content.push_str("\n--- End of Log ---\n");
-        
+
         let _ = fs::write(&log_file, log_content).await;
     }
 }
 
 async fn remove_flatpaks(application_ids: Vec<String>) -> Result<String, String> {
     let command_str = format!("flatpak uninstall -y --noninteractive {}", application_ids.join(" "));
-    
+
     let output = TokioCommand::new("flatpak")
         .args(["uninstall", "-y", "--noninteractive"])
         .args(&application_ids)
@@ -484,7 +484,7 @@ async fn remove_flatpaks(application_ids: Vec<String>) -> Result<String, String>
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    
+
     let mut combined_output = String::new();
     combined_output.push_str(&format!("Command: {}\n", command_str));
     combined_output.push_str("--- Output ---\n");
@@ -498,9 +498,9 @@ async fn remove_flatpaks(application_ids: Vec<String>) -> Result<String, String>
         combined_output.push_str(&stderr);
         combined_output.push('\n');
     }
-    
+
     let success = output.status.success();
-    
+
     // Write log file
     write_flatpak_remove_log(&application_ids, &combined_output, success).await;
 

@@ -38,13 +38,13 @@ impl KernelInstallDialog {
 
     pub fn run_separate_window(kernel_name: String) -> Result<(), iced::Error> {
         let dialog = Self::new(kernel_name);
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(900.0, 600.0);
         window_settings.min_size = Some(iced::Size::new(700.0, 400.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <KernelInstallDialog as Application>::run(iced::Settings {
@@ -82,7 +82,7 @@ impl Application for KernelInstallDialog {
                 self.is_running = true;
                 self.terminal_output.clear();
                 let kernel_name = self.kernel_name.clone();
-                
+
                 iced::Command::perform(
                     install_kernel_with_headers(kernel_name),
                     |result| match result {
@@ -312,28 +312,28 @@ impl KernelInstallDialog {
 
 async fn install_kernel_with_headers(kernel_name: String) -> Result<String, String> {
     let mut combined_output = String::new();
-    
+
     // Step 1: Install kernel
     combined_output.push_str(&format!("$ Installing kernel: {}\n", kernel_name));
     combined_output.push_str("--- Step 1: Installing kernel package ---\n");
-    
+
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args(["dnf", "install", "-y", "--assumeyes", &kernel_name]);
-    
+
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-    
+
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to execute dnf install: {}", e))?;
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     use tokio::io::{AsyncBufReadExt, BufReader};
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
-    
+
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -368,37 +368,37 @@ async fn install_kernel_with_headers(kernel_name: String) -> Result<String, Stri
             }
         }
     }
-    
+
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     if !status.success() {
-        return Err(format!("Kernel installation failed (exit code: {}):\n{}", 
+        return Err(format!("Kernel installation failed (exit code: {}):\n{}",
             status.code().unwrap_or(-1), combined_output));
     }
-    
+
     combined_output.push_str("\n--- Step 2: Installing kernel headers ---\n");
-    
+
     // Step 2: Install kernel headers
     let headers_name = kernel_name.replace("kernel-", "kernel-headers-");
     combined_output.push_str(&format!("$ Installing headers: {}\n", headers_name));
-    
+
     let mut cmd2 = TokioCommand::new("pkexec");
     cmd2.args(["dnf", "install", "-y", "--assumeyes", &headers_name]);
-    
+
     cmd2.stdout(std::process::Stdio::piped());
     cmd2.stderr(std::process::Stdio::piped());
-    
+
     let mut child2 = cmd2
         .spawn()
         .map_err(|e| format!("Failed to execute dnf install: {}", e))?;
 
     let stdout2 = child2.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr2 = child2.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     let mut stdout_reader2 = BufReader::new(stdout2).lines();
     let mut stderr_reader2 = BufReader::new(stderr2).lines();
-    
+
     loop {
         tokio::select! {
             result = stdout_reader2.next_line() => {
@@ -433,37 +433,37 @@ async fn install_kernel_with_headers(kernel_name: String) -> Result<String, Stri
             }
         }
     }
-    
+
     let status2 = child2.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     if !status2.success() {
         // Headers might not be available, but kernel is installed, so continue
-        combined_output.push_str(&format!("Warning: Headers installation failed (exit code: {}), but kernel is installed.\n", 
+        combined_output.push_str(&format!("Warning: Headers installation failed (exit code: {}), but kernel is installed.\n",
             status2.code().unwrap_or(-1)));
     }
-    
+
     combined_output.push_str("\n--- Step 3: Rebuilding GRUB configuration ---\n");
-    
+
     // Step 3: Rebuild GRUB configuration
     combined_output.push_str("$ Rebuilding GRUB configuration...\n");
-    
+
     let mut cmd3 = TokioCommand::new("pkexec");
     cmd3.args(["grub2-mkconfig", "-o", "/boot/grub2/grub.cfg"]);
-    
+
     cmd3.stdout(std::process::Stdio::piped());
     cmd3.stderr(std::process::Stdio::piped());
-    
+
     let mut child3 = cmd3
         .spawn()
         .map_err(|e| format!("Failed to execute grub2-mkconfig: {}", e))?;
 
     let stdout3 = child3.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr3 = child3.stderr.take().ok_or("Failed to capture stderr")?;
-    
+
     let mut stdout_reader3 = BufReader::new(stdout3).lines();
     let mut stderr_reader3 = BufReader::new(stderr3).lines();
-    
+
     loop {
         tokio::select! {
             result = stdout_reader3.next_line() => {
@@ -498,12 +498,12 @@ async fn install_kernel_with_headers(kernel_name: String) -> Result<String, Stri
             }
         }
     }
-    
+
     let status3 = child3.wait().await
         .map_err(|e| format!("Failed to wait for process: {}", e))?;
 
     if !status3.success() {
-        combined_output.push_str(&format!("Warning: GRUB rebuild failed (exit code: {}), but kernel is installed.\n", 
+        combined_output.push_str(&format!("Warning: GRUB rebuild failed (exit code: {}), but kernel is installed.\n",
             status3.code().unwrap_or(-1)));
     } else {
         combined_output.push_str("GRUB configuration rebuilt successfully.\n");

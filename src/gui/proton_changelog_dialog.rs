@@ -48,13 +48,13 @@ impl ProtonChangelogDialog {
         page_url: String,
     ) -> Result<(), iced::Error> {
         let dialog = Self::new(runner_title, build_title, description, page_url);
-        
+
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(900.0, 700.0);
         window_settings.min_size = Some(iced::Size::new(700.0, 500.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
-        
+
         let default_font = crate::gui::fonts::get_inter_font();
 
         <ProtonChangelogDialog as Application>::run(iced::Settings {
@@ -130,7 +130,7 @@ impl ProtonChangelogDialog {
         .on_press(Message::Close)
         .padding(Padding::from([12.0, 24.0, 12.0, 24.0]))
         .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)));
-        
+
         let content = if self.is_loading {
             container(
                 column![
@@ -170,15 +170,15 @@ impl ProtonChangelogDialog {
             let changelog_text = self.changelog.as_ref()
                 .map(|c| c.as_str())
                 .unwrap_or("No changelog available.");
-            
+
             let description_text = if !self.description.is_empty() {
                 format!("{}\n\n", self.description)
             } else {
                 String::new()
             };
-            
+
             let full_text = format!("{}{}", description_text, changelog_text);
-            
+
             container(
                 column![
                     // Header
@@ -245,7 +245,7 @@ impl ProtonChangelogDialog {
             .width(Length::Fill)
             .height(Length::Fill)
         };
-        
+
         container(content)
             .width(Length::Fill)
             .height(Length::Fill)
@@ -260,7 +260,7 @@ async fn fetch_changelog(page_url: String) -> Result<String, String> {
     // Try to fetch the release page and extract changelog
     // For GitHub releases, we can try to get the release body
     let client = reqwest::Client::new();
-    
+
     // If it's a GitHub release URL, try to get the release API
     if page_url.contains("github.com") && page_url.contains("/releases/") {
         // Try to convert to API URL
@@ -285,7 +285,7 @@ async fn fetch_changelog(page_url: String) -> Result<String, String> {
             }
         }
     }
-    
+
     // Fallback: return a message with the URL
     Ok(format!("Changelog available at:\n{}\n\n(Full changelog can be viewed on the GitHub release page)", page_url))
 }
@@ -312,7 +312,7 @@ struct DialogContainerStyle {
 
 impl iced::widget::container::StyleSheet for DialogContainerStyle {
     type Style = iced::Theme;
-    
+
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
             text_color: None,
@@ -329,7 +329,7 @@ struct DescriptionContainerStyle {
 
 impl iced::widget::container::StyleSheet for DescriptionContainerStyle {
     type Style = iced::Theme;
-    
+
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
             text_color: None,
@@ -348,7 +348,7 @@ struct ChangelogScrollableStyle;
 
 impl iced::widget::scrollable::StyleSheet for ChangelogScrollableStyle {
     type Style = iced::Theme;
-    
+
     fn active(&self, _style: &Self::Style) -> iced::widget::scrollable::Appearance {
         iced::widget::scrollable::Appearance {
             container: iced::widget::container::Appearance::default(),
@@ -363,7 +363,7 @@ impl iced::widget::scrollable::StyleSheet for ChangelogScrollableStyle {
             gap: None,
         }
     }
-    
+
     fn hovered(&self, _style: &Self::Style, _is_mouse_over: bool) -> iced::widget::scrollable::Appearance {
         self.active(_style)
     }
@@ -373,7 +373,7 @@ struct CloseButtonStyle;
 
 impl ButtonStyleSheet for CloseButtonStyle {
     type Style = iced::Theme;
-    
+
     fn active(&self, _style: &Self::Style) -> ButtonAppearance {
         ButtonAppearance {
             background: Some(iced::Color::from_rgb(0.2, 0.5, 0.8).into()),
@@ -387,13 +387,13 @@ impl ButtonStyleSheet for CloseButtonStyle {
             shadow_offset: iced::Vector::default(),
         }
     }
-    
+
     fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
         appearance.background = Some(iced::Color::from_rgb(0.25, 0.6, 0.9).into());
         appearance
     }
-    
+
     fn pressed(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
         appearance.background = Some(iced::Color::from_rgb(0.15, 0.4, 0.7).into());

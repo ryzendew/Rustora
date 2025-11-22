@@ -24,7 +24,7 @@ pub fn fonts_exist() -> bool {
         let inter_variable = font_dir.join("InterVariable.ttf");
         let _inter_variable_italic = font_dir.join("InterVariable-Italic.ttf");
         let material_symbols = font_dir.join("MaterialSymbolsRounded.ttf");
-        
+
         // Only check for Material Symbols and at least one Inter font
         // Fira Code is optional
         inter_variable.exists() && material_symbols.exists()
@@ -182,7 +182,7 @@ fn load_material_symbols_font() -> Result<iced::Font, String> {
 // Using Material Symbols Unicode codepoints (Iced doesn't support ligatures like Qt)
 pub mod glyphs {
     use iced::widget::text;
-    
+
     // Material Symbols Unicode codepoints (Private Use Area)
     // These are the actual Unicode characters that Material Symbols uses
     // Note: These constants are used indirectly via the string constants below
@@ -206,12 +206,12 @@ pub mod glyphs {
     const EXIT_CODEPOINT: char = '\u{E879}';       // Material Symbols: exit_to_app
     #[allow(dead_code)]
     const DELETE_CODEPOINT: char = '\u{E872}';      // Material Symbols: delete
-    
+
     // Get cached Material Symbols font (optimized - no reload on every call)
     pub fn material_font() -> iced::Font {
         super::get_material_symbols_font()
     }
-    
+
     // Helper function to create text with Material Symbols font applied
     // Optimized: uses string constants instead of char.to_string() to avoid allocation
     #[allow(dead_code)]
@@ -231,7 +231,7 @@ pub mod glyphs {
         };
         text(icon_str).font(material_font())
     }
-    
+
     // Convenience functions for each icon
     // Note: These are kept for potential future use, but currently we use string constants directly
     #[allow(dead_code)]
@@ -254,7 +254,7 @@ pub mod glyphs {
     pub fn exit() -> iced::widget::Text<'static> { icon_text(EXIT_CODEPOINT) }
     #[allow(dead_code)]
     pub fn delete() -> iced::widget::Text<'static> { icon_text(DELETE_CODEPOINT) }
-    
+
     // String constants for use in format strings (using Unicode characters)
     pub const SEARCH_SYMBOL: &str = "\u{E8B6}";
     pub const INSTALLED_SYMBOL: &str = "\u{E5C3}";
