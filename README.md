@@ -12,6 +12,8 @@ Rustora is a feature-rich package management application built with Rust and the
 
 According to some using comments is bad .. I learned along time ago from the failed yuzu project that knowning what the code does line by line helps fix issues. 
 
+In other words Clean up mode!
+
 ## Features
 
 ### 📦 Core Package Management
