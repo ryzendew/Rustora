@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use colored::*;
 use std::process::Command;
 use std::path::Path;
-use anyhow::{Result, Context};
+use anyhow::Result;
 use iced::Application;
 
 #[derive(Parser)]
@@ -144,6 +144,14 @@ enum Commands {
     HyprlandDotfilesDialog,
 }
 
+fn ensure_fonts_async() {
+    if !gui::fonts::fonts_exist() {
+        tokio::spawn(async {
+            let _ = gui::fonts::ensure_fonts().await;
+        });
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -160,11 +168,7 @@ async fn main() -> Result<()> {
         } else {
             return Err(anyhow::anyhow!("File does not have an extension: {}", rpm_file));
         }
-        if !gui::fonts::fonts_exist() {
-            tokio::spawn(async {
-                let _ = gui::fonts::ensure_fonts().await;
-            });
-        }
+        ensure_fonts_async();
         use crate::gui::rpm_dialog::RpmDialog;
         RpmDialog::run_separate_window(rpm_path)?;
         return Ok(());
@@ -172,12 +176,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         None => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
-
+            ensure_fonts_async();
             let default_font = gui::fonts::get_inter_font();
 
             gui::RustoraApp::run(iced::Settings {
@@ -197,20 +196,11 @@ async fn main() -> Result<()> {
                 if !rpm_path.exists() {
                     return Err(anyhow::anyhow!("RPM file not found: {}", rpm_file_str));
                 }
-                if !gui::fonts::fonts_exist() {
-                    tokio::spawn(async {
-                        let _ = gui::fonts::ensure_fonts().await;
-                    });
-                }
+                ensure_fonts_async();
                 use crate::gui::rpm_dialog::RpmDialog;
                 RpmDialog::run_separate_window(rpm_path)?;
                 } else {
-                if !gui::fonts::fonts_exist() {
-                    tokio::spawn(async {
-                        let _ = gui::fonts::ensure_fonts().await;
-                    });
-                }
-
+                ensure_fonts_async();
                 let default_font = gui::fonts::get_inter_font();
 
                 gui::RustoraApp::run(iced::Settings {
@@ -226,54 +216,33 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::RemoveDialog { packages }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::package_dialog::PackageDialog;
             PackageDialog::run_separate_window(packages)?;
             Ok(())
         }
         Some(Commands::InstallDialog { packages }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::install_dialog::InstallDialog;
             InstallDialog::run_separate_window(packages)?;
             Ok(())
         }
         Some(Commands::FlatpakInstallDialog { application_id, remote }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::flatpak_dialog::FlatpakDialog;
             FlatpakDialog::run_separate_window(application_id, remote)?;
             Ok(())
         }
         Some(Commands::FlatpakRemoveDialog { application_ids }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::flatpak_remove_dialog::FlatpakRemoveDialog;
             FlatpakRemoveDialog::run_separate_window(application_ids)?;
             Ok(())
         }
         Some(Commands::FlatpakUpdateDialog { packages_b64 }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use base64::{Engine as _, engine::general_purpose};
-            let decoded = general_purpose::STANDARD
-                .decode(&packages_b64)
+            let decoded = general_purpose::STANDARD.decode(&packages_b64)
                 .map_err(|e| anyhow::anyhow!("Failed to decode packages: {}", e))?;
             let packages: Vec<crate::gui::flatpak_update_dialog::FlatpakUpdateInfo> =
                 serde_json::from_slice(&decoded)
@@ -283,120 +252,74 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::UpdateDialog { packages_b64 }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::update_dialog::UpdateDialog;
             UpdateDialog::run_separate_window(packages_b64)?;
             Ok(())
         }
         Some(Commands::UpdateSettingsDialog) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::update_settings_dialog::UpdateSettingsDialog;
             UpdateSettingsDialog::run_separate_window()?;
             Ok(())
         }
         Some(Commands::Settings) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::settings_dialog::SettingsDialog;
             SettingsDialog::run_separate_window()?;
             Ok(())
         }
         Some(Commands::GamingMetaDialog) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::gaming_meta_dialog::GamingMetaDialog;
             GamingMetaDialog::run_separate_window()?;
             Ok(())
         }
         Some(Commands::CachyosKernelDialog) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::cachyos_kernel_dialog::CachyosKernelDialog;
             CachyosKernelDialog::run_separate_window()?;
             Ok(())
         }
         Some(Commands::HyprlandDialog) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::hyprland_dialog::HyprlandDialog;
             HyprlandDialog::run_separate_window()?;
             Ok(())
         }
         Some(Commands::HyprlandDotfilesDialog) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::hyprland_dotfiles_dialog::HyprlandDotfilesDialog;
             HyprlandDotfilesDialog::run_separate_window()?;
             Ok(())
         }
         Some(Commands::ProtonInstallDialog { runner_title, build_title, download_url, launcher, runner_info }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::proton_install_dialog::ProtonInstallDialog;
             ProtonInstallDialog::run_separate_window(runner_title, build_title, download_url, launcher, runner_info)?;
             Ok(())
         }
         Some(Commands::ProtonChangelogDialog { runner_title, build_title, description, page_url }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::proton_changelog_dialog::ProtonChangelogDialog;
             ProtonChangelogDialog::run_separate_window(runner_title, build_title, description, page_url)?;
             Ok(())
         }
         Some(Commands::MaintenanceDialog { task }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::maintenance_dialog::{MaintenanceDialog, MaintenanceTask};
             let maintenance_task = match task.as_str() {
                 "rebuild-kernel-modules" => MaintenanceTask::RebuildKernelModules,
                 "regenerate-initramfs" => MaintenanceTask::RegenerateInitramfs,
                 "remove-orphaned-packages" => MaintenanceTask::RemoveOrphanedPackages,
                 "clean-package-cache" => MaintenanceTask::CleanPackageCache,
-                _ => {
-                    return Err(anyhow::anyhow!("Unknown maintenance task: {}", task));
-                }
+                _ => return Err(anyhow::anyhow!("Unknown maintenance task: {}", task)),
             };
             MaintenanceDialog::run_separate_window(maintenance_task)?;
             Ok(())
         }
         Some(Commands::KernelInstallDialog { kernel_name }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::kernel_install_dialog::KernelInstallDialog;
             KernelInstallDialog::run_separate_window(kernel_name)?;
             Ok(())
@@ -413,39 +336,26 @@ async fn main() -> Result<()> {
             device_id,
             repositories,
         }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use base64::{Engine as _, engine::general_purpose};
-            let decoded_script = general_purpose::STANDARD
-                .decode(&install_script)
+            let decoded_script = general_purpose::STANDARD.decode(&install_script)
                 .map_err(|e| anyhow::anyhow!("Failed to decode install script: {}", e))?;
             let script = String::from_utf8(decoded_script)
                 .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in install script: {}", e))?;
 
-            let vendor = String::from_utf8(general_purpose::STANDARD.decode(&vendor_name).unwrap_or_default())
-                .unwrap_or_default();
-            let device = String::from_utf8(general_purpose::STANDARD.decode(&device_name).unwrap_or_default())
-                .unwrap_or_default();
-            let drv = String::from_utf8(general_purpose::STANDARD.decode(&driver).unwrap_or_default())
-                .unwrap_or_default();
-            let drv_ver = String::from_utf8(general_purpose::STANDARD.decode(&driver_version).unwrap_or_default())
-                .unwrap_or_default();
-            let bus = String::from_utf8(general_purpose::STANDARD.decode(&bus_id).unwrap_or_default())
-                .unwrap_or_default();
-            let vid = String::from_utf8(general_purpose::STANDARD.decode(&vendor_id).unwrap_or_default())
-                .unwrap_or_default();
-            let did = String::from_utf8(general_purpose::STANDARD.decode(&device_id).unwrap_or_default())
-                .unwrap_or_default();
-
-            let repos_json = String::from_utf8(general_purpose::STANDARD.decode(&repositories).unwrap_or_default())
-                .unwrap_or_default();
+            let decode = |s: &str| String::from_utf8(general_purpose::STANDARD.decode(s).unwrap_or_default()).unwrap_or_default();
+            let vendor = decode(&vendor_name);
+            let device = decode(&device_name);
+            let drv = decode(&driver);
+            let drv_ver = decode(&driver_version);
+            let bus = decode(&bus_id);
+            let vid = decode(&vendor_id);
+            let did = decode(&device_id);
+            let repos_json = decode(&repositories);
             let repos: Vec<String> = serde_json::from_str(&repos_json).unwrap_or_default();
 
             use crate::gui::device_install_dialog::{DeviceInstallDialog, DeviceInfo};
-            let device_info = DeviceInfo {
+            DeviceInstallDialog::run_separate_window(profile_name, script, DeviceInfo {
                 vendor_name: vendor,
                 device_name: device,
                 driver: drv,
@@ -454,8 +364,7 @@ async fn main() -> Result<()> {
                 vendor_id: vid,
                 device_id: did,
                 repositories: repos,
-            };
-            DeviceInstallDialog::run_separate_window(profile_name, script, device_info, false)?;
+            }, false)?;
             Ok(())
         }
         Some(Commands::DeviceRemoveDialog {
@@ -470,39 +379,26 @@ async fn main() -> Result<()> {
             device_id,
             repositories,
         }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use base64::{Engine as _, engine::general_purpose};
-            let decoded_script = general_purpose::STANDARD
-                .decode(&remove_script)
+            let decoded_script = general_purpose::STANDARD.decode(&remove_script)
                 .map_err(|e| anyhow::anyhow!("Failed to decode remove script: {}", e))?;
             let script = String::from_utf8(decoded_script)
                 .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in remove script: {}", e))?;
 
-            let vendor = String::from_utf8(general_purpose::STANDARD.decode(&vendor_name).unwrap_or_default())
-                .unwrap_or_default();
-            let device = String::from_utf8(general_purpose::STANDARD.decode(&device_name).unwrap_or_default())
-                .unwrap_or_default();
-            let drv = String::from_utf8(general_purpose::STANDARD.decode(&driver).unwrap_or_default())
-                .unwrap_or_default();
-            let drv_ver = String::from_utf8(general_purpose::STANDARD.decode(&driver_version).unwrap_or_default())
-                .unwrap_or_default();
-            let bus = String::from_utf8(general_purpose::STANDARD.decode(&bus_id).unwrap_or_default())
-                .unwrap_or_default();
-            let vid = String::from_utf8(general_purpose::STANDARD.decode(&vendor_id).unwrap_or_default())
-                .unwrap_or_default();
-            let did = String::from_utf8(general_purpose::STANDARD.decode(&device_id).unwrap_or_default())
-                .unwrap_or_default();
-
-            let repos_json = String::from_utf8(general_purpose::STANDARD.decode(&repositories).unwrap_or_default())
-                .unwrap_or_default();
+            let decode = |s: &str| String::from_utf8(general_purpose::STANDARD.decode(s).unwrap_or_default()).unwrap_or_default();
+            let vendor = decode(&vendor_name);
+            let device = decode(&device_name);
+            let drv = decode(&driver);
+            let drv_ver = decode(&driver_version);
+            let bus = decode(&bus_id);
+            let vid = decode(&vendor_id);
+            let did = decode(&device_id);
+            let repos_json = decode(&repositories);
             let repos: Vec<String> = serde_json::from_str(&repos_json).unwrap_or_default();
 
             use crate::gui::device_install_dialog::{DeviceInstallDialog, DeviceInfo};
-            let device_info = DeviceInfo {
+            DeviceInstallDialog::run_separate_window(profile_name, script, DeviceInfo {
                 vendor_name: vendor,
                 device_name: device,
                 driver: drv,
@@ -511,22 +407,17 @@ async fn main() -> Result<()> {
                 vendor_id: vid,
                 device_id: did,
                 repositories: repos,
-            };
-            DeviceInstallDialog::run_separate_window(profile_name, script, device_info, true)?;
+            }, true)?;
             Ok(())
         }
         Some(Commands::KernelRemoveDialog { kernel_name }) => {
-            if !gui::fonts::fonts_exist() {
-                tokio::spawn(async {
-                    let _ = gui::fonts::ensure_fonts().await;
-                });
-            }
+            ensure_fonts_async();
             use crate::gui::kernel_install_dialog::KernelInstallDialog;
             KernelInstallDialog::run_separate_window(kernel_name)?;
             Ok(())
         }
         Some(cmd) => {
-            if let Err(e) = match cmd {
+            if let Err(_e) = match cmd {
                 Commands::Search { query, details } => search_packages(&query, details),
                 Commands::Install { packages, yes } => install_packages(&packages, yes),
                 Commands::List { details } => list_packages(details),
@@ -566,7 +457,7 @@ fn search_packages(query: &str, details: bool) -> Result<()> {
     cmd.arg("search").arg("--quiet");
     if details { cmd.arg("--showduplicates"); }
     cmd.arg(query);
-    let output = cmd.output().context("Failed to execute dnf search")?;
+    let output = cmd.output()?;
     if !output.status.success() {
         anyhow::bail!("DNF search failed: {}", String::from_utf8_lossy(&output.stderr));
     }
@@ -590,11 +481,10 @@ fn search_packages(query: &str, details: bool) -> Result<()> {
     } else {
         results.sort_by(|a, b| a.0.cmp(&b.0));
         results.dedup_by(|a, b| a.0 == b.0);
-        let count = results.len();
         for (name, desc) in &results {
             println!("{} {}", name.bright_cyan().bold(), desc.bright_white());
         }
-        println!("\n{} Found {} package(s)", "[OK]".green(), count.to_string().bright_white().bold());
+        println!("\n{} Found {} package(s)", "[OK]".green(), results.len().to_string().bright_white().bold());
     }
     Ok(())
 }
@@ -614,7 +504,7 @@ fn install_packages(packages: &[String], yes: bool) -> Result<()> {
     cmd.arg("dnf").arg("install");
     if yes { cmd.arg("-y"); }
     cmd.args(packages);
-    let status = cmd.spawn().context("Failed to execute dnf install")?.wait().context("Failed to wait for process")?;
+    let status = cmd.spawn()?.wait()?;
     if !status.success() {
         anyhow::bail!("Package installation failed");
     }
@@ -624,17 +514,17 @@ fn install_packages(packages: &[String], yes: bool) -> Result<()> {
 
 fn list_packages(details: bool) -> Result<()> {
     println!("{} Listing installed packages...\n", "[LIST]".green());
-    let output = Command::new("dnf").args(["list", "--installed", "--quiet"]).output().context("Failed to execute dnf list")?;
+    let output = Command::new("dnf").args(["list", "--installed", "--quiet"]).output()?;
     if !output.status.success() {
         anyhow::bail!("DNF list failed: {}", String::from_utf8_lossy(&output.stderr));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let packages: Vec<&str> = stdout.lines().skip(1).filter(|l| !l.trim().is_empty()).collect();
-    if packages.is_empty() {
+    let count = packages.len();
+    if count == 0 {
         println!("{} No packages found", "[WARN]".yellow());
         return Ok(());
     }
-    let count = packages.len();
     for line in packages {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if !parts.is_empty() {
@@ -651,7 +541,7 @@ fn list_packages(details: bool) -> Result<()> {
 
 fn show_package_info(package: &str) -> Result<()> {
     println!("{} Package information: {}\n", "[INFO]".blue(), package.bright_white().bold());
-    let output = Command::new("dnf").args(["info", package]).output().context("Failed to execute dnf info")?;
+    let output = Command::new("dnf").args(["info", package]).output()?;
     if !output.status.success() {
         anyhow::bail!("DNF info failed: {}", String::from_utf8_lossy(&output.stderr));
     }
@@ -679,14 +569,14 @@ fn update_packages(all: bool) -> Result<()> {
     if all {
         println!("{} Updating all packages...\n", "[UPDATE]".green());
         check_sudo();
-        let status = Command::new("sudo").args(["dnf", "upgrade", "-y"]).spawn().context("Failed to execute dnf upgrade")?.wait().context("Failed to wait for process")?;
+        let status = Command::new("sudo").args(["dnf", "upgrade", "-y"]).spawn()?.wait()?;
         if !status.success() {
             anyhow::bail!("Package update failed");
         }
         println!("\n{} Successfully updated packages", "[OK]".green().bold());
     } else {
         println!("{} Updating package database...\n", "[UPDATE]".green());
-        let output = Command::new("sudo").args(["dnf", "makecache"]).output().context("Failed to execute dnf makecache")?;
+        let output = Command::new("sudo").args(["dnf", "makecache"]).output()?;
         if !output.status.success() {
             anyhow::bail!("Failed to update package database: {}", String::from_utf8_lossy(&output.stderr));
         }

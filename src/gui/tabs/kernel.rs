@@ -631,7 +631,7 @@ impl KernelTab {
                         },
                         |result| match result {
                             Ok((schedulers, current)) => Message::SchedulersLoaded(schedulers, current),
-                            Err(msg) => {
+                            Err(_) => {
                                 Message::Error(())
                             },
                         }

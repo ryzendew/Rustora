@@ -493,7 +493,7 @@ async fn load_package_info(package_names: Vec<String>) -> Result<Vec<PackageInfo
     for result in results {
         match result {
             Ok(info) => infos.push(info),
-            Err(e) => {
+                    Err(_) => {
                 // Continue with other packages even if one fails
             }
         }

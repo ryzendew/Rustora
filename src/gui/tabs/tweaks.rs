@@ -39,7 +39,6 @@ pub enum Message {
     CheckHyprlandStatus,
     HyprlandStatusChecked(Result<HyprlandStatus, String>),
     InstallHyprland,
-    InstallHyprlandDotfiles,
     LoadProtonBuilds,
     ProtonBuildsLoaded(Result<Vec<ProtonRunner>, String>),
     #[allow(dead_code)]
@@ -495,8 +494,7 @@ impl TweaksTab {
                         self.is_loading_dnf_config = true;
                         iced::Command::perform(load_dnf_config(), Message::DnfConfigLoaded)
                     }
-                    Err(e) => {
-                        self.dnf_config_error = Some(e);
+                    Err(_) => {
                         iced::Command::none()
                     }
                 }
@@ -510,21 +508,6 @@ impl TweaksTab {
                             .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         TokioCommand::new(&exe_path)
                             .arg("hyprland-dialog")
-                            .spawn()
-                            .ok();
-                    },
-                    |_| Message::GamingMetaComplete(Ok("Dialog opened".to_string())),
-                )
-            }
-            Message::InstallHyprlandDotfiles => {
-
-                iced::Command::perform(
-                    async move {
-                        use tokio::process::Command as TokioCommand;
-                        let exe_path = std::env::current_exe()
-                            .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
-                        TokioCommand::new(&exe_path)
-                            .arg("hyprland-dotfiles-dialog")
                             .spawn()
                             .ok();
                     },
@@ -3798,10 +3781,10 @@ impl iced::widget::container::StyleSheet for StatusSectionStyle {
 
 // Proton builds async functions
 fn get_proton_cache_path() -> Result<std::path::PathBuf, String> {
-    let home = std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
+    let home = std::env::var("HOME").map_err(|_| "HOME not set".to_string())?;
     let cache_dir = std::path::Path::new(&home).join(".cache").join("rustora");
     std::fs::create_dir_all(&cache_dir)
-        .map_err(|e| format!("Failed to create cache directory: {}", e))?;
+        .map_err(|e| format!("Failed to create cache dir: {}", e))?;
     Ok(cache_dir.join("proton_builds.json"))
 }
 
@@ -3833,39 +3816,29 @@ fn load_proton_cache() -> Option<Vec<ProtonRunner>> {
 
     match std::fs::read_to_string(&cache_path) {
         Ok(content) => {
-            match serde_json::from_str::<Vec<ProtonRunner>>(&content) {
-                Ok(mut runners) => {
-                    for runner in &mut runners {
-                        if runner.compat_layer_type.is_empty() {
-                            runner.compat_layer_type = "Proton".to_string();
-                        }
-                        for build in &mut runner.builds {
-                            build.is_installed = false;
-                            build.usage_count = 0;
-                        }
+            serde_json::from_str::<Vec<ProtonRunner>>(&content).ok().map(|mut runners| {
+                for runner in &mut runners {
+                    if runner.compat_layer_type.is_empty() {
+                        runner.compat_layer_type = "Proton".to_string();
                     }
-                    Some(runners)
+                    for build in &mut runner.builds {
+                        build.is_installed = false;
+                        build.usage_count = 0;
+                    }
                 }
-                Err(_e) => {
-                    None
-                }
-            }
+                runners
+            })
         }
-        Err(_e) => {
-            None
-        }
+        Err(_) => None,
     }
 }
 
 fn save_proton_cache(runners: &[ProtonRunner]) -> Result<(), String> {
     let cache_path = get_proton_cache_path()?;
-
     let json = serde_json::to_string_pretty(runners)
-        .map_err(|e| format!("Failed to serialize cache: {}", e))?;
-
+        .map_err(|e| format!("Failed to serialize: {}", e))?;
     std::fs::write(&cache_path, json)
-        .map_err(|e| format!("Failed to write cache: {}", e))?;
-
+        .map_err(|e| format!("Failed to write: {}", e))?;
     Ok(())
 }
 
@@ -3894,26 +3867,21 @@ fn has_new_builds(cached: &[ProtonRunner], new: &[ProtonRunner]) -> bool {
         }
     }
 
-    if cached.len() != new.len() {
-        return true;
-    }
-
-    false
+    cached.len() != new.len()
 }
 
 async fn load_proton_builds() -> Result<Vec<ProtonRunner>, String> {
     if let Some(cached_runners) = load_proton_cache() {
-        if cached_runners.is_empty() {
-        } else {
-        let cached_runners_clone = cached_runners.clone();
-        tokio::spawn(async move {
-            if let Ok(new_runners) = fetch_proton_builds_from_github().await {
-                if has_new_builds(&cached_runners_clone, &new_runners) {
-                    let _ = save_proton_cache(&new_runners);
+        if !cached_runners.is_empty() {
+            let cached_runners_clone = cached_runners.clone();
+            tokio::spawn(async move {
+                if let Ok(new_runners) = fetch_proton_builds_from_github().await {
+                    if has_new_builds(&cached_runners_clone, &new_runners) {
+                        let _ = save_proton_cache(&new_runners);
+                    }
                 }
-            }
-        });
-        return Ok(cached_runners);
+            });
+            return Ok(cached_runners);
         }
     }
 
@@ -4013,8 +3981,7 @@ async fn fetch_proton_builds_from_github() -> Result<Vec<ProtonRunner>, String> 
                 } else {
                     let status = response.status();
                     // Try to read error body for debugging
-                    if let Ok(error_body) = response.text().await {
-                    }
+                    let _ = response.text().await;
                     last_error = Some(format!("HTTP {} from {}", status, url));
                 }
             }
@@ -4041,11 +4008,11 @@ async fn process_runners_json(json: serde_json::Value) -> Result<Vec<ProtonRunne
 
     // Get compat_layers array
     if let Some(compat_layers) = json.get("compat_layers").and_then(|v| v.as_array()) {
-        for (layer_idx, layer) in compat_layers.iter().enumerate() {
+        for (_layer_idx, layer) in compat_layers.iter().enumerate() {
             if let Some(title) = layer.get("title").and_then(|v| v.as_str()) {
                 if title == "Proton" || title == "Wine" {
                     if let Some(runners) = layer.get("runners").and_then(|v| v.as_array()) {
-                        for (runner_idx, runner) in runners.iter().enumerate() {
+                        for (_runner_idx, runner) in runners.iter().enumerate() {
                             if let Some(runner_title) = runner.get("title").and_then(|v| v.as_str()) {
                                 if let Some(endpoint) = runner.get("endpoint").and_then(|v| v.as_str()) {
 
@@ -4086,7 +4053,7 @@ async fn process_runners_json(json: serde_json::Value) -> Result<Vec<ProtonRunne
                                                         Ok(releases_json) => {
                                                             if let Some(releases_array) = releases_json.as_array() {
 
-                                                                for (release_idx, release) in releases_array.iter().enumerate() {
+                                                                for (_release_idx, release) in releases_array.iter().enumerate() {
                                                                     if let Some(tag_name) = release.get("tag_name").and_then(|v| v.as_str()) {
                                                                         if let Some(assets) = release.get("assets").and_then(|v| v.as_array()) {
 
@@ -4155,13 +4122,13 @@ async fn process_runners_json(json: serde_json::Value) -> Result<Vec<ProtonRunne
                                                             } else {
                                                             }
                                                         }
-                                                        Err(e) => {
+                                                        Err(_e) => {
                                                         }
                                                     }
                                                 } else {
                                                 }
                                             }
-                                            Err(e) => {
+                                            Err(_e) => {
                                             }
                                         }
 
@@ -4211,8 +4178,6 @@ async fn process_runners_json(json: serde_json::Value) -> Result<Vec<ProtonRunne
     } else {
     }
 
-    for (idx, runner) in proton_runners.iter().enumerate() {
-    }
     Ok(proton_runners)
 }
 
@@ -4292,10 +4257,6 @@ async fn detect_launchers() -> Result<Vec<DetectedLauncher>, String> {
 }
 
 fn check_proton_installed(runner_title: &str, release_name: &str, directory_name_formats: &[DirectoryNameFormat], detected_launchers: &[DetectedLauncher], compat_layer_type: &str) -> bool {
-    for (idx, format) in directory_name_formats.iter().enumerate() {
-    }
-    for (idx, launcher) in detected_launchers.iter().enumerate() {
-    }
 
     // Get directory name format for each detected launcher
     for launcher in detected_launchers {
@@ -4485,12 +4446,9 @@ async fn download_proton_build(runner_title: String, title: String, download_url
 
     // Check if file already exists
     if tar_path.exists() {
-        let metadata = std::fs::metadata(&tar_path).ok();
-        if let Some(meta) = metadata {
-        }
+        let _ = std::fs::metadata(&tar_path);
     }
 
-    let start_time = std::time::Instant::now();
     let response = client
         .get(&download_url)
         .header("User-Agent", "Rustora/1.0")
@@ -4500,43 +4458,25 @@ async fn download_proton_build(runner_title: String, title: String, download_url
             format!("Failed to download: {}", e)
         })?;
 
-    let request_duration = start_time.elapsed();
-
     let status = response.status();
     if !status.is_success() {
-        // Try to read error body (this consumes response)
-        let error_body_result = response.text().await;
-        if let Ok(error_body) = error_body_result {
-        }
+        let _ = response.text().await;
         return Err(format!("Failed to download: HTTP {}", status));
     }
 
-    if let Some(content_length) = response.content_length() {
-    } else {
-    }
+    let _ = response.content_length();
 
-    let read_start = std::time::Instant::now();
     let bytes = response.bytes().await
         .map_err(|e| {
             format!("Failed to read download: {}", e)
         })?;
-    let read_duration = read_start.elapsed();
 
-    let write_start = std::time::Instant::now();
     std::fs::write(&tar_path, bytes.as_ref())
         .map_err(|e| {
-            if let Some(parent) = tar_path.parent() {
-                if let Ok(metadata) = parent.metadata() {
-                }
-            }
             format!("Failed to save file: {}", e)
         })?;
-    let write_duration = write_start.elapsed();
 
-    // Verify file was written
-    if let Ok(metadata) = std::fs::metadata(&tar_path) {
-    } else {
-    }
+    let _ = std::fs::metadata(&tar_path);
 
     Ok((runner_title, title, tar_path.to_string_lossy().into_owned()))
 }
@@ -4690,8 +4630,7 @@ async fn install_proton_build_with_launcher(
         return Err(format!("Archive file not found: {}", tar_path));
     }
 
-    if let Ok(metadata) = std::fs::metadata(&tar_path) {
-    }
+    let _ = std::fs::metadata(&tar_path);
 
     // Get the selected launcher or use first detected
     let launcher_title = selected_launcher.as_ref().map(|s| s.as_str()).unwrap_or("Steam");
@@ -4837,16 +4776,10 @@ async fn install_proton_build_with_launcher(
 
     // Check if destination exists
     if dest_path.exists() {
-        if let Ok(metadata) = dest_path.metadata() {
-            if let Ok(entries) = std::fs::read_dir(&dest_path) {
-                let count = entries.count();
-            }
-        }
-        let remove_start = std::time::Instant::now();
+        let _ = dest_path.metadata();
         std::fs::remove_dir_all(&dest_path)
             .map_err(|e| {
-                if let Ok(metadata) = dest_path.metadata() {
-                }
+                let _ = dest_path.metadata();
                 format!("Failed to remove existing installation: {}", e)
             })?;
     } else {
@@ -4857,8 +4790,7 @@ async fn install_proton_build_with_launcher(
         return Err(format!("Extracted directory not found: {}", extracted_dir.display()));
     }
 
-    if let Ok(metadata) = extracted_dir.metadata() {
-    }
+    let _ = extracted_dir.metadata();
 
     let copy_start = std::time::Instant::now();
 
@@ -4882,17 +4814,15 @@ async fn install_proton_build_with_launcher(
     copy_dir_all(&extracted_dir, &dest_path)
         .map_err(|e| {
             if let Some(parent) = dest_path.parent() {
-                if let Ok(metadata) = parent.metadata() {
-                }
+                let _ = parent.metadata();
             }
             format!("Failed to copy to {}: {}", compat_dir, e)
         })?;
-    let copy_duration = copy_start.elapsed();
+    let _ = copy_start.elapsed();
 
     // Verify installation
     if dest_path.exists() {
-        if let Ok(metadata) = dest_path.metadata() {
-        }
+        let _ = dest_path.metadata();
     } else {
     }
 
@@ -4901,14 +4831,8 @@ async fn install_proton_build_with_launcher(
     let cleanup_start = std::time::Instant::now();
 
     // Remove temp archive
-    if let Err(e) = std::fs::remove_file(&tar_path) {
-    } else {
-    }
-
-    // Remove temp extract directory (now that we've copied it)
-    if let Err(e) = std::fs::remove_dir_all(&temp_extract) {
-    } else {
-    }
+    let _ = std::fs::remove_file(&tar_path);
+    let _ = std::fs::remove_dir_all(&temp_extract);
 
     // Also try to remove the parent .tmp directory if it's empty
     if let Some(parent_tmp) = temp_extract.parent() {
@@ -4918,7 +4842,7 @@ async fn install_proton_build_with_launcher(
         }
     }
 
-    let cleanup_duration = cleanup_start.elapsed();
+    let _ = cleanup_start.elapsed();
 
     Ok((runner_title, title))
 }
@@ -5055,20 +4979,12 @@ async fn remove_proton_build(
     }
 
     // Check installation size before removal
-    if let Ok(metadata) = install_path.metadata() {
-        if let Ok(entries) = std::fs::read_dir(&install_path) {
-            let count = entries.count();
-        }
-    }
-
-    let remove_start = std::time::Instant::now();
+    let _ = install_path.metadata();
     std::fs::remove_dir_all(&install_path)
         .map_err(|e| {
-            if let Ok(metadata) = install_path.metadata() {
-            }
+            let _ = install_path.metadata();
             format!("Failed to remove {}: {}. You may need to run with sudo.", directory_name, e)
         })?;
-    let remove_duration = remove_start.elapsed();
 
     // Verify removal
     if install_path.exists() {

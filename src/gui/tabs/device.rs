@@ -3665,8 +3665,7 @@ async fn load_all_devices() -> Result<(
         Ok(_) => {
             // No packages found, continue
         }
-        Err(e) => {
-            // Log error but continue without repository profiles
+        Err(_e) => {
         }
     }
 
@@ -3679,8 +3678,7 @@ async fn load_all_devices() -> Result<(
         Ok(_) => {
             // No packages found, continue
         }
-        Err(e) => {
-            // Log error but continue without repository profiles
+        Err(_e) => {
         }
     }
 
@@ -3887,11 +3885,11 @@ async fn load_pci_profiles() -> Result<Vec<CfhdbPciProfile>, String> {
                     Ok(profiles) => {
                         return Ok(profiles);
                     }
-                    Err(e) => {
+                    Err(_e) => {
                     }
                 }
             }
-            Err(e) => {
+            Err(_e) => {
             }
         }
     } else {
@@ -3947,11 +3945,11 @@ async fn load_usb_profiles() -> Result<Vec<CfhdbUsbProfile>, String> {
                     Ok(profiles) => {
                         return Ok(profiles);
                     }
-                    Err(e) => {
+                    Err(_e) => {
                     }
                 }
             }
-            Err(e) => {
+            Err(_e) => {
             }
         }
     } else {
@@ -4027,22 +4025,22 @@ fn profiles_need_update(cached_path: &Path) -> bool {
                 Ok(modified) => {
                     match modified.elapsed() {
                         Ok(elapsed) => {
-                            let hours = elapsed.as_secs() / 3600;
+                            let _hours = elapsed.as_secs() / 3600;
                             let needs_update = elapsed.as_secs() > 24 * 60 * 60;
                             needs_update
                         }
-                        Err(e) => {
-                            true // If we can't determine age, update to be safe
+                        Err(_) => {
+                            true
                         }
                     }
                 }
-                Err(e) => {
-                    true // If we can't get mod time, update to be safe
+                Err(_) => {
+                    true
                 }
             }
         }
-        Err(e) => {
-            true // If we can't get metadata, update to be safe
+        Err(_) => {
+            true
         }
     }
 }
@@ -4239,11 +4237,11 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
                     Ok(_) => {
                         return Ok(());
                     }
-                    Err(e) => {
+                    Err(_e) => {
                     }
                 }
             }
-            Err(e) => {
+            Err(_e) => {
             }
         }
     }
@@ -4317,10 +4315,9 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
     match fix_perms_output {
         Ok(output) if output.status.success() => {
         }
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
+        Ok(_output) => {
         }
-        Err(e) => {
+        Err(_e) => {
         }
     }
 

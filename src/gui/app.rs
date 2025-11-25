@@ -23,28 +23,28 @@ use std::path::PathBuf;
 async fn open_file_picker() -> Option<PathBuf> {
     use tokio::process::Command;
 
-    let output = Command::new("zenity")
+    if let Ok(output) = Command::new("zenity")
         .args(["--file-selection", "--title=Select RPM Package to Install", "--file-filter=*.rpm"])
         .output()
-        .await;
-
-    if let Ok(output) = output {
+        .await
+    {
         if output.status.success() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let path_str = String::from_utf8_lossy(&output.stdout);
+            let path = path_str.trim();
             if !path.is_empty() {
                 return Some(PathBuf::from(path));
             }
         }
     }
 
-    let output = Command::new("kdialog")
+    if let Ok(output) = Command::new("kdialog")
         .args(["--getopenfilename", ".", "*.rpm"])
         .output()
-        .await;
-
-    if let Ok(output) = output {
+        .await
+    {
         if output.status.success() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let path_str = String::from_utf8_lossy(&output.stdout);
+            let path = path_str.trim();
             if !path.is_empty() {
                 return Some(PathBuf::from(path));
             }
