@@ -410,7 +410,7 @@ async fn update_cache_and_install() -> Result<String, String> {
     let packages = vec![
         "hyprland",
         "hyprpicker",
-        "swww",
+        "awww",
         "quickshell-git",
         "fuzzel",
         "wlogout",

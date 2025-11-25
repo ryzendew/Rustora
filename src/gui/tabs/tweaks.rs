@@ -113,7 +113,7 @@ pub struct CachyosKernelStatus {
 pub struct HyprlandStatus {
     pub hyprland: bool,
     pub hyprpicker: bool,
-    pub swww: bool,
+    pub awww: bool,
     pub quickshell_git: bool,
     pub fuzzel: bool,
     pub wlogout: bool,
@@ -407,7 +407,7 @@ impl TweaksTab {
                         self.hyprland_status = Some(HyprlandStatus {
                             hyprland: false,
                             hyprpicker: false,
-                            swww: false,
+                            awww: false,
                             quickshell_git: false,
                             fuzzel: false,
                             wlogout: false,
@@ -2057,7 +2057,7 @@ impl TweaksTab {
                                         .width(Length::Fill),
                                         Space::with_height(Length::Fixed(12.0)),
                             row![
-                                            create_status_item("swww", status.swww),
+                                            create_status_item("awww", status.awww),
                                             Space::with_width(Length::Fixed(12.0)),
                                             create_status_item("quickshell-git", status.quickshell_git),
                                         ]
@@ -2196,21 +2196,6 @@ impl TweaksTab {
                 })))
                 .padding(Padding::from([14.0, 20.0, 14.0, 20.0]));
 
-                let hyprland_dotfiles_button = button(
-                    row![
-                        text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(icon_size),
-                        text(" Install Dotfiles").size(button_font_size)
-                    ]
-                    .spacing(10)
-                    .align_items(Alignment::Center)
-                )
-                .on_press(Message::InstallHyprlandDotfiles)
-                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                    is_primary: true,
-                    radius: settings.border_radius,
-                })))
-                .padding(Padding::from([14.0, 20.0, 14.0, 20.0]));
-
                 // Hyprland - Modern card-based design
                 let hyprland_left = scrollable(
                     container(
@@ -2253,7 +2238,7 @@ impl TweaksTab {
                                         row![
                                             text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
-                                            text("Installs Hyprland, hyprpicker, swww, quickshell-git")
+                                            text("Installs Hyprland, hyprpicker, awww, quickshell-git")
                                 .size(body_font_size * 0.95)
                                 .style(iced::theme::Text::Color(theme.text())),
                                         ]
@@ -2280,52 +2265,6 @@ impl TweaksTab {
                             )
                             .width(Length::Fill)
                             .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
-                            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                                radius: settings.border_radius,
-                                theme: *theme,
-                            }))),
-                        Space::with_height(Length::Fixed(20.0)),
-
-                            // Dotfiles card
-                            container(
-                                column![
-                                    text("Dotfiles")
-                                        .size(body_font_size * 1.05)
-                            .style(iced::theme::Text::Color(theme.primary())),
-                                    Space::with_height(Length::Fixed(4.0)),
-                                    text("Configuration files from Dark Material Shell")
-                                        .size(body_font_size * 0.85)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
-                                    Space::with_height(Length::Fixed(16.0)),
-                        column![
-                                        row![
-                                            text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
-                                            Space::with_width(Length::Fixed(8.0)),
-                                            text("hypr folder → ~/.config/hypr")
-                                .size(body_font_size * 0.95)
-                                .style(iced::theme::Text::Color(theme.text())),
-                                        ]
-                                        .spacing(0)
-                                        .align_items(Alignment::Start),
-                                        Space::with_height(Length::Fixed(10.0)),
-                                        row![
-                                            text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
-                                            Space::with_width(Length::Fixed(8.0)),
-                                            text("quickshell folder → ~/.config/quickshell")
-                                .size(body_font_size * 0.95)
-                                .style(iced::theme::Text::Color(theme.text())),
-                        ]
-                                        .spacing(0)
-                                        .align_items(Alignment::Start),
-                                    ]
-                                    .spacing(0),
-                        Space::with_height(Length::Fixed(20.0)),
-                                    hyprland_dotfiles_button.width(Length::Fill),
-                    ]
-                    .spacing(0)
-                            )
-                            .width(Length::Fill)
-                    .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
                             .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
                                 radius: settings.border_radius,
                                 theme: *theme,
@@ -3425,7 +3364,7 @@ async fn check_cachyos_kernel_status() -> Result<CachyosKernelStatus, String> {
 async fn check_hyprland_status() -> Result<HyprlandStatus, String> {
     let hyprland = check_dnf_package("hyprland").await;
     let hyprpicker = check_dnf_package("hyprpicker").await;
-    let swww = check_dnf_package("swww").await;
+    let awww = check_dnf_package("awww").await;
     let quickshell_git = check_dnf_package("quickshell-git").await;
     let fuzzel = check_dnf_package("fuzzel").await;
     let wlogout = check_dnf_package("wlogout").await;
@@ -3441,7 +3380,7 @@ async fn check_hyprland_status() -> Result<HyprlandStatus, String> {
     Ok(HyprlandStatus {
         hyprland,
         hyprpicker,
-        swww,
+        awww,
         quickshell_git,
         fuzzel,
         wlogout,
