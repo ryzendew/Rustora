@@ -11,34 +11,34 @@ use tokio::process::Command as TokioCommand;
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    // View mode switching
+
     SwitchToSearch,
     SwitchToInstalled,
     SwitchToUpdates,
-    // Search operations
+
     SearchQueryChanged(String),
     Search,
     SearchResult(Vec<FlatpakInfo>),
-    // Install operations
+
     TogglePackage(String),
     InstallSelected,
     InstallComplete,
-    // Installed list operations
+
     LoadInstalled,
     InstalledLoaded(Vec<FlatpakInfo>),
-    // Remove operations
+
     RemoveSelected,
     RemoveComplete,
-    // Update operations
+
     CheckUpdates,
     UpdatesFound(Vec<FlatpakInfo>),
     InstallUpdates,
     UpdatesInstalled,
-    // Package details panel
-    PackageSelected(String, Option<String>), // application_id, remote
+
+    PackageSelected(String, Option<String>),
     PackageDetailsLoaded(FlatpakDetails),
     ClosePanel,
-    // Error handling
+
     Error(String),
 }
 
@@ -68,32 +68,26 @@ pub struct FlatpakDetails {
 
 #[derive(Debug)]
 pub struct FlatpakTab {
-    // Search state
+
     search_query: String,
     search_results: Vec<FlatpakInfo>,
     is_searching: bool,
 
-    // Install state
     selected_packages: std::collections::HashSet<String>,
     is_installing: bool,
 
-    // Installed list state
     installed_flatpaks: Vec<FlatpakInfo>,
     is_loading_installed: bool,
 
-    // Remove state
     is_removing: bool,
 
-    // Update state
     updates: Vec<FlatpakInfo>,
     is_checking_updates: bool,
     is_updating: bool,
     update_error: Option<String>,
 
-    // View mode
     view_mode: ViewMode,
 
-    // Package details panel
     selected_package: Option<String>,
     package_details: Option<FlatpakDetails>,
     panel_open: bool,
@@ -136,7 +130,7 @@ impl FlatpakTab {
             }
             Message::SwitchToInstalled => {
                 self.view_mode = ViewMode::Installed;
-                // Auto-load installed packages when switching to this view
+
                 self.is_loading_installed = true;
                 iced::Command::perform(load_installed_flatpaks(), |result| {
                     match result {
@@ -147,7 +141,7 @@ impl FlatpakTab {
             }
             Message::SwitchToUpdates => {
                 self.view_mode = ViewMode::Updates;
-                // Auto-check for updates when switching to this view
+
                 self.is_checking_updates = true;
                 iced::Command::perform(check_flatpak_updates(), |result| {
                     match result {
@@ -202,11 +196,10 @@ impl FlatpakTab {
                 if self.selected_packages.is_empty() {
                     return iced::Command::none();
                 }
-                // Spawn separate window for Flatpak installation
-                // Install packages one by one (open dialog for first, others can be queued)
+
                 let packages: Vec<String> = self.selected_packages.iter().cloned().collect();
                 if let Some(first_pkg) = packages.first() {
-                    // Find the remote for this package from search results
+
                     let remote = self.search_results
                         .iter()
                         .find(|p| &p.application_id == first_pkg)
@@ -235,7 +228,7 @@ impl FlatpakTab {
             Message::InstallComplete => {
                 self.is_installing = false;
                 self.selected_packages.clear();
-                // Refresh installed list
+
                 iced::Command::perform(load_installed_flatpaks(), |result| {
                     match result {
                         Ok(packages) => Message::InstalledLoaded(packages),
@@ -262,7 +255,7 @@ impl FlatpakTab {
                 if self.selected_packages.is_empty() {
                     return iced::Command::none();
                 }
-                // Spawn separate window for Flatpak removal
+
                 let packages: Vec<String> = self.selected_packages.iter().cloned().collect();
                 iced::Command::perform(
                     async move {
@@ -281,7 +274,7 @@ impl FlatpakTab {
             Message::RemoveComplete => {
                 self.is_removing = false;
                 self.selected_packages.clear();
-                // Refresh installed list
+
                 iced::Command::perform(load_installed_flatpaks(), |result| {
                     match result {
                         Ok(packages) => Message::InstalledLoaded(packages),
@@ -310,7 +303,7 @@ impl FlatpakTab {
                 if self.updates.is_empty() {
                     return iced::Command::none();
                 }
-                // Spawn separate window for Flatpak updates
+
                 let updates: Vec<crate::gui::flatpak_update_dialog::FlatpakUpdateInfo> = self.updates
                     .iter()
                     .map(|u| crate::gui::flatpak_update_dialog::FlatpakUpdateInfo {
@@ -326,7 +319,6 @@ impl FlatpakTab {
                         use tokio::process::Command as TokioCommand;
                         use base64::{Engine as _, engine::general_purpose};
 
-                        // Serialize to JSON and encode as base64
                         let json = serde_json::to_string(&updates)
                             .unwrap_or_else(|_| "[]".to_string());
                         let encoded = general_purpose::STANDARD.encode(json.as_bytes());
@@ -345,7 +337,7 @@ impl FlatpakTab {
             Message::UpdatesInstalled => {
                 self.is_updating = false;
                 self.updates.clear();
-                // Refresh installed list
+
                 iced::Command::perform(load_installed_flatpaks(), |result| {
                     match result {
                         Ok(packages) => Message::InstalledLoaded(packages),
@@ -1324,7 +1316,6 @@ async fn check_flatpak_updates() -> Result<Vec<FlatpakInfo>, String> {
     Ok(updates)
 }
 
-
 async fn load_flatpak_details(app_id: String, remote: Option<String>) -> FlatpakDetails {
     // Try to get info from remote first, then fallback to installed
     let mut name = app_id.clone();
@@ -1723,4 +1714,3 @@ impl ButtonStyleSheet for CloseButtonStyle {
         appearance
     }
 }
-

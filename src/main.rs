@@ -10,7 +10,6 @@ use iced::Application;
 #[derive(Parser)]
 #[command(name = "rustora", about = "Rustora - A modern package manager for Fedora", version)]
 struct Cli {
-    /// RPM file to open (when opened from file manager)
     #[arg(value_name = "RPM_FILE")]
     rpm_file: Option<String>,
 
@@ -20,200 +19,128 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Search for packages
     Search {
-        /// Package name or search term
         query: String,
-        /// Show detailed information
         #[arg(short, long)]
         details: bool,
     },
-    /// Install packages or .rpm files
     Install {
-        /// Package name(s) or .rpm file path(s) to install
         packages: Vec<String>,
-        /// Assume yes to all prompts
         #[arg(short, long)]
         yes: bool,
     },
-    /// List installed packages
     List {
-        /// Show detailed information
         #[arg(short, long)]
         details: bool,
     },
-    /// Show package information
     Info {
-        /// Package name
         package: String,
     },
-    /// Update package database
     Update {
-        /// Update all packages
         #[arg(short, long)]
         all: bool,
     },
-    /// Launch GUI
     Gui {
-        /// Optional RPM file to install
         #[arg(value_name = "RPM_FILE")]
         rpm_file: Option<String>,
     },
-    /// Show package removal dialog (internal use)
     RemoveDialog {
-        /// Package names to remove
         packages: Vec<String>,
     },
-    /// Show package installation dialog (internal use)
     InstallDialog {
-        /// Package names to install
         packages: Vec<String>,
     },
-    /// Show Flatpak installation dialog (internal use)
     FlatpakInstallDialog {
-        /// Application ID to install
         application_id: String,
-        /// Optional remote name
         #[arg(long)]
         remote: Option<String>,
     },
-    /// Show Flatpak removal dialog (internal use)
     FlatpakRemoveDialog {
-        /// Application IDs to remove
         application_ids: Vec<String>,
     },
-    /// Show Flatpak update dialog (internal use)
     FlatpakUpdateDialog {
-        /// Base64 encoded JSON array of FlatpakUpdateInfo
         #[arg(long)]
         packages_b64: String,
     },
-    /// Show update dialog (internal use)
     UpdateDialog {
-        /// Base64 encoded JSON array of package names to install (empty = all)
         #[arg(value_name = "PACKAGES_B64")]
         packages_b64: Option<String>,
     },
-    /// Show update settings dialog (internal use)
     UpdateSettingsDialog,
-    /// Show Proton/Wine install dialog (internal use)
     #[command(name = "proton-install-dialog")]
     ProtonInstallDialog {
-        /// Runner title
         runner_title: String,
-        /// Build title
         build_title: String,
-        /// Download URL
         download_url: String,
-        /// Selected launcher (optional)
         #[arg(long)]
         launcher: Option<String>,
-        /// Runner info JSON (optional)
         #[arg(long)]
         runner_info: Option<String>,
     },
-    /// Show Proton/Wine changelog dialog (internal use)
     #[command(name = "proton-changelog-dialog")]
     ProtonChangelogDialog {
-        /// Runner title
         runner_title: String,
-        /// Build title
         build_title: String,
-        /// Description
         description: String,
-        /// Page URL
         page_url: String,
     },
-    /// Show maintenance dialog (internal use)
     MaintenanceDialog {
-        /// Maintenance task to perform
         task: String,
     },
-    /// Show kernel install dialog (internal use)
     KernelInstallDialog {
-        /// Kernel name to install
         kernel_name: String,
     },
-    /// Show device driver install dialog (internal use)
     DeviceInstallDialog {
-        /// Profile name
         #[arg(long)]
         profile_name: String,
-        /// Install script to execute (base64 encoded)
         #[arg(long)]
         install_script: String,
-        /// Vendor name (base64 encoded)
         #[arg(long)]
         vendor_name: String,
-        /// Device name (base64 encoded)
         #[arg(long)]
         device_name: String,
-        /// Driver name (base64 encoded)
         #[arg(long)]
         driver: String,
-        /// Driver version (base64 encoded)
         #[arg(long)]
         driver_version: String,
-        /// Bus ID (base64 encoded)
         #[arg(long)]
         bus_id: String,
-        /// Vendor ID (base64 encoded)
         #[arg(long)]
         vendor_id: String,
-        /// Device ID (base64 encoded)
         #[arg(long)]
         device_id: String,
-        /// Repositories (base64 encoded JSON array)
         #[arg(long)]
         repositories: String,
     },
-    /// Show device driver remove dialog (internal use)
     DeviceRemoveDialog {
-        /// Profile name
         #[arg(long)]
         profile_name: String,
-        /// Remove script to execute (base64 encoded)
         #[arg(long)]
         remove_script: String,
-        /// Vendor name (base64 encoded)
         #[arg(long)]
         vendor_name: String,
-        /// Device name (base64 encoded)
         #[arg(long)]
         device_name: String,
-        /// Driver name (base64 encoded)
         #[arg(long)]
         driver: String,
-        /// Driver version (base64 encoded)
         #[arg(long)]
         driver_version: String,
-        /// Bus ID (base64 encoded)
         #[arg(long)]
         bus_id: String,
-        /// Vendor ID (base64 encoded)
         #[arg(long)]
         vendor_id: String,
-        /// Device ID (base64 encoded)
         #[arg(long)]
         device_id: String,
-        /// Repositories (base64 encoded JSON array)
         #[arg(long)]
         repositories: String,
     },
-    /// Show kernel remove dialog (internal use)
     KernelRemoveDialog {
-        /// Kernel name to remove
         kernel_name: String,
     },
-    /// Show settings dialog (internal use)
     Settings,
-    /// Show gaming meta installation dialog (internal use)
     GamingMetaDialog,
-    /// Show Cachyos kernel installation dialog (internal use)
     CachyosKernelDialog,
-    /// Show Hyprland installation dialog (internal use)
     HyprlandDialog,
-    /// Show Hyprland dotfiles installation dialog (internal use)
     HyprlandDotfilesDialog,
 }
 

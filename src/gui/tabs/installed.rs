@@ -1019,4 +1019,3 @@ impl CheckboxStyleSheet for RoundedCheckboxStyle {
         appearance
     }
 }
-

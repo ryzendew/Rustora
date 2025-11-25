@@ -27,7 +27,7 @@ pub struct PreCheckedPciDevice {
 #[derive(Debug, Clone)]
 pub struct PreCheckedPciProfile {
     profile: CfhdbPciProfile,
-    // Use RwLock for read-heavy operations (most accesses are reads)
+
     installed: Arc<std::sync::RwLock<bool>>,
     driver_version: Arc<std::sync::RwLock<Option<String>>>,
     repository: Arc<std::sync::RwLock<Option<String>>>,
@@ -47,7 +47,6 @@ impl PreCheckedPciProfile {
         }
     }
 
-    // Return reference to avoid cloning
     pub fn profile(&self) -> &CfhdbPciProfile {
         &self.profile
     }
@@ -103,7 +102,7 @@ pub struct PreCheckedUsbDevice {
 #[derive(Debug, Clone)]
 pub struct PreCheckedUsbProfile {
     profile: CfhdbUsbProfile,
-    // Use RwLock for read-heavy operations
+
     installed: Arc<std::sync::RwLock<bool>>,
     driver_version: Arc<std::sync::RwLock<Option<String>>>,
     #[allow(dead_code)]
@@ -126,7 +125,6 @@ impl PreCheckedUsbProfile {
         }
     }
 
-    // Return reference to avoid cloning
     pub fn profile(&self) -> &CfhdbUsbProfile {
         &self.profile
     }
@@ -192,22 +190,22 @@ pub enum Message {
         usb_profiles: Vec<Arc<PreCheckedUsbProfile>>,
     },
     SelectCategory(CategoryType, String),
-    SelectDevice(DeviceType, String, usize), // type, class, index
+    SelectDevice(DeviceType, String, usize),
     LoadDevicesAfterCache,
     DownloadProfiles,
     #[allow(dead_code)]
     DownloadProfilesForce,
     ProfilesDownloaded(Result<(), String>),
     BackToDeviceList,
-    ToggleProfileSelection(#[allow(dead_code)] DeviceType, #[allow(dead_code)] String, #[allow(dead_code)] usize, String), // type, class, device_idx, profile_codename
-    InstallSelectedProfiles(DeviceType, String, usize), // type, class, device_idx
+    ToggleProfileSelection(#[allow(dead_code)] DeviceType, #[allow(dead_code)] String, #[allow(dead_code)] usize, String),
+    InstallSelectedProfiles(DeviceType, String, usize),
     StartDevice(DeviceType, String, usize),
     StopDevice(DeviceType, String, usize),
     EnableDevice(DeviceType, String, usize),
     DisableDevice(DeviceType, String, usize),
     DeviceControlComplete,
-    InstallProfile(DeviceType, String, usize, String), // type, class, device_index, profile_codename
-    RemoveProfile(DeviceType, String, usize, String), // type, class, device_index, profile_codename
+    InstallProfile(DeviceType, String, usize, String),
+    RemoveProfile(DeviceType, String, usize, String),
     ProfileOperationComplete,
     Error(String),
     ClearError,
@@ -258,22 +256,19 @@ enum DeviceInfo {
 
 #[derive(Debug)]
 pub struct DeviceTab {
-    // Loading state
+
     is_loading: bool,
     loading_message: String,
 
-    // Device data
     pci_devices: Vec<(String, Vec<PreCheckedPciDevice>)>,
     usb_devices: Vec<(String, Vec<PreCheckedUsbDevice>)>,
     pci_profiles: Vec<Arc<PreCheckedPciProfile>>,
     usb_profiles: Vec<Arc<PreCheckedUsbProfile>>,
 
-    // UI state
     selected_category: Option<(CategoryType, String)>,
     selected_device: Option<(DeviceType, String, usize)>,
-    selected_profiles: std::collections::HashSet<String>, // Track selected profile codenames for bulk install
+    selected_profiles: std::collections::HashSet<String>,
 
-    // Error state
     error: Option<String>,
 }
 
@@ -299,7 +294,7 @@ impl DeviceTab {
                 self.is_loading = true;
                 self.loading_message = "Requesting elevated permissions...".into();
                 self.error = None;
-                // Use pkexec to verify permissions (shows GUI password dialog)
+
                 iced::Command::perform(request_permissions(), |result| {
                     match result {
                         Ok(_) => Message::PermissionsGranted,
@@ -309,7 +304,7 @@ impl DeviceTab {
             }
             Message::PermissionsGranted => {
                 self.loading_message = "Permissions granted. Loading devices...".into();
-                // Now proceed to load devices (always reload, even if devices are already loaded)
+
                 iced::Command::perform(async {}, |_| Message::LoadDevices)
             }
             Message::PermissionsDenied(error) => {
@@ -319,12 +314,11 @@ impl DeviceTab {
                 iced::Command::none()
             }
             Message::LoadDevices => {
-                // Always reload devices when explicitly requested (e.g., after password entry)
-                // This allows refreshing the device list when returning to the tab
+
                     self.is_loading = true;
                     self.loading_message = "Checking device profiles...".into();
                 self.error = None;
-                    // First ensure profiles are downloaded and cached
+
                     iced::Command::perform(ensure_profiles_cached(), |result| {
                         match result {
                             Ok(_) => Message::LoadDevicesAfterCache,
@@ -366,12 +360,12 @@ impl DeviceTab {
                     Ok(_) => {
                         self.loading_message = String::new();
                         self.error = None;
-                        // Reload devices after downloading profiles
+
                         iced::Command::perform(async {}, |_| Message::LoadDevices)
                     }
                     Err(e) => {
                         self.loading_message = String::new();
-                        // Provide more user-friendly error messages
+
                         let error_msg = if e.contains("dns error") || e.contains("failed to lookup") {
                             format!("Network error: Could not reach profile server. Please check your internet connection.\n\nDetails: {}", e)
                         } else if e.contains("HTTP") {
@@ -395,7 +389,7 @@ impl DeviceTab {
                 self.usb_devices = usb_devices;
                 self.pci_profiles = pci_profiles;
                 self.usb_profiles = usb_profiles;
-                // Load driver versions asynchronously in the background
+
                 iced::Command::perform(load_profile_versions(self.pci_profiles.clone(), self.usb_profiles.clone()), |_| Message::UpdateStatus)
             }
             Message::SelectCategory(cat_type, class) => {
@@ -405,7 +399,7 @@ impl DeviceTab {
             }
             Message::SelectDevice(dev_type, class, index) => {
                 self.selected_device = Some((dev_type, class, index));
-                // Update device status when selected
+
                 iced::Command::perform(async {}, |_| Message::UpdateStatus)
             }
             Message::BackToDeviceList => {
@@ -426,12 +420,9 @@ impl DeviceTab {
                     return iced::Command::none();
                 }
 
-                // Install all selected profiles sequentially
-                // Clone the first profile before clearing the set
                 let first_profile = self.selected_profiles.iter().next().cloned();
                 self.selected_profiles.clear();
 
-                // Start with the first profile
                 if let Some(profile) = first_profile {
                     iced::Command::perform(async {}, move |_| {
                         Message::InstallProfile(dev_type, class, device_idx, profile)
@@ -442,7 +433,7 @@ impl DeviceTab {
             }
             Message::ClearError => {
                 self.error = None;
-                // If we have a selected device, go back to it; otherwise stay on device list
+
                 if self.selected_device.is_some() {
                     iced::Command::none()
                 } else {
@@ -570,39 +561,32 @@ impl DeviceTab {
                 }
             }
             Message::DeviceControlComplete => {
-                // Refresh device status after control action
+
                 iced::Command::perform(async {}, |_| Message::UpdateStatus)
             }
             Message::InstallProfile(dev_type, class, device_idx, profile_codename) => {
-                eprintln!("[DEBUG] InstallProfile called: codename={}", profile_codename);
-                // Get the profile and device information to install
-                // Find profile by codename instead of index (since profiles are sorted for display)
+
                 let profile_data = match dev_type {
                     DeviceType::Pci => {
                         if let Some((_, devices)) = self.pci_devices.iter().find(|(c, _)| c == &class) {
                             if let Some(device) = devices.get(device_idx) {
-                                eprintln!("[DEBUG] Looking for profile with codename: {}", profile_codename);
-                                eprintln!("[DEBUG] Available profiles: {:?}", device.profiles.iter().map(|p| p.profile().codename.clone()).collect::<Vec<_>>());
-                                // Find profile by codename
+
                                 if let Some(profile) = device.profiles.iter().find(|p| p.profile().codename == profile_codename) {
                                     let p = profile.profile();
                                     let d = &device.device;
-                                    eprintln!("[DEBUG] Found profile: codename={}, desc={}, install_script={:?}",
-                                             p.codename, p.i18n_desc, p.install_script.is_some());
-                                    // Get driver version from the profile (the one being installed)
+
                                     let driver_version = profile.driver_version().unwrap_or_default();
-                                    eprintln!("[DEBUG] Driver version from profile: {}", driver_version);
-                                    // Use driver version as the driver name (e.g., "580.95.08")
+
                                     let driver_name = if !driver_version.is_empty() {
                                         driver_version.clone()
                                     } else {
-                                        // Fallback to profile description if version not available
+
                                         p.i18n_desc.split(" (").next()
                                             .unwrap_or_else(|| p.i18n_desc.split(" for ").next().unwrap_or(&p.i18n_desc))
                                             .trim()
                                             .to_string()
                                     };
-                                    // Extract repository information from install script
+
                                     let repositories = extract_repositories_from_script(&p.install_script);
                                     Some((
                                         p.i18n_desc.clone(),
@@ -629,23 +613,23 @@ impl DeviceTab {
                     DeviceType::Usb => {
                         if let Some((_, devices)) = self.usb_devices.iter().find(|(c, _)| c == &class) {
                             if let Some(device) = devices.get(device_idx) {
-                                // Find profile by codename
+
                                 if let Some(profile) = device.profiles.iter().find(|p| p.profile().codename == profile_codename) {
                                     let p = profile.profile();
                                     let d = &device.device;
-                                    // Get driver version from the profile (the one being installed)
+
                                     let driver_version = profile.driver_version().unwrap_or_default();
-                                    // Use driver version as the driver name (e.g., "580.95.08")
+
                                     let driver_name = if !driver_version.is_empty() {
                                         driver_version.clone()
                                     } else {
-                                        // Fallback to profile description if version not available
+
                                         p.i18n_desc.split(" (").next()
                                             .unwrap_or_else(|| p.i18n_desc.split(" for ").next().unwrap_or(&p.i18n_desc))
                                             .trim()
                                             .to_string()
                                     };
-                                    // Extract repository information from install script
+
                                     let repositories = extract_repositories_from_script(&p.install_script);
                                     Some((
                                         p.i18n_desc.clone(),
@@ -673,7 +657,7 @@ impl DeviceTab {
 
                 if let Some((profile_name, install_script, vendor_name, device_name, driver, driver_version, bus_id, vendor_id, device_id, repositories)) = profile_data {
                     if let Some(script) = install_script {
-                        // Spawn separate window for driver installation
+
                         let exe_path = std::env::current_exe()
                             .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         let exe_str = exe_path.to_string_lossy().into_owned();
@@ -683,7 +667,7 @@ impl DeviceTab {
                         iced::Command::perform(
                             async move {
                                 use tokio::process::Command as TokioCommand;
-                                // Base64 encode all strings to pass as arguments (to avoid shell escaping issues)
+
                                 use base64::{Engine as _, engine::general_purpose};
                                 let encoded_script = general_purpose::STANDARD.encode(script_clone.as_bytes());
                                 let encoded_vendor = general_purpose::STANDARD.encode(vendor_name.as_bytes());
@@ -732,12 +716,12 @@ impl DeviceTab {
                 }
             }
             Message::RemoveProfile(dev_type, class, device_idx, profile_codename) => {
-                // Similar to InstallProfile, but use remove_script instead
+
                 let profile_data = match dev_type {
                     DeviceType::Pci => {
                         if let Some((_, devices)) = self.pci_devices.iter().find(|(c, _)| c == &class) {
                             if let Some(device) = devices.get(device_idx) {
-                                // Find profile by codename
+
                                 if let Some(profile) = device.profiles.iter().find(|p| p.profile().codename == profile_codename) {
                                     let p = profile.profile();
                                     let d = &device.device;
@@ -776,7 +760,7 @@ impl DeviceTab {
                     DeviceType::Usb => {
                         if let Some((_, devices)) = self.usb_devices.iter().find(|(c, _)| c == &class) {
                             if let Some(device) = devices.get(device_idx) {
-                                // Find profile by codename
+
                                 if let Some(profile) = device.profiles.iter().find(|p| p.profile().codename == profile_codename) {
                                     let p = profile.profile();
                                     let d = &device.device;
@@ -816,7 +800,7 @@ impl DeviceTab {
 
                 if let Some((profile_name, remove_script, vendor_name, device_name, driver, driver_version, bus_id, vendor_id, device_id, repositories)) = profile_data {
                     if let Some(script) = remove_script {
-                        // Spawn separate window for driver removal
+
                         let exe_path = std::env::current_exe()
                             .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
                         let exe_str = exe_path.to_string_lossy().into_owned();
@@ -826,7 +810,7 @@ impl DeviceTab {
                         iced::Command::perform(
                             async move {
                                 use tokio::process::Command as TokioCommand;
-                                // Base64 encode all strings to pass as arguments (to avoid shell escaping issues)
+
                                 use base64::{Engine as _, engine::general_purpose};
                                 let encoded_script = general_purpose::STANDARD.encode(script_clone.as_bytes());
                                 let encoded_vendor = general_purpose::STANDARD.encode(vendor_name.as_bytes());
@@ -875,7 +859,7 @@ impl DeviceTab {
                 }
             }
             Message::ProfileOperationComplete => {
-                // Refresh device status
+
                 iced::Command::perform(async {}, |_| Message::UpdateStatus)
             }
             Message::UpdateStatus => {
@@ -2659,7 +2643,6 @@ fn extract_driver_version_from_install_script_fast(install_script: &Option<Strin
     String::new()
 }
 
-
 // Get package version from package manager (dnf/rpm)
 // This uses std::thread to avoid blocking the async runtime
 // Returns the version that would be installed (not just what's available)
@@ -3406,9 +3389,6 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
             format!("Mesa Graphics Driver {}", driver_version)
         };
 
-        eprintln!("[DEBUG] Creating Mesa profile for driver version: {}", driver_version);
-        eprintln!("[DEBUG] Packages: {:?}", package_names);
-        eprintln!("[DEBUG] Repository: {}", repo);
 
         let profile = CfhdbPciProfile {
             codename: format!("mesa-{}", driver_version),
@@ -3428,11 +3408,8 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
             experimental: false,
             removable: true,
             veiled: false,
-            priority: 90, // High priority for repository-based profiles, but below NVIDIA
+            priority: 90,
         };
-
-        eprintln!("[DEBUG] Created Mesa profile: codename={}, desc={}, vendor_ids={:?}, class_ids={:?}",
-                  profile.codename, profile.i18n_desc, profile.vendor_ids, profile.class_ids);
 
         profiles.push((profile, repo_display, package_names));
     }
@@ -3470,14 +3447,12 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
     // Don't query dnf here to avoid blocking - full versions will be extracted later if needed
     let mut version_groups: HashMap<String, Vec<NvidiaDriverPackage>> = HashMap::new();
     for pkg in packages {
-        eprintln!("[DEBUG] Grouping package: {} | Extracted driver version: {}", pkg.name, pkg.driver_version);
         // Use the driver version as-is (it should already be extracted from package name/version)
         // If it's only a major version, that's fine - we'll display it as "XXX Series" or extract full version later
         version_groups.entry(pkg.driver_version.clone())
             .or_insert_with(Vec::new)
             .push(pkg);
     }
-    eprintln!("[DEBUG] Version groups: {:?}", version_groups.keys().collect::<Vec<_>>());
 
     // Create a profile for each driver version
     // Sort by version to ensure consistent ordering (newer versions first)
@@ -3684,26 +3659,14 @@ async fn load_all_devices() -> Result<(
     // Process NVIDIA packages
     match nvidia_result {
         Ok(repo_packages) if !repo_packages.is_empty() => {
-            eprintln!("[DEBUG] Found {} NVIDIA driver packages", repo_packages.len());
-            for pkg in &repo_packages {
-                eprintln!("[DEBUG] Package: {} | Version: {} | Repo: {} | Driver Version: {}",
-                    pkg.name, pkg.version, pkg.repo, pkg.driver_version);
-            }
             let nvidia_profiles = create_nvidia_profiles_from_repos(repo_packages);
-            eprintln!("[DEBUG] Created {} NVIDIA profiles", nvidia_profiles.len());
-            for (profile, repo_name, _) in &nvidia_profiles {
-                eprintln!("[DEBUG] Profile: {} | Codename: {} | Repo: {}",
-                    profile.i18n_desc, profile.codename, repo_name);
-            }
             repo_profiles_with_info.extend(nvidia_profiles);
         }
         Ok(_) => {
             // No packages found, continue
-            eprintln!("[DEBUG] No NVIDIA driver packages found");
         }
         Err(e) => {
             // Log error but continue without repository profiles
-            eprintln!("[WARN] Failed to query NVIDIA driver packages: {}", e);
         }
     }
 
@@ -3718,7 +3681,6 @@ async fn load_all_devices() -> Result<(
         }
         Err(e) => {
             // Log error but continue without repository profiles
-            eprintln!("[WARN] Failed to query Mesa driver packages: {}", e);
         }
     }
 
@@ -3915,172 +3877,120 @@ async fn load_all_devices() -> Result<(
 }
 
 async fn load_pci_profiles() -> Result<Vec<CfhdbPciProfile>, String> {
-    eprintln!("[DEBUG] Starting PCI profile loading...");
     let cached_db_path = Path::new("/var/cache/cfhdb/pci.json");
 
     // Try to read from cache first
-    eprintln!("[DEBUG] Checking cache at: {:?}", cached_db_path);
     if cached_db_path.exists() {
-        eprintln!("[DEBUG] Cache file exists, attempting to read...");
         match std::fs::read_to_string(cached_db_path) {
             Ok(data) => {
-                eprintln!("[DEBUG] Successfully read cache file ({} bytes), parsing...", data.len());
                 match parse_pci_profiles(&data) {
                     Ok(profiles) => {
-                        eprintln!("[DEBUG] Successfully parsed {} PCI profiles from cache", profiles.len());
                         return Ok(profiles);
                     }
                     Err(e) => {
-                        eprintln!("[DEBUG] Failed to parse cached PCI profiles: {}", e);
-                        eprintln!("[DEBUG] Will try to download fresh profiles...");
                     }
                 }
             }
             Err(e) => {
-                eprintln!("[DEBUG] Failed to read cache file: {}", e);
             }
         }
     } else {
-        eprintln!("[DEBUG] Cache file does not exist");
     }
 
     // If cache doesn't exist or is unreadable, try to download
-    eprintln!("[DEBUG] Getting profile URL config...");
     let profile_url = match get_profile_url_config() {
         Ok(url) => {
-            eprintln!("[DEBUG] Profile URL config loaded: PCI={}, USB={}", url.pci_json_url, url.usb_json_url);
             url
         }
         Err(e) => {
-            eprintln!("[DEBUG] Failed to read profile config: {}", e);
             return Err(format!("Failed to read profile config: {}", e));
         }
     };
 
-    eprintln!("[DEBUG] Attempting to download PCI profiles from: {}", profile_url.pci_json_url);
     match reqwest::get(&profile_url.pci_json_url).await {
         Ok(response) => {
-            eprintln!("[DEBUG] HTTP response status: {}", response.status());
             if response.status().is_success() {
-                eprintln!("[DEBUG] Download successful, reading response text...");
                 match response.text().await {
                     Ok(text) => {
-                        eprintln!("[DEBUG] Downloaded {} bytes of profile data", text.len());
-                        eprintln!("[DEBUG] Attempting to cache profile file...");
-                        match cache_profile_file(cached_db_path, &text).await {
-                            Ok(_) => eprintln!("[DEBUG] Successfully cached PCI profiles"),
-                            Err(e) => eprintln!("[DEBUG] Warning: Failed to cache profiles (will continue anyway): {}", e),
-                        }
-                        eprintln!("[DEBUG] Parsing downloaded PCI profiles...");
+                        let _ = cache_profile_file(cached_db_path, &text).await;
                         match parse_pci_profiles(&text) {
                             Ok(profiles) => {
-                                eprintln!("[DEBUG] Successfully parsed {} PCI profiles", profiles.len());
                                 Ok(profiles)
                             }
                             Err(e) => {
-                                eprintln!("[DEBUG] Failed to parse PCI profiles: {}", e);
                                 Err(format!("Failed to parse PCI profiles: {}", e))
                             }
                         }
                     }
                     Err(e) => {
-                        eprintln!("[DEBUG] Failed to read response text: {}", e);
                         Err(format!("Failed to read response: {}", e))
                     }
                 }
             } else {
-                eprintln!("[DEBUG] HTTP error: {}", response.status());
                 Err(format!("HTTP error: {}", response.status()))
             }
         }
         Err(e) => {
-            eprintln!("[DEBUG] Failed to download PCI profiles: {}", e);
             Err(format!("Failed to download PCI profiles: {}", e))
         }
     }
 }
 
 async fn load_usb_profiles() -> Result<Vec<CfhdbUsbProfile>, String> {
-    eprintln!("[DEBUG] Starting USB profile loading...");
     let cached_db_path = Path::new("/var/cache/cfhdb/usb.json");
 
     // Try to read from cache first
-    eprintln!("[DEBUG] Checking cache at: {:?}", cached_db_path);
     if cached_db_path.exists() {
-        eprintln!("[DEBUG] Cache file exists, attempting to read...");
         match std::fs::read_to_string(cached_db_path) {
             Ok(data) => {
-                eprintln!("[DEBUG] Successfully read cache file ({} bytes), parsing...", data.len());
                 match parse_usb_profiles(&data) {
                     Ok(profiles) => {
-                        eprintln!("[DEBUG] Successfully parsed {} USB profiles from cache", profiles.len());
                         return Ok(profiles);
                     }
                     Err(e) => {
-                        eprintln!("[DEBUG] Failed to parse cached USB profiles: {}", e);
-                        eprintln!("[DEBUG] Will try to download fresh profiles...");
                     }
                 }
             }
             Err(e) => {
-                eprintln!("[DEBUG] Failed to read cache file: {}", e);
             }
         }
     } else {
-        eprintln!("[DEBUG] Cache file does not exist");
     }
 
     // If cache doesn't exist or is unreadable, try to download
-    eprintln!("[DEBUG] Getting profile URL config...");
     let profile_url = match get_profile_url_config() {
         Ok(url) => {
-            eprintln!("[DEBUG] Profile URL config loaded: PCI={}, USB={}", url.pci_json_url, url.usb_json_url);
             url
         }
         Err(e) => {
-            eprintln!("[DEBUG] Failed to read profile config: {}", e);
             return Err(format!("Failed to read profile config: {}", e));
         }
     };
 
-    eprintln!("[DEBUG] Attempting to download USB profiles from: {}", profile_url.usb_json_url);
     match reqwest::get(&profile_url.usb_json_url).await {
         Ok(response) => {
-            eprintln!("[DEBUG] HTTP response status: {}", response.status());
             if response.status().is_success() {
-                eprintln!("[DEBUG] Download successful, reading response text...");
                 match response.text().await {
                     Ok(text) => {
-                        eprintln!("[DEBUG] Downloaded {} bytes of profile data", text.len());
-                        eprintln!("[DEBUG] Attempting to cache profile file...");
-                        match cache_profile_file(cached_db_path, &text).await {
-                            Ok(_) => eprintln!("[DEBUG] Successfully cached USB profiles"),
-                            Err(e) => eprintln!("[DEBUG] Warning: Failed to cache profiles (will continue anyway): {}", e),
-                        }
-                        eprintln!("[DEBUG] Parsing downloaded USB profiles...");
+                        let _ = cache_profile_file(cached_db_path, &text).await;
                         match parse_usb_profiles(&text) {
                             Ok(profiles) => {
-                                eprintln!("[DEBUG] Successfully parsed {} USB profiles", profiles.len());
                                 Ok(profiles)
                             }
                             Err(e) => {
-                                eprintln!("[DEBUG] Failed to parse USB profiles: {}", e);
                                 Err(format!("Failed to parse USB profiles: {}", e))
                             }
                         }
                     }
                     Err(e) => {
-                        eprintln!("[DEBUG] Failed to read response text: {}", e);
                         Err(format!("Failed to read response: {}", e))
                     }
                 }
             } else {
-                eprintln!("[DEBUG] HTTP error: {}", response.status());
                 Err(format!("HTTP error: {}", response.status()))
             }
         }
         Err(e) => {
-            eprintln!("[DEBUG] Failed to download USB profiles: {}", e);
             Err(format!("Failed to download USB profiles: {}", e))
         }
     }
@@ -4106,9 +4016,7 @@ fn get_profile_url_config() -> Result<ProfileUrlConfig, std::io::Error> {
 
 // Check if profiles need to be updated (check once per day)
 fn profiles_need_update(cached_path: &Path) -> bool {
-    eprintln!("[DEBUG] Checking if profile needs update: {:?}", cached_path);
     if !cached_path.exists() {
-        eprintln!("[DEBUG] Profile file does not exist, needs update");
         return true;
     }
 
@@ -4121,23 +4029,19 @@ fn profiles_need_update(cached_path: &Path) -> bool {
                         Ok(elapsed) => {
                             let hours = elapsed.as_secs() / 3600;
                             let needs_update = elapsed.as_secs() > 24 * 60 * 60;
-                            eprintln!("[DEBUG] Profile file age: {} hours, needs update: {}", hours, needs_update);
                             needs_update
                         }
                         Err(e) => {
-                            eprintln!("[DEBUG] Failed to calculate elapsed time: {}", e);
                             true // If we can't determine age, update to be safe
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("[DEBUG] Failed to get modification time: {}", e);
                     true // If we can't get mod time, update to be safe
                 }
             }
         }
         Err(e) => {
-            eprintln!("[DEBUG] Failed to get file metadata: {}", e);
             true // If we can't get metadata, update to be safe
         }
     }
@@ -4145,189 +4049,135 @@ fn profiles_need_update(cached_path: &Path) -> bool {
 
 // Ensure profiles are cached, downloading if needed (force download)
 async fn ensure_profiles_cached_force() -> Result<(), String> {
-    eprintln!("[DEBUG] ensure_profiles_cached_force() called - forcing download");
 
     let pci_path = Path::new("/var/cache/cfhdb/pci.json");
     let usb_path = Path::new("/var/cache/cfhdb/usb.json");
 
-    eprintln!("[DEBUG] Getting profile URL config...");
     let profile_url = match get_profile_url_config() {
         Ok(url) => {
-            eprintln!("[DEBUG] Profile URLs: PCI={}, USB={}", url.pci_json_url, url.usb_json_url);
             url
         }
         Err(e) => {
-            eprintln!("[DEBUG] Failed to get profile URL config: {}", e);
             return Err(format!("Failed to read profile config: {}", e));
         }
     };
 
     // Force download PCI profiles
-    eprintln!("[DEBUG] Force downloading PCI profiles...");
     match reqwest::get(&profile_url.pci_json_url).await {
         Ok(response) => {
-            eprintln!("[DEBUG] PCI download response status: {}", response.status());
             if response.status().is_success() {
                 match response.text().await {
                     Ok(text) => {
-                        eprintln!("[DEBUG] PCI profile downloaded ({} bytes), caching...", text.len());
-                        match cache_profile_file(pci_path, &text).await {
-                            Ok(_) => eprintln!("[DEBUG] PCI profiles cached successfully"),
-                            Err(e) => {
-                                eprintln!("[DEBUG] Failed to cache PCI profiles: {}", e);
-                                return Err(format!("Failed to cache PCI profiles: {}", e));
-                            }
+                        if let Err(e) = cache_profile_file(pci_path, &text).await {
+                            return Err(format!("Failed to cache PCI profiles: {}", e));
                         }
                     }
                     Err(e) => {
-                        eprintln!("[DEBUG] Failed to read PCI profile response text: {}", e);
                         return Err(format!("Failed to read PCI profile response: {}", e));
                     }
                 }
             } else {
-                eprintln!("[DEBUG] PCI profile download failed with status: {}", response.status());
                 return Err(format!("Failed to download PCI profiles: HTTP {}", response.status()));
             }
         }
         Err(e) => {
-            eprintln!("[DEBUG] Failed to download PCI profiles: {}", e);
             return Err(format!("Failed to download PCI profiles: {}", e));
         }
     }
 
     // Force download USB profiles
-    eprintln!("[DEBUG] Force downloading USB profiles...");
     match reqwest::get(&profile_url.usb_json_url).await {
         Ok(response) => {
-            eprintln!("[DEBUG] USB download response status: {}", response.status());
             if response.status().is_success() {
                 match response.text().await {
                     Ok(text) => {
-                        eprintln!("[DEBUG] USB profile downloaded ({} bytes), caching...", text.len());
-                        match cache_profile_file(usb_path, &text).await {
-                            Ok(_) => eprintln!("[DEBUG] USB profiles cached successfully"),
-                            Err(e) => {
-                                eprintln!("[DEBUG] Failed to cache USB profiles: {}", e);
-                                return Err(format!("Failed to cache USB profiles: {}", e));
-                            }
+                        if let Err(e) = cache_profile_file(usb_path, &text).await {
+                            return Err(format!("Failed to cache USB profiles: {}", e));
                         }
                     }
                     Err(e) => {
-                        eprintln!("[DEBUG] Failed to read USB profile response text: {}", e);
                         return Err(format!("Failed to read USB profile response: {}", e));
                     }
                 }
             } else {
-                eprintln!("[DEBUG] USB profile download failed with status: {}", response.status());
                 return Err(format!("Failed to download USB profiles: HTTP {}", response.status()));
             }
         }
         Err(e) => {
-            eprintln!("[DEBUG] Failed to download USB profiles: {}", e);
             return Err(format!("Failed to download USB profiles: {}", e));
         }
     }
 
-    eprintln!("[DEBUG] ensure_profiles_cached_force() completed successfully");
     Ok(())
 }
 
 // Ensure profiles are cached, downloading if needed
 async fn ensure_profiles_cached() -> Result<(), String> {
-    eprintln!("[DEBUG] ensure_profiles_cached() called");
 
     let pci_path = Path::new("/var/cache/cfhdb/pci.json");
     let usb_path = Path::new("/var/cache/cfhdb/usb.json");
 
-    eprintln!("[DEBUG] Getting profile URL config...");
     let profile_url = match get_profile_url_config() {
         Ok(url) => {
-            eprintln!("[DEBUG] Profile URLs: PCI={}, USB={}", url.pci_json_url, url.usb_json_url);
             url
         }
         Err(e) => {
-            eprintln!("[DEBUG] Failed to get profile URL config: {}", e);
             return Err(format!("Failed to read profile config: {}", e));
         }
     };
 
     // Check if we need to download/update PCI profiles
-    eprintln!("[DEBUG] Checking PCI profiles...");
     if profiles_need_update(pci_path) {
-        eprintln!("[DEBUG] PCI profiles need update, downloading...");
         match reqwest::get(&profile_url.pci_json_url).await {
             Ok(response) => {
-                eprintln!("[DEBUG] PCI download response status: {}", response.status());
                 if response.status().is_success() {
                     match response.text().await {
                         Ok(text) => {
-                            eprintln!("[DEBUG] PCI profile downloaded ({} bytes), caching...", text.len());
-                            match cache_profile_file(pci_path, &text).await {
-                                Ok(_) => eprintln!("[DEBUG] PCI profiles cached successfully"),
-                                Err(e) => {
-                                    eprintln!("[DEBUG] Failed to cache PCI profiles: {}", e);
-                                    return Err(format!("Failed to cache PCI profiles: {}", e));
-                                }
+                            if let Err(e) = cache_profile_file(pci_path, &text).await {
+                                return Err(format!("Failed to cache PCI profiles: {}", e));
                             }
                         }
                         Err(e) => {
-                            eprintln!("[DEBUG] Failed to read PCI profile response text: {}", e);
                             return Err(format!("Failed to read PCI profile response: {}", e));
                         }
                     }
                 } else {
-                    eprintln!("[DEBUG] PCI profile download failed with status: {}", response.status());
                     return Err(format!("Failed to download PCI profiles: HTTP {}", response.status()));
                 }
             }
             Err(e) => {
-                eprintln!("[DEBUG] Failed to download PCI profiles: {}", e);
                 return Err(format!("Failed to download PCI profiles: {}", e));
             }
         }
     } else {
-        eprintln!("[DEBUG] PCI profiles are up to date, skipping download");
     }
 
     // Check if we need to download/update USB profiles
-    eprintln!("[DEBUG] Checking USB profiles...");
     if profiles_need_update(usb_path) {
-        eprintln!("[DEBUG] USB profiles need update, downloading...");
         match reqwest::get(&profile_url.usb_json_url).await {
             Ok(response) => {
-                eprintln!("[DEBUG] USB download response status: {}", response.status());
                 if response.status().is_success() {
                     match response.text().await {
                         Ok(text) => {
-                            eprintln!("[DEBUG] USB profile downloaded ({} bytes), caching...", text.len());
-                            match cache_profile_file(usb_path, &text).await {
-                                Ok(_) => eprintln!("[DEBUG] USB profiles cached successfully"),
-                                Err(e) => {
-                                    eprintln!("[DEBUG] Failed to cache USB profiles: {}", e);
-                                    return Err(format!("Failed to cache USB profiles: {}", e));
-                                }
+                            if let Err(e) = cache_profile_file(usb_path, &text).await {
+                                return Err(format!("Failed to cache USB profiles: {}", e));
                             }
                         }
                         Err(e) => {
-                            eprintln!("[DEBUG] Failed to read USB profile response text: {}", e);
                             return Err(format!("Failed to read USB profile response: {}", e));
                         }
                     }
                 } else {
-                    eprintln!("[DEBUG] USB profile download failed with status: {}", response.status());
                     return Err(format!("Failed to download USB profiles: HTTP {}", response.status()));
                 }
             }
             Err(e) => {
-                eprintln!("[DEBUG] Failed to download USB profiles: {}", e);
                 return Err(format!("Failed to download USB profiles: {}", e));
             }
         }
     } else {
-        eprintln!("[DEBUG] USB profiles are up to date, skipping download");
     }
 
-    eprintln!("[DEBUG] ensure_profiles_cached() completed successfully");
     Ok(())
 }
 
@@ -4336,7 +4186,6 @@ async fn ensure_profiles_cached() -> Result<(), String> {
 async fn request_permissions() -> Result<(), String> {
     use tokio::process::Command as TokioCommand;
 
-    eprintln!("[DEBUG] Requesting elevated permissions via pkexec...");
 
     // Get current user to set ownership
     let current_user = users::get_current_username()
@@ -4363,13 +4212,11 @@ async fn request_permissions() -> Result<(), String> {
         .output()
         .await
         .map_err(|e| {
-            eprintln!("[DEBUG] Failed to execute pkexec: {}", e);
             format!("Failed to request permissions: {}. Make sure polkit is installed.", e)
         })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("[DEBUG] Failed to set up directory: {}", stderr);
         // Check if user cancelled the password dialog
         if output.status.code() == Some(126) || output.status.code() == Some(127) {
             return Err("Authentication cancelled or failed. Please try again.".to_string());
@@ -4377,55 +4224,41 @@ async fn request_permissions() -> Result<(), String> {
         return Err(format!("Failed to set up directory: {}", stderr));
     }
 
-    eprintln!("[DEBUG] Permissions granted and directory prepared successfully");
     Ok(())
 }
 
 // Cache a profile file to /var/cache/cfhdb/ using sudo if needed
 async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
-    eprintln!("[DEBUG] cache_profile_file() called for: {:?}", path);
     use tokio::process::Command as TokioCommand;
 
     // Try to write directly first (in case we're already root or have permissions)
-    eprintln!("[DEBUG] Attempting direct write...");
     if let Some(parent) = path.parent() {
-        eprintln!("[DEBUG] Parent directory: {:?}", parent);
         match std::fs::create_dir_all(parent) {
             Ok(_) => {
-                eprintln!("[DEBUG] Directory created/exists, attempting write...");
                 match std::fs::write(path, content) {
                     Ok(_) => {
-                        eprintln!("[DEBUG] Successfully wrote file directly (no sudo needed)");
                         return Ok(());
                     }
                     Err(e) => {
-                        eprintln!("[DEBUG] Direct write failed: {}, will try sudo", e);
                     }
                 }
             }
             Err(e) => {
-                eprintln!("[DEBUG] Failed to create directory: {}, will try sudo", e);
             }
         }
     }
 
     // If direct write failed, use sudo to write to /var/cache/
     // Write to a temp file first, then use sudo to move it
-    eprintln!("[DEBUG] Using sudo to cache file...");
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
     let temp_file = std::env::temp_dir().join(format!("cfhdb_{}.json", timestamp));
-    eprintln!("[DEBUG] Temp file: {:?}", temp_file);
 
-    match std::fs::write(&temp_file, content) {
-        Ok(_) => eprintln!("[DEBUG] Temp file written successfully"),
-        Err(e) => {
-            eprintln!("[DEBUG] Failed to write temp file: {}", e);
-            return Err(format!("Failed to write temp file: {}", e));
-        }
+    if let Err(e) = std::fs::write(&temp_file, content) {
+        return Err(format!("Failed to write temp file: {}", e));
     }
 
     // Use sudo to create directory and copy file - combine all operations into one command
@@ -4435,7 +4268,6 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
     let temp_str = temp_file.to_str().ok_or("Invalid temp path")?;
 
     // Combine mkdir, chmod (dir), cp, and chmod (file) into a single pkexec command to reduce sudo prompts
-    eprintln!("[DEBUG] Creating directory, setting permissions, and copying file with pkexec");
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("sh");
     cmd.arg("-c");
@@ -4451,7 +4283,6 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
         .output()
         .await
         .map_err(|e| {
-            eprintln!("[DEBUG] Failed to execute pkexec: {}", e);
             let _ = std::fs::remove_file(&temp_file);
             format!("Failed to execute command: {}. Make sure polkit is installed.", e)
         })?;
@@ -4461,7 +4292,6 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("[DEBUG] pkexec command failed: {}", stderr);
         // Check if user cancelled the password dialog
         if output.status.code() == Some(126) || output.status.code() == Some(127) {
             return Err("Authentication cancelled or failed. Please try again.".to_string());
@@ -4469,11 +4299,9 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
         return Err(format!("Failed to cache profile: {}", stderr));
     }
 
-    eprintln!("[DEBUG] File cached successfully with pkexec");
 
     // Fix permissions on all files in the directory (including check_cmd.sh that cfhdb library needs)
     // Combine both find commands into a single pkexec call
-    eprintln!("[DEBUG] Fixing permissions on all files in /var/cache/cfhdb/");
 
     let mut fix_perms_cmd = TokioCommand::new("pkexec");
     fix_perms_cmd.arg("sh");
@@ -4488,14 +4316,11 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
 
     match fix_perms_output {
         Ok(output) if output.status.success() => {
-            eprintln!("[DEBUG] File permissions fixed successfully");
         }
         Ok(output) => {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            eprintln!("[DEBUG] Warning: Failed to fix file permissions: {}", stderr);
         }
         Err(e) => {
-            eprintln!("[DEBUG] Warning: Failed to execute chmod on files: {}", e);
         }
     }
 
@@ -4724,19 +4549,13 @@ fn get_pre_checked_pci_device(
 ) -> PreCheckedPciDevice {
     let mut available_profiles = Vec::new();
 
-    // Debug: Log device info for NVIDIA devices
     if device.vendor_id == "10de" {
-        eprintln!("[DEBUG] Matching profiles for NVIDIA device: vendor_id={}, device_id={}, class_id={}, name={}",
-                  device.vendor_id, device.device_id, device.class_id, device.device_name);
     }
 
     for profile_arc in profile_data {
         let profile = profile_arc.profile();
 
-        // Debug: Log NVIDIA profiles
         if profile.vendor_ids.contains(&"10de".to_string()) {
-            eprintln!("[DEBUG] Checking NVIDIA profile: {} - vendor_ids={:?}, class_ids={:?}, device_ids={:?}",
-                      profile.i18n_desc, profile.vendor_ids, profile.class_ids, profile.device_ids);
         }
 
         let matching = {
@@ -4760,14 +4579,12 @@ fn get_pre_checked_pci_device(
 
         if matching {
             if device.vendor_id == "10de" {
-                eprintln!("[DEBUG] Profile matched: {}", profile.i18n_desc);
             }
             available_profiles.push(profile_arc.clone());
         }
     }
 
     if device.vendor_id == "10de" {
-        eprintln!("[DEBUG] Total profiles matched for NVIDIA device: {}", available_profiles.len());
     }
 
     PreCheckedPciDevice {
@@ -5145,4 +4962,3 @@ impl iced::widget::container::StyleSheet for ProfileCardStyle {
         }
     }
 }
-

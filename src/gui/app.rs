@@ -23,7 +23,6 @@ use std::path::PathBuf;
 async fn open_file_picker() -> Option<PathBuf> {
     use tokio::process::Command;
 
-    // Try zenity first (GNOME), then kdialog (KDE), then fallback to a simple approach
     let output = Command::new("zenity")
         .args(["--file-selection", "--title=Select RPM Package to Install", "--file-filter=*.rpm"])
         .output()
@@ -38,7 +37,6 @@ async fn open_file_picker() -> Option<PathBuf> {
         }
     }
 
-    // Fallback to kdialog
     let output = Command::new("kdialog")
         .args(["--getopenfilename", ".", "*.rpm"])
         .output()
@@ -155,10 +153,10 @@ impl Application for RustoraApp {
         match message {
             Message::SettingsCheck => {
                 let new_settings = AppSettings::load();
-                // Always update settings for real-time changes (comprehensive check is too complex)
+
                 let old_settings = self.settings.clone();
                 self.settings = new_settings.clone();
-                // If nothing critical changed, just update tab visibility
+
                 if old_settings.font_size == self.settings.font_size
                     && old_settings.font_family == self.settings.font_family
                     && old_settings.scaling == self.settings.scaling
@@ -187,7 +185,7 @@ impl Application for RustoraApp {
                     && old_settings.scale_inputs == self.settings.scale_inputs
                     && old_settings.scale_tabs == self.settings.scale_tabs
                     && old_settings.scale_icons == self.settings.scale_icons {
-                    // Only update tab visibility if nothing else changed
+
                     self.settings.tab_visibility = new_settings.tab_visibility;
                 }
                 Command::none()
@@ -195,8 +193,7 @@ impl Application for RustoraApp {
             Message::TabSelected(tab) => {
                 self.current_tab = tab;
                 if tab == Tab::Installed {
-                    // LoadPackages handler will check if packages are already loaded
-                    // This prevents flickering when switching back to the tab
+
                     return Command::perform(async {}, |_| {
                         Message::InstalledTabMessage(installed::Message::LoadPackages)
                     });
@@ -260,7 +257,7 @@ impl Application for RustoraApp {
                 Command::perform(open_file_picker(), Message::RpmFileSelected)
             }
             Message::RpmFileSelected(Some(rpm_path)) => {
-                // Spawn a separate window process for the RPM dialog
+
                 let rpm_path_str = rpm_path.to_string_lossy().to_string();
                 Command::perform(
                     async move {
@@ -279,7 +276,7 @@ impl Application for RustoraApp {
                 Command::none()
             }
             Message::OpenSettings => {
-                // Spawn a separate window process for the settings dialog
+
                 Command::perform(
                     async {
                         use tokio::process::Command as TokioCommand;
@@ -1373,5 +1370,3 @@ impl ScrollableStyleSheet for CustomScrollableStyle {
         appearance
     }
 }
-
-

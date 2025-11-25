@@ -400,4 +400,3 @@ impl ButtonStyleSheet for CloseButtonStyle {
         appearance
     }
 }
-

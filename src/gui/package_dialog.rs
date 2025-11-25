@@ -60,7 +60,6 @@ impl PackageDialog {
         window_settings.resizable = true;
         window_settings.decorations = true;
 
-        // Use cached InterVariable font (optimized)
         let default_font = crate::gui::fonts::get_inter_font();
 
         <PackageDialog as Application>::run(iced::Settings {
@@ -615,4 +614,3 @@ impl iced::widget::container::StyleSheet for InfoContainerStyle {
         }
     }
 }
-

@@ -18,7 +18,7 @@ pub enum Message {
     ConvertNpmToRpm,
     ConvertCpanToRpm,
     ConvertZipToRpm,
-    // Convert FROM RPM
+
     ConvertRpmToDeb,
     ConvertRpmToTar,
     ConvertRpmToDir,
@@ -32,7 +32,7 @@ pub enum Message {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConversionType {
-    // Source types for RPM output
+
     DebToRpm,
     RpmToRpm,
     DirToRpm,
@@ -43,7 +43,7 @@ pub enum ConversionType {
     NpmToRpm,
     CpanToRpm,
     ZipToRpm,
-    // Source types for other outputs
+
     RpmToDeb,
     RpmToTar,
     RpmToDir,
@@ -212,7 +212,7 @@ impl FpmTab {
                 }
             }
             Message::FileSelected(None, _) => {
-                // User cancelled file selection
+
                 iced::Command::none()
             }
             Message::ConversionComplete(file_path) => {

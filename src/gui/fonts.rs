@@ -17,7 +17,6 @@ static MATERIAL_SYMBOLS_FONT_CACHE: Lazy<iced::Font> = Lazy::new(|| {
     load_material_symbols_font().unwrap_or_else(|_| iced::Font::DEFAULT)
 });
 
-/// Fast synchronous check if fonts are already installed
 pub fn fonts_exist() -> bool {
     if let Ok(home) = std::env::var("HOME") {
         let font_dir = PathBuf::from(&home).join(FONT_DIR);
@@ -25,8 +24,6 @@ pub fn fonts_exist() -> bool {
         let _inter_variable_italic = font_dir.join("InterVariable-Italic.ttf");
         let material_symbols = font_dir.join("MaterialSymbolsRounded.ttf");
 
-        // Only check for Material Symbols and at least one Inter font
-        // Fira Code is optional
         inter_variable.exists() && material_symbols.exists()
     } else {
         false
@@ -272,4 +269,3 @@ pub mod glyphs {
     pub const FOLDER_SYMBOL: &str = "\u{E2C7}"; // folder
     pub const INFO_SYMBOL: &str = "\u{E88E}"; // info
 }
-

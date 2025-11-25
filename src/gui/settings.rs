@@ -7,16 +7,16 @@ use iced::Color;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub tab_visibility: HashMap<String, bool>,
-    pub font_size: f32, // Universal font size
+    pub font_size: f32,
     pub font_family: String,
     pub font_color: ColorData,
     pub background_color: ColorData,
     pub text_color: ColorData,
     pub primary_color: ColorData,
     pub secondary_text_color: ColorData,
-    pub scaling: f32, // Universal UI scale
+    pub scaling: f32,
     pub border_radius: f32,
-    // Individual font sizes
+
     pub font_size_buttons: f32,
     pub font_size_titles: f32,
     pub font_size_body: f32,
@@ -25,7 +25,7 @@ pub struct AppSettings {
     pub font_size_icons: f32,
     pub font_size_package_names: f32,
     pub font_size_package_details: f32,
-    // Individual UI scales
+
     pub scale_buttons: f32,
     pub scale_titles: f32,
     pub scale_body: f32,
@@ -75,7 +75,6 @@ impl AppSettings {
             }
         }
 
-        // Default settings
         AppSettings {
             tab_visibility: HashMap::new(),
             font_size: 14.0,
@@ -87,7 +86,7 @@ impl AppSettings {
             secondary_text_color: ColorData::from(Color::from_rgb(0.7, 0.7, 0.7)),
             scaling: 1.0,
             border_radius: 16.0,
-            // Individual font sizes (defaults to universal font_size)
+
             font_size_buttons: 14.0,
             font_size_titles: 18.0,
             font_size_body: 14.0,
@@ -96,7 +95,7 @@ impl AppSettings {
             font_size_icons: 16.0,
             font_size_package_names: 17.0,
             font_size_package_details: 13.0,
-            // Individual UI scales (defaults to universal scaling)
+
             scale_buttons: 1.0,
             scale_titles: 1.0,
             scale_body: 1.0,
@@ -190,4 +189,3 @@ impl CustomTheme {
         let _ = fs::remove_file(&theme_path);
     }
 }
-

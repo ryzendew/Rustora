@@ -632,7 +632,6 @@ impl KernelTab {
                         |result| match result {
                             Ok((schedulers, current)) => Message::SchedulersLoaded(schedulers, current),
                             Err(msg) => {
-                                eprintln!("SCX apply error: {}", msg);
                                 Message::Error(())
                             },
                         }
@@ -1761,7 +1760,6 @@ async fn select_branch_and_load_kernels(branch_name: String, branches: Vec<Kerne
         .ok_or_else(|| {
             format!("Branch not found: {}", branch_name)
         })?;
-
 
     // Run init script
     if branch.init_script != "true" {

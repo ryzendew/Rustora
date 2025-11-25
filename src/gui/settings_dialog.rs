@@ -26,7 +26,7 @@ pub enum Message {
     SecondaryTextColorBChanged(u8),
     ScalingChanged(f32),
     BorderRadiusChanged(f32),
-    // Individual font size changes
+
     FontSizeButtonsChanged(f32),
     FontSizeTitlesChanged(f32),
     FontSizeBodyChanged(f32),
@@ -35,7 +35,7 @@ pub enum Message {
     FontSizeIconsChanged(f32),
     FontSizePackageNamesChanged(f32),
     FontSizePackageDetailsChanged(f32),
-    // Individual UI scale changes
+
     ScaleButtonsChanged(f32),
     ScaleTitlesChanged(f32),
     ScaleBodyChanged(f32),
@@ -84,7 +84,6 @@ impl SettingsDialog {
             "FPM".to_string(),
         ];
 
-        // Initialize tab visibility if not set
         for tab in &available_tabs {
             settings.tab_visibility.entry(tab.clone()).or_insert(true);
         }
@@ -1154,4 +1153,3 @@ impl iced::widget::container::StyleSheet for ColorPreviewStyle {
 }
 
 use iced::window;
-

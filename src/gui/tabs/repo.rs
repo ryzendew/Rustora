@@ -28,14 +28,14 @@ pub enum Message {
     ToggleRepository(String),
     ToggleRepositoryComplete(Result<String, String>),
     Error(String),
-    // Terminal messages
+
     OpenAddRepoTerminal,
     CloseAddRepoTerminal,
     TerminalCommandChanged(String),
     ExecuteTerminalCommand,
-    TerminalCommandOutput(String, String, bool), // stdout, stderr, success
-    TerminalPromptResponse(bool), // true for yes, false for no
-    // Sub-tab messages
+    TerminalCommandOutput(String, String, bool),
+    TerminalPromptResponse(bool),
+
     SwitchView(RepoView),
     InstallNvidiaRepo,
     InstallNvidiaRepoComplete(Result<(), String>),
@@ -87,13 +87,13 @@ pub struct RepoTab {
     selected_repository: Option<String>,
     repository_details: Option<RepositoryDetails>,
     panel_open: bool,
-    // Terminal state
+
     terminal_open: bool,
     terminal_command: String,
     terminal_output: Vec<String>,
     terminal_is_executing: bool,
-    terminal_pending_prompt: Option<String>, // Stores the prompt text when waiting for user response
-    // Sub-tab state
+    terminal_pending_prompt: Option<String>,
+
     current_view: RepoView,
 }
 
@@ -134,7 +134,6 @@ impl RepoTab {
                 .collect()
         };
 
-        // Filter by view (NVIDIA sub-tab shows only NVIDIA-related repos, RPM Fusion shows RPM Fusion repos)
         if self.current_view == RepoView::Nvidia {
             filtered = filtered
                 .into_iter()
@@ -177,7 +176,6 @@ impl RepoTab {
                 self.repositories = repos;
                 self.filter_repositories();
 
-                // Reload details if panel is open to reflect changes
                 if let Some(ref repo_id) = self.selected_repository {
                     let repo_id = repo_id.clone();
                     return iced::Command::perform(load_repository_details(repo_id), Message::RepositoryDetailsLoaded);
@@ -199,7 +197,7 @@ impl RepoTab {
                 let details_id = details.id.clone();
                 let details_enabled = details.enabled;
                 self.repository_details = Some(details);
-                // Also update the repository in the list if it exists
+
                 if let Some(repo) = self.repositories.iter_mut().find(|r| r.id == details_id) {
                     repo.enabled = details_enabled;
                     self.filter_repositories();
@@ -213,7 +211,7 @@ impl RepoTab {
                 iced::Command::none()
             }
             Message::ToggleRepository(repo_id) => {
-                // Find the repository to get its current state
+
                 if let Some(repo) = self.repositories.iter().find(|r| r.id == repo_id) {
                     let new_state = !repo.enabled;
                     iced::Command::perform(
@@ -227,9 +225,9 @@ impl RepoTab {
             Message::ToggleRepositoryComplete(result) => {
                 match result {
                     Ok(_) => {
-                        // Reload repositories to reflect the change
+
                         self.is_loading = true;
-                        // Also reload details if panel is open
+
                         if let Some(ref repo_id) = self.selected_repository {
                             let repo_id = repo_id.clone();
                             return iced::Command::batch([
@@ -251,7 +249,7 @@ impl RepoTab {
                     }
                     Err(e) => {
                         self.is_loading = false;
-                        // Show error message
+
                         iced::Command::perform(async {}, |_| Message::Error(e))
                     }
                 }
@@ -2611,4 +2609,3 @@ impl TextInputStyleSheet for TerminalInputStyle {
         }
     }
 }
-

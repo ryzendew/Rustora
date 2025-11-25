@@ -779,4 +779,3 @@ impl iced::widget::container::StyleSheet for DialogContainerStyle {
         }
     }
 }
-

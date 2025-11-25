@@ -825,4 +825,3 @@ impl iced::widget::container::StyleSheet for DependencyItemStyle {
         }
     }
 }
-

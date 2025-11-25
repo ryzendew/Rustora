@@ -61,7 +61,6 @@ impl InstallDialog {
         window_settings.resizable = true;
         window_settings.decorations = true;
 
-        // Use cached InterVariable font (optimized)
         let default_font = crate::gui::fonts::get_inter_font();
 
         <InstallDialog as Application>::run(iced::Settings {
@@ -495,7 +494,6 @@ async fn load_package_info(package_names: Vec<String>) -> Result<Vec<PackageInfo
         match result {
             Ok(info) => infos.push(info),
             Err(e) => {
-                eprintln!("Warning: Failed to load package info: {}", e);
                 // Continue with other packages even if one fails
             }
         }
@@ -805,4 +803,3 @@ impl iced::widget::container::StyleSheet for InfoContainerStyle {
         }
     }
 }
-

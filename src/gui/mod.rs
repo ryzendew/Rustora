@@ -24,4 +24,3 @@ pub mod proton_changelog_dialog;
 
 pub use app::RustoraApp;
 pub use theme::Theme;
-

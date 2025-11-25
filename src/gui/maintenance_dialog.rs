@@ -100,7 +100,7 @@ impl Application for MaintenanceDialog {
 
     fn new(flags: Self) -> (Self, Command<Message>) {
         let mut dialog = flags;
-        // Start task immediately
+
         let cmd = dialog.update(Message::StartTask);
         (dialog, cmd)
     }
@@ -129,7 +129,7 @@ impl Application for MaintenanceDialog {
                 )
             }
             Message::TaskProgress(output) => {
-                // Set the complete output
+
                 self.terminal_output = output;
                 self.is_running = false;
                 self.is_complete = true;
@@ -505,4 +505,3 @@ impl ButtonStyleSheet for RoundedButtonStyle {
         appearance
     }
 }
-

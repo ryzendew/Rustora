@@ -694,4 +694,3 @@ impl iced::widget::container::StyleSheet for PackageItemStyle {
         }
     }
 }
-

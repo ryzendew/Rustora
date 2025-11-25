@@ -523,8 +523,7 @@ async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, Stri
 async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String>, output: &str, success: bool) {
     if let Ok(home) = std::env::var("HOME") {
         let log_dir = PathBuf::from(&home).join(".rustora");
-        if let Err(e) = fs::create_dir_all(&log_dir).await {
-            eprintln!("Failed to create log directory: {}", e);
+        if let Err(_e) = fs::create_dir_all(&log_dir).await {
             return;
         }
 
@@ -543,11 +542,9 @@ async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String
         log_content.push_str(output);
         log_content.push_str("\n--- End of Log ---\n");
 
-        if let Err(e) = fs::write(&log_file, log_content).await {
-            eprintln!("Failed to write log file: {}", e);
+        if let Err(_e) = fs::write(&log_file, log_content).await {
         }
     } else {
-        eprintln!("HOME environment variable not set, cannot write log");
     }
 }
 
@@ -733,4 +730,3 @@ impl iced::widget::container::StyleSheet for TerminalContainerStyle {
         }
     }
 }
-

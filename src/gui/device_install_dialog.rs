@@ -24,7 +24,7 @@ pub struct DeviceInstallDialog {
     profile_name: String,
     install_script: String,
     device_info: DeviceInfo,
-    is_removal: bool, // true for removal, false for installation
+    is_removal: bool,
     is_running: bool,
     is_complete: bool,
     has_error: bool,
@@ -44,7 +44,7 @@ pub struct DeviceInfo {
     pub bus_id: String,
     pub vendor_id: String,
     pub device_id: String,
-    pub repositories: Vec<String>, // Repositories that will be enabled/used
+    pub repositories: Vec<String>,
 }
 
 impl DeviceInstallDialog {
@@ -97,7 +97,7 @@ impl Application for DeviceInstallDialog {
 
     fn new(flags: Self) -> (Self, Command<Message>) {
         let mut dialog = flags;
-        // Start installation immediately
+
         let cmd = dialog.update(Message::StartInstallation);
         (dialog, cmd)
     }
@@ -124,19 +124,18 @@ impl Application for DeviceInstallDialog {
                 )
             }
             Message::InstallationProgress(output) => {
-                // Set the complete output (installation/removal finished successfully)
+
                 self.terminal_output = output;
                 self.is_running = false;
                 self.is_complete = true;
 
-                // Only run post-install commands for NVIDIA driver installation (not removal)
                 if !self.is_removal {
-                    // Check if this is an NVIDIA driver and run post-install commands
+
                     let is_nvidia = self.device_info.vendor_id == "10de" ||
                                     self.device_info.driver.to_lowercase().contains("nvidia");
 
                     if is_nvidia {
-                        // Start post-installation steps
+
                         self.is_post_install = true;
                         self.progress_text = "Rebuilding kernel modules...".to_string();
                         iced::Command::perform(
@@ -170,7 +169,7 @@ impl Application for DeviceInstallDialog {
             Message::PostInstallProgress(output) => {
                 self.post_install_output = output;
                 self.progress_text = "Regenerating initramfs...".to_string();
-                // After akmods, run dracut
+
                 let current_output = self.post_install_output.clone();
                 iced::Command::perform(
                     run_dracut_regenerate(),
@@ -886,4 +885,3 @@ impl ButtonStyleSheet for DialogButtonStyle {
         appearance
     }
 }
-

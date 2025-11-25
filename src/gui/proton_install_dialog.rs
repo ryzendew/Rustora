@@ -12,15 +12,15 @@ use tokio::time::sleep;
 pub enum Message {
     StartDownload,
     #[allow(dead_code)]
-    DownloadProgress(f32, String), // progress (0.0-1.0), message
-    DownloadComplete(Result<String, String>), // tar_path or error
+    DownloadProgress(f32, String),
+    DownloadComplete(Result<String, String>),
     StartExtraction,
     #[allow(dead_code)]
-    ExtractionProgress(f32, String), // progress (0.0-1.0), message
-    ExtractionComplete(Result<String, String>), // extracted_dir or error
+    ExtractionProgress(f32, String),
+    ExtractionComplete(Result<String, String>),
     StartInstallation,
     #[allow(dead_code)]
-    InstallationProgress(f32, String), // progress (0.0-1.0), message
+    InstallationProgress(f32, String),
     InstallationComplete(Result<(), String>),
     Close,
 }
@@ -54,7 +54,7 @@ pub struct ProtonInstallDialog {
     build_title: String,
     download_url: String,
     selected_launcher: Option<String>,
-    runner_info: Option<String>, // JSON serialized ProtonRunner info
+    runner_info: Option<String>,
 
     is_downloading: bool,
     is_extracting: bool,
@@ -178,7 +178,6 @@ impl Application for ProtonInstallDialog {
                 self.is_extracting = true;
                 self.terminal_output.push_str("Starting extraction...\n");
 
-                // Get tar_path from download
                 let temp_dir = std::env::temp_dir();
                 let tar_path = temp_dir.join(format!("{}.tar.gz", self.build_title));
                 let build_title = self.build_title.clone();
@@ -214,7 +213,6 @@ impl Application for ProtonInstallDialog {
                 self.is_installing = true;
                 self.terminal_output.push_str("Starting installation...\n");
 
-                // Get paths
                 let temp_dir = std::env::temp_dir();
                 let tar_path = temp_dir.join(format!("{}.tar.gz", self.build_title));
                 let runner_title = self.runner_title.clone();
@@ -617,13 +615,9 @@ async fn extract_with_progress(
         // ZIP format signature: 50 4B (PK) followed by 03, 05, or 07
         let is_zip = peek_buf[0] == 0x50 && peek_buf[1] == 0x4b && (peek_buf[2] == 0x03 || peek_buf[2] == 0x05 || peek_buf[2] == 0x07);
 
-        eprintln!("[DEBUG] File magic bytes: {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
-            peek_buf[0], peek_buf[1], peek_buf[2], peek_buf[3], peek_buf[4], peek_buf[5]);
-        eprintln!("[DEBUG] Format detection: gzip={}, zstd={}, xz={}, 7z={}, zip={}", is_gzip, is_zstd, is_xz, is_7z, is_zip);
 
         if is_7z {
             // Use system's 7z command to extract
-            eprintln!("[DEBUG] Detected 7z archive format");
             let output = std::process::Command::new("7z")
                 .arg("x")
                 .arg(&tar_path_clone)
@@ -640,7 +634,6 @@ async fn extract_with_progress(
             return Ok(());
         } else if is_zip {
             // Use system's unzip command
-            eprintln!("[DEBUG] Detected ZIP archive format");
             let output = std::process::Command::new("unzip")
                 .arg("-q") // Quiet mode
                 .arg("-o") // Overwrite files
@@ -961,4 +954,3 @@ impl ButtonStyleSheet for CloseButtonStyle {
         appearance
     }
 }
-

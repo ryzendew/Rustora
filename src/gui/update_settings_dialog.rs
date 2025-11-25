@@ -350,4 +350,3 @@ impl ButtonStyleSheet for RoundedButtonStyle {
         appearance
     }
 }
-

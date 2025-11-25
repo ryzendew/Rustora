@@ -54,14 +54,14 @@ impl SearchTab {
         match message {
             Message::SearchQueryChanged(query) => {
                 self.search_query = query.clone();
-                // Debounce: only search if query is at least 2 characters and not empty
+
                 if !query.trim().is_empty() && query.len() >= 2 {
                     self.is_searching = true;
-                    // Use a small delay to debounce rapid typing
+
                     let query_clone = query.clone();
                     iced::Command::perform(
                         async move {
-                            // Small delay to debounce rapid typing
+
                             tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
                             search_packages(query_clone).await
                         },
@@ -108,7 +108,7 @@ impl SearchTab {
                 if self.selected_packages.is_empty() {
                     return iced::Command::none();
                 }
-                // Spawn a separate window for package installation
+
                 let packages: Vec<String> = self.selected_packages.iter().cloned().collect();
                 iced::Command::perform(
                     async move {
@@ -121,13 +121,13 @@ impl SearchTab {
                             .spawn()
                             .ok();
                     },
-                    |_| Message::InstallComplete, // Dummy message
+                    |_| Message::InstallComplete,
                 )
             }
             Message::InstallComplete => {
                 self.is_installing = false;
                 self.selected_packages.clear();
-                // Refresh search results after installation
+
                 if !self.search_query.trim().is_empty() {
                     let query = self.search_query.clone();
                     self.is_searching = true;
@@ -142,7 +142,7 @@ impl SearchTab {
                 }
             }
             Message::Error(_msg) => {
-                // Error occurred, just reset state
+
                 self.is_installing = false;
                 iced::Command::none()
             }
@@ -683,7 +683,6 @@ fn format_size(bytes: u64) -> String {
     format!("{:.2} {}", size, UNITS[unit_index])
 }
 
-
 struct PackageCardStyle {
     is_selected: bool,
     radius: f32,
@@ -905,4 +904,3 @@ impl CheckboxStyleSheet for RoundedCheckboxStyle {
         appearance
     }
 }
-
