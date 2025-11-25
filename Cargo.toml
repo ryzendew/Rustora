@@ -4,7 +4,7 @@ version = "0.1.5"
 edition = "2021"
 authors = ["Rustora Contributors"]
 description = "A modern package manager for Fedora"
-license = "MIT"
+license = "Unlicense"
 repository = "https://github.com/yourusername/rustora"
 
 [dependencies]
