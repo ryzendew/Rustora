@@ -8,6 +8,10 @@ A modern, GUI-based package manager for Fedora and Nobara with comprehensive sys
 
 Rustora is a feature-rich package management application built with Rust and the Iced GUI framework. It provides a unified interface for managing packages, Flatpaks, kernels, device drivers, gaming tools, and system configurations on Fedora-based distributions.
 
+## Notice 
+
+According to some using comments is bad .. I learned along time ago from the failed yuzu project that knowning what the code does line by line helps fix issues. 
+
 ## Features
 
 ### 📦 Core Package Management
