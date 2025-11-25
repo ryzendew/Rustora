@@ -58,23 +58,19 @@ impl RpmDialog {
         let dialog = Self::new(rpm_path);
 
         let mut window_settings = iced::window::Settings::default();
-        // Optimized for 720p (1280x720) and up, with tiling manager support
-        // Width: ~60% of 1280px = 768px, fits comfortably in tiling layouts
-        // Height: ~85% of 720px = 612px, leaves room for status bars
         window_settings.size = iced::Size::new(768.0, 612.0);
-        window_settings.min_size = Some(iced::Size::new(640.0, 480.0)); // Minimum for smaller screens
-        window_settings.max_size = None; // Allow full screen for larger displays
+        window_settings.min_size = Some(iced::Size::new(640.0, 480.0));
+        window_settings.max_size = None;
         window_settings.resizable = true;
-        window_settings.decorations = true; // Keep decorations for tiling manager compatibility
+        window_settings.decorations = true;
 
-        // Use cached InterVariable font (optimized)
         let default_font = crate::gui::fonts::get_inter_font();
 
         <RpmDialog as Application>::run(iced::Settings {
             window: window_settings,
             flags: dialog,
             default_font,
-            default_text_size: iced::Pixels::from(14.0), // Optimized for 720p scaling
+            default_text_size: iced::Pixels::from(14.0),
             antialiasing: true,
             id: None,
             fonts: Vec::new(),
@@ -86,7 +82,6 @@ impl RpmDialog {
             return Space::with_width(Length::Shrink).into();
         }
 
-        // Load settings and calculate font sizes like tabs do
         let settings = crate::gui::settings::AppSettings::load();
         let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
         let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
@@ -108,7 +103,6 @@ impl RpmDialog {
             .height(Length::Fill)
             .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
         } else if let Some(ref info) = self.rpm_info {
-            // Professional header with close button - responsive sizing
             let material_font = crate::gui::fonts::get_material_symbols_font();
             let title = container(
                 row![
@@ -133,16 +127,13 @@ impl RpmDialog {
                 .width(Length::Fill)
             )
             .width(Length::Fill)
-            .padding(Padding::new(16.0)); // Optimized padding for 720p
+            .padding(Padding::new(16.0));
 
-            // Clean, organized info section - optimized for 720p with better space usage
             let info_section = container(
                 column![
                     text("Package Information").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                     Space::with_height(Length::Fixed(10.0)),
-                    // Use a more compact grid layout for package info
                     row![
-                        // Left column
                         column![
                             row![
                                 text("Name:").size(body_font_size * 0.75).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
@@ -165,7 +156,6 @@ impl RpmDialog {
                         .spacing(0)
                         .width(Length::FillPortion(1)),
                         Space::with_width(Length::Fixed(12.0)),
-                        // Right column
                         column![
                             row![
                                 text("Arch:").size(body_font_size * 0.75).width(Length::Fixed(85.0)).style(iced::theme::Text::Color(theme.primary())),
@@ -194,7 +184,7 @@ impl RpmDialog {
                     scrollable(
                         text(&info.description).size(body_font_size * 0.75)
                     )
-                    .height(Length::Fixed(110.0)), // Slightly increased for better readability
+                    .height(Length::Fixed(110.0)),
                 ]
                 .spacing(0)
                 .padding(Padding::new(16.0))
@@ -229,7 +219,7 @@ impl RpmDialog {
                             )
                             .spacing(5)
                         )
-                        .height(Length::Fixed(130.0)), // Optimized for 720p
+                        .height(Length::Fixed(130.0)),
                     ]
                     .spacing(6)
                     .padding(Padding::new(16.0))
@@ -270,7 +260,6 @@ impl RpmDialog {
             let material_font = crate::gui::fonts::get_material_symbols_font();
 
             let buttons = if self.is_complete {
-                // Show only Exit button when installation is complete
                 row![
                     Space::with_width(Length::Fill),
                     button(
@@ -437,7 +426,6 @@ impl Application for RpmDialog {
             Message::InstallationProgress(progress) => {
                 let progress_clone = progress.clone();
                 self.installation_progress = progress.clone();
-                // Check if installation is complete
                 if progress_clone.contains("Complete") ||
                    progress_clone.contains("Installed") ||
                    progress_clone.contains("complete") ||
@@ -454,12 +442,10 @@ impl Application for RpmDialog {
                 iced::Command::none()
             }
             Message::InstallationError(_msg) => {
-                // Installation error occurred
                 self.is_installing = false;
                 iced::Command::none()
             }
             Message::Cancel => {
-                // Fully close the window and exit cleanly
                 iced::window::close(window::Id::MAIN)
             }
         }
@@ -478,7 +464,6 @@ impl Application for RpmDialog {
 async fn load_rpm_info(rpm_path: PathBuf) -> Result<RpmInfo, String> {
     let path_str = rpm_path.to_string_lossy().to_string();
 
-    // Run both RPM queries in parallel for faster loading
     let (info_output, deps_output) = tokio::join!(
         TokioCommand::new("rpm")
             .args(["-qip", &path_str])
@@ -506,16 +491,15 @@ async fn load_rpm_info(rpm_path: PathBuf) -> Result<RpmInfo, String> {
         size: String::new(),
     };
 
-    // Optimized parsing: use pattern matching and early exit when all fields found
     let mut found_fields = 0u8;
-    const ALL_FIELDS: u8 = 0b01111111; // 7 fields (name, version, release, arch, summary, size, description)
+    const ALL_FIELDS: u8 = 0b01111111;
     let mut in_description = false;
     let mut description_lines = Vec::new();
 
     for line in stdout.lines() {
         let line = line.trim();
         if found_fields == ALL_FIELDS && !in_description {
-            break; // Early exit when all fields are found
+            break;
         }
 
         if line.starts_with("Name        :") && (found_fields & 0b00000001) == 0 {
@@ -553,7 +537,6 @@ async fn load_rpm_info(rpm_path: PathBuf) -> Result<RpmInfo, String> {
             found_fields |= 0b01000000;
             in_description = true;
         } else if in_description {
-            // Continue reading multi-line description
             if line.is_empty() || (line.contains(':') && !line.starts_with(' ')) {
                 in_description = false;
             } else if !line.is_empty() {
@@ -566,7 +549,6 @@ async fn load_rpm_info(rpm_path: PathBuf) -> Result<RpmInfo, String> {
         info.description = description_lines.join("\n");
     }
 
-    // Process dependencies from parallel query
     if let Ok(deps_result) = deps_output {
         if deps_result.status.success() {
             let deps_stdout = String::from_utf8_lossy(&deps_result.stdout);
@@ -585,16 +567,13 @@ async fn load_rpm_info(rpm_path: PathBuf) -> Result<RpmInfo, String> {
 async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
     let path_str = rpm_path.to_string_lossy().to_string();
 
-    // Use pkexec (polkit) instead of sudo for better security
-    // For local RPM files (especially converted ones), add --nogpgcheck to skip GPG verification
-    // Note: We do NOT use --allowerasing as it can remove critical system packages and break the system
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args([
         "dnf",
         "install",
         "-y",
         "--assumeyes",
-        "--nogpgcheck",  // Skip GPG checks for local/converted RPMs (safe for local files)
+        "--nogpgcheck",
         &path_str
     ]);
 
@@ -612,7 +591,6 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        // Check for Debian package name dependencies (common in converted packages)
         let has_debian_deps = stderr.contains("libc6") || stderr.contains("libgtk-3-0") ||
                              stderr.contains("libwebkit") || stderr.contains("libxdo") ||
                              stdout.contains("libc6") || stdout.contains("libgtk-3-0") ||
@@ -634,7 +612,7 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
                 • libwebkit2gtk-4.1-0 → webkit2gtk4.1\n\
                 • libxdo3 → xdotool\n\n\
                 Error details:\n{}\n{}\n\n\
-                ⚠️  WARNING: Package conversion cannot automatically map dependencies.\n\
+                [WARN] WARNING: Package conversion cannot automatically map dependencies.\n\
                 \n\
                 Recommended solutions:\n\
                 1. Check if there's a native RPM version available (preferred)\n\
@@ -654,7 +632,7 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
                 Converted packages may try to claim ownership of system directories like /usr/bin, /usr/lib, etc., \
                 which are owned by the filesystem package.\n\n\
                 Error details:\n{}\n{}\n\n\
-                ⚠️  WARNING: Using --allowerasing or --force could remove critical system files and break your system.\n\
+                [WARN] WARNING: Using --allowerasing or --force could remove critical system files and break your system.\n\
                 \n\
                 Recommended solutions:\n\
                 1. Check if there's a native RPM version available (preferred)\n\

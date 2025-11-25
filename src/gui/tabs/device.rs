@@ -948,7 +948,7 @@ impl DeviceTab {
             .into()
         } else if let Some(err) = &self.error {
             let back_button = button(
-                text("← Back").size(button_font_size)
+                text("<- Back").size(button_font_size)
             )
             .on_press(Message::ClearError)
             .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {

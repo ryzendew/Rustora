@@ -301,9 +301,6 @@ impl TweaksTab {
                     // Always reload if not currently loading and either empty or error exists
                     if !self.is_loading_proton_builds {
                         if self.proton_runners.is_empty() || self.proton_builds_error.is_some() {
-                            eprintln!("[DEBUG] Loading Proton builds (empty: {}, has_error: {})",
-                                self.proton_runners.is_empty(),
-                                self.proton_builds_error.is_some());
                         self.is_loading_proton_builds = true;
                         self.proton_builds_error = None;
                         return iced::Command::batch(vec![
@@ -543,44 +540,20 @@ impl TweaksTab {
             }
             Message::ProtonBuildsLoaded(result) => {
                 self.is_loading_proton_builds = false;
-                eprintln!("[DEBUG] ========== ProtonBuildsLoaded START ==========");
                 match result {
                     Ok(runners) => {
-                        eprintln!("[DEBUG] ProtonBuildsLoaded: received {} runners", runners.len());
-                        for (idx, runner) in runners.iter().enumerate() {
-                            eprintln!("[DEBUG] Runner {}: {} (type: {})", idx, runner.title, runner.compat_layer_type);
-                            eprintln!("[DEBUG]   Description: {}", runner.description);
-                            eprintln!("[DEBUG]   Endpoint: {}", runner.endpoint);
-                            eprintln!("[DEBUG]   Has {} builds", runner.builds.len());
-                            for (build_idx, build) in runner.builds.iter().enumerate() {
-                                eprintln!("[DEBUG]     Build {}: {} (installed: {}, latest: {})",
-                                    build_idx, build.title, build.is_installed, build.is_latest);
-                            }
-                        }
                         self.proton_runners = runners;
                         self.proton_builds_error = None;
-                        // Auto-select first runner if none selected
                         if self.selected_proton_runner.is_none() && !self.proton_runners.is_empty() {
                             self.selected_proton_runner = Some(self.proton_runners[0].title.clone());
-                            eprintln!("[DEBUG] Auto-selected first runner: {}", self.proton_runners[0].title);
                         }
-                        // Update installation status if launchers are already detected
                         if !self.detected_launchers.is_empty() {
-                            eprintln!("[DEBUG] Launchers detected ({}), updating installation status", self.detected_launchers.len());
                             self.update_proton_installation_status();
-                            // Check usage counts
-                            eprintln!("[DEBUG] Checking Proton usage counts...");
                             return iced::Command::perform(check_proton_usage(self.proton_runners.clone(), self.detected_launchers.clone()), Message::ProtonUsageChecked);
-                        } else {
-                            eprintln!("[DEBUG] No launchers detected yet, installation status will be updated when launchers are detected");
                         }
-                        eprintln!("[DEBUG] UI should now show {} runners", self.proton_runners.len());
-                        eprintln!("[DEBUG] ========== ProtonBuildsLoaded END ==========");
                     }
                     Err(e) => {
-                        eprintln!("[DEBUG] ProtonBuildsLoaded error: {}", e);
                         self.proton_builds_error = Some(e);
-                        eprintln!("[DEBUG] ========== ProtonBuildsLoaded END (ERROR) ==========");
                     }
                 }
                 iced::Command::none()
@@ -594,7 +567,6 @@ impl TweaksTab {
                 match result {
                     Ok(launchers) => {
                         self.detected_launchers = launchers;
-                        eprintln!("[DEBUG] Detected {} launchers", self.detected_launchers.len());
                         // Auto-select first launcher if none selected
                         if self.selected_launcher.is_none() && !self.detected_launchers.is_empty() {
                             self.selected_launcher = Some(self.detected_launchers[0].title.clone());
@@ -652,12 +624,9 @@ impl TweaksTab {
             Message::ProtonUsageChecked(result) => {
                 match result {
                     Ok(updated_runners) => {
-                        eprintln!("[DEBUG] ProtonUsageChecked: Updated {} runners with usage counts", updated_runners.len());
                         self.proton_runners = updated_runners;
-                        eprintln!("[DEBUG] UI should now refresh with updated usage counts");
                     }
-                    Err(e) => {
-                        eprintln!("[DEBUG] Failed to check usage: {}", e);
+                    Err(_e) => {
                     }
                 }
                 iced::Command::none()
@@ -757,8 +726,6 @@ impl TweaksTab {
                 self.install_progress = 1.0;
                 match result {
                     Ok((runner_title, title)) => {
-                        eprintln!("[DEBUG] Installation complete, updating installation status for {} {}", runner_title, title);
-                        // Update installation status in the runner's builds
                         if let Some(runner) = self.proton_runners.iter_mut().find(|r| r.title == runner_title) {
                             if let Some(build) = runner.builds.iter_mut().find(|b| b.title == title) {
                                 build.is_installed = true;
@@ -788,8 +755,6 @@ impl TweaksTab {
             Message::ProtonBuildRemoved(result) => {
                 match result {
                     Ok((runner_title, title)) => {
-                        eprintln!("[DEBUG] Removal complete, updating installation status for {} {}", runner_title, title);
-                        // Update installation status in the runner's builds
                         if let Some(runner) = self.proton_runners.iter_mut().find(|r| r.title == runner_title) {
                             if let Some(build) = runner.builds.iter_mut().find(|b| b.title == title) {
                                 build.is_installed = false;
@@ -804,27 +769,18 @@ impl TweaksTab {
                 }
             }
             Message::UpdateProtonBuild(runner_title, title) => {
-                eprintln!("[DEBUG] UpdateProtonBuild requested: {} {}", runner_title, title);
-                // For "Latest" builds, update means re-downloading the latest release
                 if let Some(runner) = self.proton_runners.iter().find(|r| r.title == runner_title) {
-                    eprintln!("[DEBUG] Found runner: {}", runner_title);
                     if let Some(_build) = runner.builds.iter().find(|b| b.title == title && b.is_latest) {
-                        eprintln!("[DEBUG] Found Latest build to update: {}", title);
-                        // Find the actual latest release (first non-latest build)
                         if let Some(latest_release) = runner.builds.iter().find(|b| !b.is_latest) {
-                            eprintln!("[DEBUG] Updating {} Latest to release: {} from {}", title, latest_release.title, latest_release.download_url);
                             self.downloading_build = Some(title.clone());
                             iced::Command::perform(download_proton_build(runner_title, latest_release.title.clone(), latest_release.download_url.clone()), Message::ProtonBuildDownloaded)
                         } else {
-                            eprintln!("[DEBUG] No non-latest release found for {}", runner_title);
                             iced::Command::none()
                         }
                     } else {
-                        eprintln!("[DEBUG] Build {} not found or not a Latest build", title);
                         iced::Command::none()
                     }
                 } else {
-                    eprintln!("[DEBUG] Runner {} not found", runner_title);
                     iced::Command::none()
                 }
             }
@@ -832,7 +788,6 @@ impl TweaksTab {
                 self.install_progress = 1.0;
                 match result {
                     Ok((runner_title, title)) => {
-                        eprintln!("[DEBUG] Update complete for {} {}", runner_title, title);
                         self.downloading_build = None;
                         self.installing_build = None;
                         // Update installation status
@@ -857,33 +812,21 @@ impl TweaksTab {
                 }
             }
             Message::UpdateAllProtonBuilds => {
-                eprintln!("[DEBUG] UpdateAllProtonBuilds requested");
-                // Find all installed "Latest" builds and update them
                 let mut update_commands = Vec::new();
                 for runner in &self.proton_runners {
                     for build in &runner.builds {
                         if build.is_installed && build.is_latest {
                             if let Some(latest_release) = runner.builds.iter().find(|b| !b.is_latest) {
-                                eprintln!("[DEBUG] Found Latest build to update: {} {} -> {}", runner.title, build.title, latest_release.title);
                                 update_commands.push((runner.title.clone(), build.title.clone(), latest_release.download_url.clone()));
-                            } else {
-                                eprintln!("[DEBUG] No release found for Latest build: {} {}", runner.title, build.title);
                             }
                         }
                     }
                 }
                 if !update_commands.is_empty() {
-                    eprintln!("[DEBUG] Updating {} Latest builds", update_commands.len());
-                    for (runner, title, url) in &update_commands {
-                        eprintln!("[DEBUG]   - {} {} from {}", runner, title, url);
-                    }
-                    // Start first update
                     let (runner_title, title, download_url) = update_commands[0].clone();
-                    eprintln!("[DEBUG] Starting update for: {} {}", runner_title, title);
                     self.downloading_build = Some(title.clone());
                     iced::Command::perform(download_proton_build(runner_title, title, download_url), Message::ProtonBuildDownloaded)
                 } else {
-                    eprintln!("[DEBUG] No Latest builds found to update");
                     iced::Command::none()
                 }
             }
@@ -931,17 +874,14 @@ impl TweaksTab {
                 match result {
                     Ok((runner_title, new_builds)) => {
                         if let Some(runner) = self.proton_runners.iter_mut().find(|r| r.title == runner_title) {
-                            // Insert new builds after the "Latest" build (if exists) but before other builds
                             let latest_count = runner.builds.iter().filter(|b| b.is_latest).count();
                             for build in new_builds {
                                 runner.builds.insert(latest_count, build);
                             }
-                            eprintln!("[DEBUG] Loaded more builds for {}, total: {}", runner_title, runner.builds.len());
                         }
                         iced::Command::none()
                     }
-                    Err(e) => {
-                        eprintln!("[DEBUG] Failed to load more builds: {}", e);
+                    Err(_e) => {
                         iced::Command::none()
                     }
                 }
@@ -1060,9 +1000,9 @@ impl TweaksTab {
                     self.output_log
                         .iter()
                         .map(|line| {
-                            let line_color = if line.starts_with("✓") {
+                            let line_color = if line.starts_with("[OK]") {
                                 iced::Color::from_rgb(0.1, 0.5, 0.1)
-                            } else if line.starts_with("✗") {
+                            } else if line.starts_with("[FAIL]") {
                                 iced::Color::from_rgb(0.9, 0.2, 0.2)
                             } else {
                                 theme.text()
@@ -1220,7 +1160,7 @@ impl TweaksTab {
                 .size(body_font_size * 0.93)
                 .style(iced::theme::Text::Color(iced::Color::from_rgb(0.9, 0.2, 0.2)))
         } else if self.dnf_config.is_some() {
-            text("✓ Configuration loaded")
+            text("[OK] Configuration loaded")
                 .size(body_font_size * 0.93)
                 .style(iced::theme::Text::Color(iced::Color::from_rgb(0.1, 0.5, 0.1)))
         } else {
@@ -1397,7 +1337,7 @@ impl TweaksTab {
             // Modern grid-based status display - build grid directly
             let create_status_item = |name: &str, is_installed: bool| -> Element<Message> {
                         container(
-                    text(if is_installed { format!("✓ {}", name) } else { format!("✗ {}", name) })
+                    text(if is_installed { format!("[OK] {}", name) } else { format!("[FAIL] {}", name) })
                         .size(body_font_size * 0.95)
                         .style(iced::theme::Text::Color(if is_installed {
                                     iced::Color::from_rgb(0.1, 0.7, 0.1)
@@ -1593,7 +1533,7 @@ impl TweaksTab {
                             Space::with_height(Length::Fixed(16.0)),
                             column![
                                 row![
-                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("kernel-cachyos + cachyos-settings")
                         .size(body_font_size * 0.95)
@@ -1603,7 +1543,7 @@ impl TweaksTab {
                                 .align_items(Alignment::Start),
                                 Space::with_height(Length::Fixed(10.0)),
                                 row![
-                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("ananicy-cpp, cachyos-ananicy-rules")
                         .size(body_font_size * 0.95)
@@ -1613,7 +1553,7 @@ impl TweaksTab {
                                 .align_items(Alignment::Start),
                                 Space::with_height(Length::Fixed(10.0)),
                                 row![
-                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("scx-manager, scx-scheds-git, scx-tools")
                         .size(body_font_size * 0.95)
@@ -1623,7 +1563,7 @@ impl TweaksTab {
                                 .align_items(Alignment::Start),
                                 Space::with_height(Length::Fixed(10.0)),
                                 row![
-                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("Auto-configures GRUB and regenerates initramfs")
                         .size(body_font_size * 0.95)
@@ -1696,7 +1636,7 @@ impl TweaksTab {
             // Modern grid-based status display - build grid directly
             let create_status_item = |name: &str, is_installed: bool| -> Element<Message> {
             container(
-                    text(if is_installed { format!("✓ {}", name) } else { format!("✗ {}", name) })
+                    text(if is_installed { format!("[OK] {}", name) } else { format!("[FAIL] {}", name) })
                         .size(body_font_size * 0.95)
                         .style(iced::theme::Text::Color(if is_installed {
                                     iced::Color::from_rgb(0.1, 0.7, 0.1)
@@ -1844,7 +1784,7 @@ impl TweaksTab {
                             Space::with_height(Length::Fixed(16.0)),
                             column![
                                 row![
-                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("Steam, Lutris, MangoHUD, Gamescope")
                         .size(body_font_size * 0.95)
@@ -1854,7 +1794,7 @@ impl TweaksTab {
                                 .align_items(Alignment::Start),
                                 Space::with_height(Length::Fixed(10.0)),
                                 row![
-                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("ProtonPlus, MangoJuice (Flatpak)")
                         .size(body_font_size * 0.95)
@@ -1864,7 +1804,7 @@ impl TweaksTab {
                                 .align_items(Alignment::Start),
                                 Space::with_height(Length::Fixed(10.0)),
                                 row![
-                                    text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                    text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                     Space::with_width(Length::Fixed(8.0)),
                                     text("Heroic Games Launcher (latest release)")
                         .size(body_font_size * 0.95)
@@ -2014,7 +1954,7 @@ impl TweaksTab {
                     // Modern grid-based status display - build grid directly
                     let create_status_item = |name: &str, is_installed: bool| -> Element<Message> {
                                 container(
-                            text(if is_installed { format!("✓ {}", name) } else { format!("✗ {}", name) })
+                            text(if is_installed { format!("[OK] {}", name) } else { format!("[FAIL] {}", name) })
                                 .size(body_font_size * 0.95)
                                 .style(iced::theme::Text::Color(if is_installed {
                                             iced::Color::from_rgb(0.1, 0.7, 0.1)
@@ -2226,7 +2166,7 @@ impl TweaksTab {
                                     Space::with_height(Length::Fixed(16.0)),
                                     column![
                                         row![
-                                            text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                            text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
                                             text("Enables COPR repositories (solopasha/hyprland, errornointernet/quickshell)")
                                 .size(body_font_size * 0.95)
@@ -2236,7 +2176,7 @@ impl TweaksTab {
                                         .align_items(Alignment::Start),
                                         Space::with_height(Length::Fixed(10.0)),
                                         row![
-                                            text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                            text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
                                             text("Installs Hyprland, hyprpicker, awww, quickshell-git")
                                 .size(body_font_size * 0.95)
@@ -2246,7 +2186,7 @@ impl TweaksTab {
                                         .align_items(Alignment::Start),
                                         Space::with_height(Length::Fixed(10.0)),
                                         row![
-                                            text("•").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
+                                            text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
                                             text("Installs essential utilities (fuzzel, wlogout, cliphist, etc.)")
                                 .size(body_font_size * 0.95)

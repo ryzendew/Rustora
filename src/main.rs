@@ -221,13 +221,11 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Check if an RPM file was passed as a positional argument (from file manager)
     if let Some(rpm_file) = cli.rpm_file {
         let rpm_path = Path::new(&rpm_file).to_path_buf();
         if !rpm_path.exists() {
             return Err(anyhow::anyhow!("RPM file not found: {}", rpm_file));
         }
-        // Verify it's actually an RPM file
         if let Some(ext) = rpm_path.extension() {
             if ext.to_string_lossy().to_lowercase() != "rpm" {
                 return Err(anyhow::anyhow!("File is not an RPM file: {}", rpm_file));
@@ -235,9 +233,7 @@ async fn main() -> Result<()> {
         } else {
             return Err(anyhow::anyhow!("File does not have an extension: {}", rpm_file));
         }
-        // Only ensure fonts if they don't exist (fast check)
         if !gui::fonts::fonts_exist() {
-            // Spawn font installation in background, don't wait
             tokio::spawn(async {
                 let _ = gui::fonts::ensure_fonts().await;
             });
@@ -249,16 +245,12 @@ async fn main() -> Result<()> {
 
     match cli.command {
         None => {
-            // Default to GUI when no command is provided
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
             }
 
-            // Use cached InterVariable font (optimized)
             let default_font = gui::fonts::get_inter_font();
 
             gui::RustoraApp::run(iced::Settings {
@@ -273,31 +265,25 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::Gui { rpm_file }) => {
-            // If an RPM file is provided, show only the RPM dialog window
             if let Some(rpm_file_str) = rpm_file {
                 let rpm_path = Path::new(&rpm_file_str).to_path_buf();
                 if !rpm_path.exists() {
                     return Err(anyhow::anyhow!("RPM file not found: {}", rpm_file_str));
                 }
-                // Only ensure fonts if they don't exist (fast check)
                 if !gui::fonts::fonts_exist() {
-                    // Spawn font installation in background, don't wait
                     tokio::spawn(async {
                         let _ = gui::fonts::ensure_fonts().await;
                     });
                 }
                 use crate::gui::rpm_dialog::RpmDialog;
                 RpmDialog::run_separate_window(rpm_path)?;
-            } else {
-                // Only ensure fonts if they don't exist (fast check)
+                } else {
                 if !gui::fonts::fonts_exist() {
-                    // Spawn font installation in background, don't wait
                     tokio::spawn(async {
                         let _ = gui::fonts::ensure_fonts().await;
                     });
                 }
 
-                // Use cached InterVariable font (optimized)
                 let default_font = gui::fonts::get_inter_font();
 
                 gui::RustoraApp::run(iced::Settings {
@@ -313,9 +299,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::RemoveDialog { packages }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -325,9 +309,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::InstallDialog { packages }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -337,9 +319,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::FlatpakInstallDialog { application_id, remote }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -349,9 +329,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::FlatpakRemoveDialog { application_ids }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -361,14 +339,11 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::FlatpakUpdateDialog { packages_b64 }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
             }
-            // Decode base64 encoded JSON
             use base64::{Engine as _, engine::general_purpose};
             let decoded = general_purpose::STANDARD
                 .decode(&packages_b64)
@@ -381,9 +356,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::UpdateDialog { packages_b64 }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -393,9 +366,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::UpdateSettingsDialog) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -405,9 +376,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::Settings) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -417,9 +386,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::GamingMetaDialog) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -429,9 +396,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::CachyosKernelDialog) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -441,9 +406,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::HyprlandDialog) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -453,9 +416,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::HyprlandDotfilesDialog) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -465,9 +426,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::ProtonInstallDialog { runner_title, build_title, download_url, launcher, runner_info }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -477,9 +436,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::ProtonChangelogDialog { runner_title, build_title, description, page_url }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -489,9 +446,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::MaintenanceDialog { task }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -503,7 +458,6 @@ async fn main() -> Result<()> {
                 "remove-orphaned-packages" => MaintenanceTask::RemoveOrphanedPackages,
                 "clean-package-cache" => MaintenanceTask::CleanPackageCache,
                 _ => {
-                    eprintln!("Unknown maintenance task: {}", task);
                     return Err(anyhow::anyhow!("Unknown maintenance task: {}", task));
                 }
             };
@@ -511,9 +465,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::KernelInstallDialog { kernel_name }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
@@ -534,14 +486,11 @@ async fn main() -> Result<()> {
             device_id,
             repositories,
         }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
             }
-            // Decode base64 encoded strings
             use base64::{Engine as _, engine::general_purpose};
             let decoded_script = general_purpose::STANDARD
                 .decode(&install_script)
@@ -564,7 +513,6 @@ async fn main() -> Result<()> {
             let did = String::from_utf8(general_purpose::STANDARD.decode(&device_id).unwrap_or_default())
                 .unwrap_or_default();
 
-            // Decode repositories (JSON array)
             let repos_json = String::from_utf8(general_purpose::STANDARD.decode(&repositories).unwrap_or_default())
                 .unwrap_or_default();
             let repos: Vec<String> = serde_json::from_str(&repos_json).unwrap_or_default();
@@ -595,14 +543,11 @@ async fn main() -> Result<()> {
             device_id,
             repositories,
         }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
             }
-            // Decode base64 encoded strings
             use base64::{Engine as _, engine::general_purpose};
             let decoded_script = general_purpose::STANDARD
                 .decode(&remove_script)
@@ -625,7 +570,6 @@ async fn main() -> Result<()> {
             let did = String::from_utf8(general_purpose::STANDARD.decode(&device_id).unwrap_or_default())
                 .unwrap_or_default();
 
-            // Decode repositories (JSON array)
             let repos_json = String::from_utf8(general_purpose::STANDARD.decode(&repositories).unwrap_or_default())
                 .unwrap_or_default();
             let repos: Vec<String> = serde_json::from_str(&repos_json).unwrap_or_default();
@@ -645,15 +589,11 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::KernelRemoveDialog { kernel_name }) => {
-            // Only ensure fonts if they don't exist (fast check)
             if !gui::fonts::fonts_exist() {
-                // Spawn font installation in background, don't wait
                 tokio::spawn(async {
                     let _ = gui::fonts::ensure_fonts().await;
                 });
             }
-            // For now, use the same install dialog but with remove logic
-            // TODO: Create separate remove dialog
             use crate::gui::kernel_install_dialog::KernelInstallDialog;
             KernelInstallDialog::run_separate_window(kernel_name)?;
             Ok(())
@@ -686,7 +626,6 @@ async fn main() -> Result<()> {
                 Commands::DeviceInstallDialog { .. } => unreachable!(),
                 Commands::DeviceRemoveDialog { .. } => unreachable!(),
             } {
-                eprintln!("{}: {}", "Error".red().bold(), e);
                 std::process::exit(1);
             }
             Ok(())
@@ -695,7 +634,7 @@ async fn main() -> Result<()> {
 }
 
 fn search_packages(query: &str, details: bool) -> Result<()> {
-    println!("{} Searching for: {}\n", "🔍".green(), query.bright_white().bold());
+    println!("{} Searching for: {}\n", "[SEARCH]".green(), query.bright_white().bold());
     let mut cmd = Command::new("dnf");
     cmd.arg("search").arg("--quiet");
     if details { cmd.arg("--showduplicates"); }
@@ -706,7 +645,7 @@ fn search_packages(query: &str, details: bool) -> Result<()> {
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     if stdout.trim().is_empty() {
-        println!("{} No packages found matching '{}'", "⚠️".yellow(), query);
+        println!("{} No packages found matching '{}'", "[WARN]".yellow(), query);
         return Ok(());
     }
     let mut results: Vec<(String, String)> = stdout.lines()
@@ -728,7 +667,7 @@ fn search_packages(query: &str, details: bool) -> Result<()> {
         for (name, desc) in &results {
             println!("{} {}", name.bright_cyan().bold(), desc.bright_white());
         }
-        println!("\n{} Found {} package(s)", "✓".green(), count.to_string().bright_white().bold());
+        println!("\n{} Found {} package(s)", "[OK]".green(), count.to_string().bright_white().bold());
     }
     Ok(())
 }
@@ -742,7 +681,7 @@ fn install_packages(packages: &[String], yes: bool) -> Result<()> {
             anyhow::bail!("RPM file not found: {}", pkg);
         }
     }
-    println!("{} Installing package(s): {}\n", "📦".green(), packages.join(", ").bright_white().bold());
+    println!("{} Installing package(s): {}\n", "[PKG]".green(), packages.join(", ").bright_white().bold());
     check_sudo();
     let mut cmd = Command::new("sudo");
     cmd.arg("dnf").arg("install");
@@ -752,12 +691,12 @@ fn install_packages(packages: &[String], yes: bool) -> Result<()> {
     if !status.success() {
         anyhow::bail!("Package installation failed");
     }
-    println!("\n{} Successfully installed package(s)", "✓".green().bold());
+    println!("\n{} Successfully installed package(s)", "[OK]".green().bold());
     Ok(())
 }
 
 fn list_packages(details: bool) -> Result<()> {
-    println!("{} Listing installed packages...\n", "📋".green());
+    println!("{} Listing installed packages...\n", "[LIST]".green());
     let output = Command::new("dnf").args(["list", "--installed", "--quiet"]).output().context("Failed to execute dnf list")?;
     if !output.status.success() {
         anyhow::bail!("DNF list failed: {}", String::from_utf8_lossy(&output.stderr));
@@ -765,7 +704,7 @@ fn list_packages(details: bool) -> Result<()> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let packages: Vec<&str> = stdout.lines().skip(1).filter(|l| !l.trim().is_empty()).collect();
     if packages.is_empty() {
-        println!("{} No packages found", "⚠️".yellow());
+        println!("{} No packages found", "[WARN]".yellow());
         return Ok(());
     }
     let count = packages.len();
@@ -779,19 +718,19 @@ fn list_packages(details: bool) -> Result<()> {
             }
         }
     }
-    println!("\n{} Total: {} package(s)", "✓".green(), count.to_string().bright_white().bold());
+    println!("\n{} Total: {} package(s)", "[OK]".green(), count.to_string().bright_white().bold());
     Ok(())
 }
 
 fn show_package_info(package: &str) -> Result<()> {
-    println!("{} Package information: {}\n", "ℹ️".blue(), package.bright_white().bold());
+    println!("{} Package information: {}\n", "[INFO]".blue(), package.bright_white().bold());
     let output = Command::new("dnf").args(["info", package]).output().context("Failed to execute dnf info")?;
     if !output.status.success() {
         anyhow::bail!("DNF info failed: {}", String::from_utf8_lossy(&output.stderr));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     if stdout.trim().is_empty() {
-        println!("{} Package '{}' not found", "⚠️".yellow(), package);
+        println!("{} Package '{}' not found", "[WARN]".yellow(), package);
         return Ok(());
     }
     for line in stdout.lines() {
@@ -811,27 +750,27 @@ fn show_package_info(package: &str) -> Result<()> {
 
 fn update_packages(all: bool) -> Result<()> {
     if all {
-        println!("{} Updating all packages...\n", "🔄".green());
+        println!("{} Updating all packages...\n", "[UPDATE]".green());
         check_sudo();
         let status = Command::new("sudo").args(["dnf", "upgrade", "-y"]).spawn().context("Failed to execute dnf upgrade")?.wait().context("Failed to wait for process")?;
         if !status.success() {
             anyhow::bail!("Package update failed");
         }
-        println!("\n{} Successfully updated packages", "✓".green().bold());
+        println!("\n{} Successfully updated packages", "[OK]".green().bold());
     } else {
-        println!("{} Updating package database...\n", "🔄".green());
+        println!("{} Updating package database...\n", "[UPDATE]".green());
         let output = Command::new("sudo").args(["dnf", "makecache"]).output().context("Failed to execute dnf makecache")?;
         if !output.status.success() {
             anyhow::bail!("Failed to update package database: {}", String::from_utf8_lossy(&output.stderr));
         }
-        println!("\n{} Package database updated", "✓".green().bold());
+        println!("\n{} Package database updated", "[OK]".green().bold());
     }
     Ok(())
 }
 
 fn check_sudo() {
     if Command::new("sudo").args(["-n", "true"]).status().is_err() {
-        println!("{} This operation requires sudo privileges", "⚠️".yellow());
-        println!("{} You may be prompted for your password", "ℹ️".blue());
+        println!("{} This operation requires sudo privileges", "[WARN]".yellow());
+        println!("{} You may be prompted for your password", "[INFO]".blue());
     }
 }

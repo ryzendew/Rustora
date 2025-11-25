@@ -44,7 +44,6 @@ impl MaintenanceTab {
     pub fn update(&mut self, message: Message) -> iced::Command<Message> {
         match message {
             Message::RebuildKernelModules => {
-                // Spawn a separate window for maintenance task
                 iced::Command::perform(
                     async move {
                         use tokio::process::Command as TokioCommand;
@@ -130,10 +129,10 @@ impl MaintenanceTab {
                 self.is_running_all = false;
                 match &result {
                     Ok(msg) => {
-                        self.output_log.push(format!("✓ {}", msg));
+                        self.output_log.push(format!("[OK] {}", msg));
                     }
                     Err(e) => {
-                        self.output_log.push(format!("✗ Error: {}", e));
+                        self.output_log.push(format!("[FAIL] Error: {}", e));
                     }
                 }
                 iced::Command::none()
@@ -144,7 +143,6 @@ impl MaintenanceTab {
     pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
-        // Calculate font sizes from settings
         let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_font_size = (settings.font_size_body * settings.scale_body).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
@@ -167,7 +165,6 @@ impl MaintenanceTab {
         .width(Length::Fill)
         .padding(Padding::new(0.0));
 
-        // Helper function to create action cards
         let create_action_card = {
             let material_font = material_font;
             let icon_size = icon_size;
@@ -227,7 +224,6 @@ impl MaintenanceTab {
             }
         };
 
-        // Kernel maintenance section
         let kernel_section = container(
             column![
                 text("Kernel Maintenance")
@@ -259,7 +255,6 @@ impl MaintenanceTab {
             radius: settings.border_radius,
         })));
 
-        // Package maintenance section
         let package_section = container(
             column![
                 text("Package Maintenance")
@@ -291,7 +286,6 @@ impl MaintenanceTab {
             radius: settings.border_radius,
         })));
 
-        // Run all button
         let run_all_button = if self.is_running_all {
             button(
                 row![
@@ -340,7 +334,6 @@ impl MaintenanceTab {
             radius: settings.border_radius,
         })));
 
-        // Actions column
         let actions_column = scrollable(
             column![
                 kernel_section,
@@ -354,7 +347,6 @@ impl MaintenanceTab {
         .width(Length::Fill)
         .height(Length::Fill);
 
-        // Log section
         let log_header = container(
             row![
                 text("Activity Log")
@@ -392,25 +384,32 @@ impl MaintenanceTab {
                     self.output_log
                         .iter()
                         .map(|line| {
+                            let (prefix, color, remainder) = if line.starts_with("[OK]") {
+                                (
+                                    "[OK]",
+                                    iced::Color::from_rgb(0.1, 0.5, 0.1),
+                                    line.strip_prefix("[OK]").unwrap_or(line).trim_start().to_string(),
+                                )
+                            } else if line.starts_with("[FAIL]") {
+                                (
+                                    "[FAIL]",
+                                    iced::Color::from_rgb(0.9, 0.2, 0.2),
+                                    line.strip_prefix("[FAIL]").unwrap_or(line).trim_start().to_string(),
+                                )
+                            } else {
+                                (
+                                    "•",
+                                    theme.primary_with_settings(Some(settings)),
+                                    line.clone(),
+                                )
+                            };
                             container(
                                 row![
-                                    text(if line.starts_with("✓") { "✓" } else if line.starts_with("✗") { "✗" } else { "•" })
+                                    text(prefix)
                                         .size(icon_size)
-                                        .style(iced::theme::Text::Color(
-                                            if line.starts_with("✓") {
-                                                iced::Color::from_rgb(0.1, 0.5, 0.1) // Darker green
-                                            } else if line.starts_with("✗") {
-                                                iced::Color::from_rgb(0.9, 0.2, 0.2)
-                                            } else {
-                                                theme.primary_with_settings(Some(settings))
-                                            }
-                                        ))
-                                        .width(Length::Fixed(20.0)),
-                                    text(if line.starts_with("✓") || line.starts_with("✗") {
-                                        &line[2..]
-                                    } else {
-                                        line
-                                    })
+                                        .style(iced::theme::Text::Color(color))
+                                        .width(Length::Fixed(32.0)),
+                                    text(remainder)
                                         .size(body_font_size)
                                         .width(Length::Fill),
                                 ]
@@ -447,7 +446,6 @@ impl MaintenanceTab {
             radius: settings.border_radius,
         })));
 
-        // Main layout
         let content = row![
             container(actions_column)
                 .width(Length::FillPortion(1))
@@ -480,7 +478,6 @@ async fn rebuild_kernel_modules_streaming() -> Result<String, String> {
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args(["akmods", "--force", "--rebuild"]);
 
-    // Use spawn to get streaming output and prevent blocking
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
 
@@ -488,7 +485,6 @@ async fn rebuild_kernel_modules_streaming() -> Result<String, String> {
         .spawn()
         .map_err(|e| format!("Failed to execute akmods: {}", e))?;
 
-    // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
 
@@ -500,7 +496,6 @@ async fn rebuild_kernel_modules_streaming() -> Result<String, String> {
     combined_output.push_str("Running: akmods --force --rebuild\n");
     combined_output.push_str("--- Output ---\n");
 
-    // Read both stdout and stderr
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -624,7 +619,6 @@ async fn regenerate_initramfs_streaming() -> Result<String, String> {
 }
 
 async fn remove_orphaned_packages_streaming() -> Result<String, String> {
-    // First, check for orphaned packages
     let check_output = TokioCommand::new("dnf")
         .args(["repoquery", "--unneeded", "-q"])
         .output()
@@ -638,7 +632,6 @@ async fn remove_orphaned_packages_streaming() -> Result<String, String> {
         return Ok("No orphaned packages found".to_string());
     }
 
-    // Remove orphaned packages with streaming
     let mut cmd = TokioCommand::new("pkexec");
     cmd.args(["dnf", "autoremove", "-y", "--assumeyes"]);
 
@@ -786,25 +779,24 @@ async fn clean_package_cache_streaming() -> Result<String, String> {
 async fn run_all_maintenance() -> Result<String, String> {
     let mut results = Vec::new();
 
-    // Run all tasks in sequence
     match rebuild_kernel_modules_streaming().await {
-        Ok(msg) => results.push(format!("Kernel modules: ✓ Success\n{}", msg)),
-        Err(e) => results.push(format!("Kernel modules: ✗ Failed\n{}", e)),
+        Ok(msg) => results.push(format!("Kernel modules: [OK] Success\n{}", msg)),
+        Err(e) => results.push(format!("Kernel modules: [FAIL] Failed\n{}", e)),
     }
 
     match regenerate_initramfs_streaming().await {
-        Ok(msg) => results.push(format!("Initramfs: ✓ Success\n{}", msg)),
-        Err(e) => results.push(format!("Initramfs: ✗ Failed\n{}", e)),
+        Ok(msg) => results.push(format!("Initramfs: [OK] Success\n{}", msg)),
+        Err(e) => results.push(format!("Initramfs: [FAIL] Failed\n{}", e)),
     }
 
     match remove_orphaned_packages_streaming().await {
-        Ok(msg) => results.push(format!("Orphaned packages: ✓ Success\n{}", msg)),
-        Err(e) => results.push(format!("Orphaned packages: ✗ Failed\n{}", e)),
+        Ok(msg) => results.push(format!("Orphaned packages: [OK] Success\n{}", msg)),
+        Err(e) => results.push(format!("Orphaned packages: [FAIL] Failed\n{}", e)),
     }
 
     match clean_package_cache_streaming().await {
-        Ok(msg) => results.push(format!("Cache: ✓ Success\n{}", msg)),
-        Err(e) => results.push(format!("Cache: ✗ Failed\n{}", e)),
+        Ok(msg) => results.push(format!("Cache: [OK] Success\n{}", msg)),
+        Err(e) => results.push(format!("Cache: [FAIL] Failed\n{}", e)),
     }
 
     Ok(results.join("\n\n"))

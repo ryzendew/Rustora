@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 Rustora Build & Install${NC}"
+echo -e "${BLUE}Rustora Build & Install${NC}"
 echo "======================================"
 echo ""
 
@@ -21,7 +21,7 @@ echo -e "${BLUE}Step 0/4: Installing build dependencies...${NC}"
 
 # Check if dnf is available
 if ! command -v dnf &> /dev/null; then
-    echo -e "${YELLOW}⚠️  Warning: dnf not found. Skipping dependency installation.${NC}"
+    echo -e "${YELLOW}[WARN] dnf not found. Skipping dependency installation.${NC}"
     echo "   Please manually install: pciutils-devel libusb1-devel glibc-devel gcc clang"
 else
     # Required build dependencies
@@ -36,16 +36,16 @@ else
     done
     
     if [ -z "$MISSING_DEPS" ]; then
-        echo -e "${GREEN}✅ Build dependencies already installed${NC}"
+        echo -e "${GREEN}[OK] Build dependencies already installed${NC}"
     else
-        echo "📦 Installing build dependencies:$MISSING_DEPS"
+        echo "[INSTALL] Installing build dependencies:$MISSING_DEPS"
         if [ "$EUID" -eq 0 ]; then
             dnf install -y $MISSING_DEPS
         elif command -v sudo &> /dev/null; then
             echo "   (Using sudo to install dependencies...)"
             sudo dnf install -y $MISSING_DEPS
         else
-            echo -e "${YELLOW}⚠️  Need sudo to install dependencies. Please run:${NC}"
+            echo -e "${YELLOW}[WARN] Need sudo to install dependencies. Please run:${NC}"
             echo "   sudo dnf install -y$MISSING_DEPS"
             echo ""
             read -p "Press Enter to continue (build may fail if dependencies are missing)..." || true
@@ -66,21 +66,21 @@ if command -v fpm &> /dev/null; then
     # Verify fpm actually works (not just a broken symlink)
     if fpm --version &> /dev/null; then
         FPM_VERSION=$(fpm --version 2>/dev/null | head -n1 || echo "unknown")
-        echo -e "${GREEN}✅ fpm already installed (version: $FPM_VERSION)${NC}"
+        echo -e "${GREEN}[OK] fpm already installed (version: $FPM_VERSION)${NC}"
         echo "   Skipping fpm installation."
         FPM_INSTALLED=true
     else
-        echo -e "${YELLOW}⚠️  fpm found but not working properly. Will reinstall...${NC}"
+        echo -e "${YELLOW}[WARN] fpm found but not working properly. Will reinstall...${NC}"
     fi
 fi
 
 # Only install if not already installed
 if [ "$FPM_INSTALLED" = false ]; then
-    echo "📦 Installing fpm and Ruby dependencies..."
+    echo "[INSTALL] Installing fpm and Ruby dependencies..."
     
     # Check if dnf is available
     if ! command -v dnf &> /dev/null; then
-        echo -e "${YELLOW}⚠️  Warning: dnf not found. Skipping fpm installation.${NC}"
+        echo -e "${YELLOW}[WARN] dnf not found. Skipping fpm installation.${NC}"
         echo "   Please manually install: ruby ruby-devel rubygems gcc make"
         echo "   Then run: gem install fpm"
     else
@@ -96,14 +96,14 @@ if [ "$FPM_INSTALLED" = false ]; then
         done
         
         if [ -n "$MISSING_FPM_DEPS" ]; then
-            echo "📦 Installing fpm dependencies:$MISSING_FPM_DEPS"
+            echo "[INSTALL] Installing fpm dependencies:$MISSING_FPM_DEPS"
             if [ "$EUID" -eq 0 ]; then
                 dnf install -y $MISSING_FPM_DEPS
             elif command -v sudo &> /dev/null; then
                 echo "   (Using sudo to install dependencies...)"
                 sudo dnf install -y $MISSING_FPM_DEPS
             else
-                echo -e "${YELLOW}⚠️  Need sudo to install fpm dependencies. Please run:${NC}"
+                echo -e "${YELLOW}[WARN] Need sudo to install fpm dependencies. Please run:${NC}"
                 echo "   sudo dnf install -y$MISSING_FPM_DEPS"
                 echo ""
                 read -p "Press Enter to continue (fpm installation may fail)..." || true
@@ -112,7 +112,7 @@ if [ "$FPM_INSTALLED" = false ]; then
         
         # Install bundler if not present
         if ! gem list -i bundler &> /dev/null; then
-            echo "📦 Installing bundler..."
+            echo "[INSTALL] Installing bundler..."
             if [ "$EUID" -eq 0 ]; then
                 gem install bundler
             elif command -v sudo &> /dev/null; then
@@ -124,7 +124,7 @@ if [ "$FPM_INSTALLED" = false ]; then
         fi
         
         # Install fpm
-        echo "📦 Installing fpm gem..."
+        echo "[INSTALL] Installing fpm gem..."
         if [ "$EUID" -eq 0 ]; then
             gem install fpm
         elif command -v sudo &> /dev/null; then
@@ -137,9 +137,9 @@ if [ "$FPM_INSTALLED" = false ]; then
         # Verify installation
         if command -v fpm &> /dev/null && fpm --version &> /dev/null; then
             FPM_VERSION=$(fpm --version 2>/dev/null | head -n1 || echo "unknown")
-            echo -e "${GREEN}✅ fpm installed successfully (version: $FPM_VERSION)${NC}"
+            echo -e "${GREEN}[OK] fpm installed successfully (version: $FPM_VERSION)${NC}"
         else
-            echo -e "${YELLOW}⚠️  fpm installed but not in PATH. You may need to add gem bin directory to PATH.${NC}"
+            echo -e "${YELLOW}[WARN] fpm installed but not in PATH. You may need to add gem bin directory to PATH.${NC}"
             echo "   Try: export PATH=\"\$HOME/.local/share/gem/ruby/\$(ruby -e 'puts RUBY_VERSION[/\d+\.\d+/]')/bin:\$PATH\""
         fi
     fi
@@ -154,7 +154,7 @@ echo -e "${BLUE}Step 1/4: Building...${NC}"
 
 # Check if Rust is installed
 if ! command -v cargo &> /dev/null; then
-    echo -e "${RED}❌ Error: cargo not found. Please install Rust first.${NC}"
+    echo -e "${RED}[ERROR] cargo not found. Please install Rust first.${NC}"
     echo "   Run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
     exit 1
 fi
@@ -164,11 +164,11 @@ RUST_VERSION=$(rustc --version | cut -d' ' -f2)
 REQUIRED_VERSION="1.70.0"
 
 if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$RUST_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]; then
-    echo -e "${YELLOW}⚠️  Warning: Rust version $RUST_VERSION may be too old. Recommended: $REQUIRED_VERSION or later${NC}"
+    echo -e "${YELLOW}[WARN] Rust version $RUST_VERSION may be too old. Recommended: $REQUIRED_VERSION or later${NC}"
 fi
 
 # Always do a clean build
-echo "🧹 Cleaning previous build artifacts..."
+echo "[CLEAN] Cleaning previous build artifacts..."
 cargo clean
 
 # Check if debug build is requested
@@ -177,19 +177,19 @@ BINARY_PATH="target/release/rustora"
 if [ "$1" = "debug" ]; then
     BUILD_MODE="debug"
     BINARY_PATH="target/debug/rustora"
-    echo "📦 Compiling in debug mode..."
+    echo "[BUILD] Compiling in debug mode..."
     cargo build
 else
-    echo "📦 Compiling in release mode..."
+    echo "[BUILD] Compiling in release mode..."
     cargo build --release
 fi
 
 if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ Build failed!${NC}"
+    echo -e "${RED}[ERROR] Build failed!${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Build successful!${NC}"
+echo -e "${GREEN}[OK] Build successful!${NC}"
 echo ""
 
 # ============================================================================
@@ -199,7 +199,7 @@ echo -e "${BLUE}Step 2/4: Installing...${NC}"
 
 # Check if binary exists
 if [ ! -f "$BINARY_PATH" ]; then
-    echo -e "${RED}❌ Error: Binary not found after build${NC}"
+    echo -e "${RED}[ERROR] Binary not found after build${NC}"
     exit 1
 fi
 
@@ -208,12 +208,12 @@ if [ "$EUID" -eq 0 ]; then
     INSTALL_PREFIX="/usr/local"
     DESKTOP_DIR="/usr/share/applications"
     BIN_DIR="$INSTALL_PREFIX/bin"
-    echo "🔧 Installing system-wide..."
+    echo "[INSTALL] Installing system-wide..."
 else
     INSTALL_PREFIX="$HOME/.local"
     DESKTOP_DIR="$HOME/.local/share/applications"
     BIN_DIR="$INSTALL_PREFIX/bin"
-    echo "🔧 Installing for current user..."
+    echo "[INSTALL] Installing for current user..."
 fi
 
 # Create directories
@@ -221,14 +221,14 @@ mkdir -p "$BIN_DIR"
 mkdir -p "$DESKTOP_DIR"
 
 # Install binary
-echo "📦 Installing binary to $BIN_DIR..."
+echo "[INSTALL] Installing binary to $BIN_DIR..."
 cp "$BINARY_PATH" "$BIN_DIR/rustora"
 chmod +x "$BIN_DIR/rustora"
 
 # Install icon if it exists
 ICON_DIR="$INSTALL_PREFIX/share/icons/hicolor/scalable/apps"
 if [ -f "src/assets/rustora.svg" ]; then
-    echo "🎨 Installing icon..."
+    echo "[ICON] Installing icon..."
     mkdir -p "$ICON_DIR"
     cp src/assets/rustora.svg "$ICON_DIR/rustora.svg"
     # Update icon cache if gtk-update-icon-cache exists
@@ -241,7 +241,7 @@ else
 fi
 
 # Create .desktop file
-echo "📝 Creating .desktop file..."
+echo "[DESKTOP] Creating .desktop file..."
 cat > "$DESKTOP_DIR/rustora.desktop" << EOF
 [Desktop Entry]
 Version=1.0
@@ -268,18 +268,18 @@ chmod +x "$DESKTOP_DIR/rustora.desktop"
 
 # Update desktop database
 if command -v update-desktop-database &> /dev/null; then
-    echo "🔄 Updating desktop database..."
+    echo "[UPDATE] Updating desktop database..."
     update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
 fi
 
 echo ""
-echo -e "${GREEN}✅ Installation complete!${NC}"
+echo -e "${GREEN}[OK] Installation complete!${NC}"
 echo ""
-echo "📁 Binary installed to: $BIN_DIR/rustora"
-echo "📁 Desktop file: $DESKTOP_DIR/rustora.desktop"
+echo "[PATH] Binary installed to: $BIN_DIR/rustora"
+echo "[PATH] Desktop file: $DESKTOP_DIR/rustora.desktop"
 echo ""
 if command -v fpm &> /dev/null; then
-    echo "📦 fpm (Effing Package Manager) is installed and ready to use"
+    echo "[INFO] fpm (Effing Package Manager) is installed and ready to use"
     echo "   Run 'fpm --version' to verify"
 fi
 echo ""

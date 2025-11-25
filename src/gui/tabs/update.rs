@@ -60,7 +60,6 @@ impl UpdateTab {
                 self.is_checking = false;
                 self.updates = updates.clone();
                 self.has_updates = !updates.is_empty();
-                // Reset selection when new updates are found
                 self.selected_packages.clear();
                 iced::Command::none()
             }
@@ -76,25 +75,20 @@ impl UpdateTab {
                 if self.updates.is_empty() {
                     return iced::Command::none();
                 }
-                // Get selected packages, or all if none selected
                 let packages_to_install: Vec<String> = if self.selected_packages.is_empty() {
-                    // If no packages selected, install all
                     self.updates.iter().map(|u| u.name.clone()).collect()
                 } else {
-                    // Install only selected packages
                     self.selected_packages
                         .iter()
                         .filter_map(|&idx| self.updates.get(idx).map(|u| u.name.clone()))
                         .collect()
                 };
 
-                // Base64 encode the package list to pass as argument
                 use base64::{Engine as _, engine::general_purpose};
                 let packages_json = serde_json::to_string(&packages_to_install)
                     .unwrap_or_else(|_| "[]".to_string());
                 let packages_b64 = general_purpose::STANDARD.encode(packages_json.as_bytes());
 
-                // Spawn a separate window for update installation
                 iced::Command::perform(
                     async move {
                         use tokio::process::Command as TokioCommand;
@@ -107,18 +101,14 @@ impl UpdateTab {
                             .ok();
                     },
                     move |_| {
-                        // Keep the updates list visible in the tab
                         Message::UpdatesInstalled
                     },
                 )
             }
             Message::UpdatesInstalled => {
-                // Updates are now handled in the dialog window
-                // Optionally refresh the list after installation
                 iced::Command::none()
             }
             Message::OpenSettings => {
-                // Spawn a separate window for update settings
                 iced::Command::perform(
                     async move {
                         use tokio::process::Command as TokioCommand;
@@ -129,7 +119,7 @@ impl UpdateTab {
                             .spawn()
                             .ok();
                     },
-                    |_| Message::UpdatesInstalled, // Dummy message
+                    |_| Message::UpdatesInstalled,
                 )
             }
         }
@@ -288,7 +278,7 @@ impl UpdateTab {
                                         .width(Length::Shrink),
                                     text(&update.name).size(package_name_size).width(Length::FillPortion(3)),
                                     text(&update.current_version).size(package_detail_size).width(Length::FillPortion(2)),
-                                    text("→").size(package_detail_size),
+                                    text("->").size(package_detail_size),
                                     text(&update.available_version).size(package_detail_size).width(Length::FillPortion(2)),
                                     text(&update.repository).size(package_detail_size).width(Length::FillPortion(2)),
                                 ]
@@ -317,8 +307,6 @@ impl UpdateTab {
 }
 
 async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
-    // dnf check-update doesn't require sudo - it just checks what's available
-    // Exit code 100 means updates are available (this is normal, not an error)
     let output = TokioCommand::new("dnf")
         .args(["check-update", "--quiet"])
         .output()
@@ -327,12 +315,10 @@ async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    // If stdout is empty, no updates available
     if stdout.trim().is_empty() {
         return Ok(Vec::new());
     }
 
-    // Get currently installed versions to compare
     let installed_output = TokioCommand::new("dnf")
         .args(["list", "--installed", "--quiet"])
         .output()
@@ -354,10 +340,8 @@ async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
 
     let mut updates = Vec::new();
 
-    // Parse check-update output: "package.arch  version  repository"
     for line in stdout.lines() {
         let line = line.trim();
-        // Skip header lines and empty lines
         if line.is_empty() ||
            line.starts_with("Last metadata") ||
            line.starts_with("Dependencies") ||
@@ -367,7 +351,6 @@ async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
             continue;
         }
 
-        // Split by whitespace - format is: package.arch  version  repository
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 3 {
             let full_name = parts[0];
@@ -375,7 +358,6 @@ async fn check_for_updates() -> Result<Vec<UpdateInfo>, String> {
             let available_version = parts[1].to_string();
             let repository = parts[2].to_string();
 
-            // Get current version from installed packages
             let current_version = installed_versions
                 .get(name)
                 .cloned()

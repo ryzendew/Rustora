@@ -177,7 +177,7 @@ impl UpdateSettingsDialog {
 
         let save_button = button(
             row![
-                text("✓"),
+                text("[OK]"),
                 text(" Save")
             ]
             .spacing(4)
@@ -271,8 +271,7 @@ impl Application for UpdateSettingsDialog {
                 Command::none()
             }
             Message::Save => {
-                if let Err(e) = self.settings.save() {
-                    eprintln!("Failed to save settings: {}", e);
+                if let Err(_e) = self.settings.save() {
                 }
                 iced::window::close(window::Id::MAIN)
             }

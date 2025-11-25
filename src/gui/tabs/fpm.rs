@@ -8,9 +8,8 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    // Convert TO RPM
     ConvertDebToRpm,
-    ConvertRpmToRpm, // Modify existing RPM
+    ConvertRpmToRpm,
     ConvertDirToRpm,
     ConvertTarToRpm,
     ConvertTgzToRpm,
@@ -24,7 +23,6 @@ pub enum Message {
     ConvertRpmToTar,
     ConvertRpmToDir,
     ConvertRpmToZip,
-    // Generic file selection
     FileSelected(Option<PathBuf>, ConversionType),
     ConversionProgress(String),
     ConversionComplete(PathBuf),
@@ -74,7 +72,6 @@ impl FpmTab {
 
     pub fn update(&mut self, message: Message) -> iced::Command<Message> {
         match message {
-            // Convert TO RPM
             Message::ConvertDebToRpm => {
                 iced::Command::perform(open_file_picker(ConversionType::DebToRpm), |path| {
                     Message::FileSelected(path, ConversionType::DebToRpm)
@@ -125,7 +122,6 @@ impl FpmTab {
                     Message::FileSelected(path, ConversionType::ZipToRpm)
                 })
             }
-            // Convert FROM RPM
             Message::ConvertRpmToDeb => {
                 iced::Command::perform(open_file_picker(ConversionType::RpmToDeb), |path| {
                     Message::FileSelected(path, ConversionType::RpmToDeb)
@@ -153,7 +149,6 @@ impl FpmTab {
                 self.error = None;
                 self.converted_file = None;
 
-                // Add initial output
                 self.conversion_output.push(format!("Selected file: {}", path.display()));
                 self.conversion_output.push("Starting conversion with fpm...".to_string());
 
@@ -169,13 +164,11 @@ impl FpmTab {
                 })
             }
             Message::ConversionProgress(output) => {
-                // Split multi-line output and add each line
                 for line in output.lines() {
                     if !line.trim().is_empty() {
                         self.conversion_output.push(line.to_string());
                     }
                 }
-                // Keep only last 100 lines to avoid memory issues
                 if self.conversion_output.len() > 100 {
                     let remove_count = self.conversion_output.len() - 100;
                     for _ in 0..remove_count {
@@ -184,7 +177,6 @@ impl FpmTab {
                 }
                 self.conversion_progress = "Conversion in progress...".to_string();
 
-                // Check if this output contains the completion marker with the path
                 if output.contains("COMPLETE_PATH:") {
                     if let Some(start) = output.find("COMPLETE_PATH:") {
                         let path_line = output[start..].lines().next()
@@ -199,16 +191,15 @@ impl FpmTab {
                     }
                 }
 
-                // Fallback: try to extract from success messages
-                let file_path = if output.contains("✓ Successfully found converted file:") {
+                let file_path = if output.contains("[OK] Successfully found converted file:") {
                     output.lines()
-                        .find(|line| line.contains("✓ Successfully found converted file:"))
-                        .and_then(|line| line.strip_prefix("✓ Successfully found converted file: "))
+                        .find(|line| line.contains("[OK] Successfully found converted file:"))
+                        .and_then(|line| line.strip_prefix("[OK] Successfully found converted file: "))
                         .map(|s| s.trim().to_string())
-                } else if output.contains("✓ Found file:") {
+                } else if output.contains("[OK] Found file:") {
                     output.lines()
-                        .find(|line| line.contains("✓ Found file:"))
-                        .and_then(|line| line.strip_prefix("✓ Found file: "))
+                        .find(|line| line.contains("[OK] Found file:"))
+                        .and_then(|line| line.strip_prefix("[OK] Found file: "))
                         .map(|s| s.trim().to_string())
                 } else {
                     None
@@ -229,7 +220,6 @@ impl FpmTab {
                 self.converted_file = Some(file_path.clone());
                 self.conversion_progress = "Conversion completed successfully!".to_string();
 
-                // For RPM files, open RPM dialog
                 if file_path.extension().and_then(|s| s.to_str()) == Some("rpm") {
                     let file_path_str = file_path.to_string_lossy().to_string();
                 iced::Command::perform(
@@ -254,7 +244,6 @@ impl FpmTab {
                 iced::Command::none()
             }
             Message::CancelConversion => {
-                // Reset state after opening install dialog
                 self.converted_file = None;
                 self.conversion_output.clear();
                 self.conversion_progress.clear();
@@ -266,7 +255,6 @@ impl FpmTab {
     pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
-        // Calculate font sizes from settings
         let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_font_size = (settings.font_size_body * settings.scale_body).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
@@ -286,13 +274,12 @@ impl FpmTab {
             .spacing(0)
         )
         .width(Length::Fill)
-        .padding(Padding::from([0.0, 0.0, 24.0, 0.0]));
+            .padding(Padding::from([0.0, 0.0, 24.0, 0.0]));
 
-        // Info card - cleaner design
         let info_card = container(
             column![
                 row![
-                    text("ℹ️").size(body_font_size * 1.1),
+                    text("[INFO]").size(body_font_size * 1.1),
                     Space::with_width(Length::Fixed(8.0)),
                     text("About FPM")
                         .size(body_font_size * 1.0)
@@ -305,7 +292,7 @@ impl FpmTab {
                     .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                 Space::with_height(Length::Fixed(8.0)),
                 container(
-                    text("⚠️ Note: When converting DEB to RPM, dependency names are not automatically mapped. You may need to install Fedora equivalents manually (e.g., libc6 → glibc, libgtk-3-0 → gtk3).")
+                    text("[WARN] Note: When converting DEB to RPM, dependency names are not automatically mapped. You may need to install Fedora equivalents manually (e.g., libc6 → glibc, libgtk-3-0 → gtk3).")
                         .size(body_font_size * 0.85)
                         .style(iced::theme::Text::Color(iced::Color::from_rgb(1.0, 0.65, 0.0)))
                 )
@@ -322,7 +309,6 @@ impl FpmTab {
             radius: settings.border_radius,
         })));
 
-        // Helper function to create conversion buttons - professional style
         let create_button = |label: &str, msg: Message| -> Element<Message> {
             button(
             row![
@@ -342,7 +328,6 @@ impl FpmTab {
             .into()
         };
 
-        // Convert TO RPM section
         let to_rpm_section = container(
             column![
             row![
@@ -352,7 +337,6 @@ impl FpmTab {
                 ]
                 .width(Length::Fill),
                 Space::with_height(Length::Fixed(16.0)),
-                // First row of buttons
                 row![
                     create_button("DEB → RPM", Message::ConvertDebToRpm),
                     Space::with_width(Length::Fixed(12.0)),
@@ -363,7 +347,6 @@ impl FpmTab {
                 .spacing(0)
                 .width(Length::Fill),
                 Space::with_height(Length::Fixed(12.0)),
-                // Second row of buttons
                 row![
                     create_button("TAR → RPM", Message::ConvertTarToRpm),
                     Space::with_width(Length::Fixed(12.0)),
@@ -374,7 +357,6 @@ impl FpmTab {
                 .spacing(0)
                 .width(Length::Fill),
                 Space::with_height(Length::Fixed(12.0)),
-                // Third row of buttons
                 row![
                     create_button("Gem → RPM", Message::ConvertGemToRpm),
                     Space::with_width(Length::Fixed(12.0)),
@@ -385,7 +367,6 @@ impl FpmTab {
                 .spacing(0)
                 .width(Length::Fill),
                 Space::with_height(Length::Fixed(12.0)),
-                // Fourth row of buttons
                 row![
                     create_button("CPAN → RPM", Message::ConvertCpanToRpm),
                 ]
@@ -400,7 +381,6 @@ impl FpmTab {
             radius: settings.border_radius,
         })));
 
-        // Convert FROM RPM section
         let from_rpm_section = container(
             column![
                 row![
@@ -427,15 +407,14 @@ impl FpmTab {
             .width(Length::Fill)
         .padding(Padding::from([20.0, 24.0, 20.0, 24.0]))
             .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle {
-                radius: settings.border_radius,
-            })));
+            radius: settings.border_radius,
+        })));
 
-        // Conversion status/progress - professional design
         let status_section = if self.is_converting {
             container(
                 column![
                     row![
-                        text("🔄").size(body_font_size * 1.2),
+                        text("[RUN]").size(body_font_size * 1.2),
                         Space::with_width(Length::Fixed(12.0)),
                     text("Conversion in Progress")
                             .size(body_font_size * 1.1)
@@ -489,7 +468,7 @@ impl FpmTab {
             container(
                 column![
                     row![
-                        text("❌").size(body_font_size * 1.2),
+                        text("[FAIL]").size(body_font_size * 1.2),
                         Space::with_width(Length::Fixed(12.0)),
                     text("Conversion Failed")
                             .size(body_font_size * 1.1)
@@ -516,7 +495,7 @@ impl FpmTab {
             container(
                 column![
                     row![
-                        text("✓").size(body_font_size * 1.2)
+                        text("[OK]").size(body_font_size * 1.2)
                         .style(iced::theme::Text::Color(iced::Color::from_rgb(0.0, 0.8, 0.0))),
                         Space::with_width(Length::Fixed(12.0)),
                         text("Conversion Successful")
@@ -688,7 +667,6 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
     output_lines.push(format!("Input file: {}", input_file_str));
     output_lines.push(format!("Working directory: {}", parent_dir_str));
 
-    // Helper function to extract archive to temp directory
     async fn extract_archive(
         archive_path: &str,
         extract_type: &str,
@@ -735,7 +713,7 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
             return Err(format!("Failed to extract {} archive: {}", extract_type, error));
             }
 
-        output_lines.push(format!("✓ {} extracted successfully", extract_type));
+        output_lines.push(format!("[OK] {} extracted successfully", extract_type));
         Ok(temp_dir)
     }
 
@@ -768,31 +746,17 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
 
     output_lines.push(format!("Source type: {}, Target type: {}", source_type, target_type));
 
-    // Build fpm command according to FPM documentation
-    // Structure: fpm [OPTIONS] [ARGS]
-    // Where OPTIONS come first, then ARGS (input files/directories)
     let mut cmd = TokioCommand::new("fpm");
 
-    // Set source type (-s, --input-type)
     cmd.arg("-s").arg(source_type);
 
-    // Set target type (-t, --output-type)
     cmd.arg("-t").arg(target_type);
 
-    // Add options before input arguments (FPM best practice)
-    // -f, --force: Force output even if it will overwrite an existing file
     cmd.arg("-f");
 
-    // --verbose: Enable verbose output
     cmd.arg("--verbose");
 
-    // Handle dependencies for DEB to RPM conversion
-    // Filter out Debian package names that don't exist in Fedora
-    // This prevents dependency resolution errors
     if source_type == "deb" && target_type == "rpm" {
-        // Use --no-auto-depends to skip automatic dependency detection from DEB
-        // This prevents Debian package names (libc6, libgtk-3-0, etc.) from being included
-        // Users can manually install Fedora equivalents before installing the converted RPM
         cmd.arg("--no-auto-depends");
         output_lines.push("Skipping automatic dependency detection to avoid Debian package name conflicts".to_string());
         output_lines.push("Common Debian → Fedora mappings:".to_string());
@@ -803,7 +767,6 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
         output_lines.push("Install Fedora equivalents first, then install the converted RPM".to_string());
     }
 
-    // Add input source (ARGS) - comes after options
     if let Some(ref extract_dir) = temp_extract_dir {
         cmd.arg(extract_dir.to_string_lossy().as_ref());
     } else {
@@ -817,7 +780,6 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
         parent_dir_str));
     output_lines.push("--- Output ---".to_string());
 
-    // Use spawn to get streaming output
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
     cmd.current_dir(&parent_dir_abs);
@@ -826,7 +788,6 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
         .spawn()
         .map_err(|e| format!("Failed to execute fpm: {}. Make sure fpm is installed (run: gem install fpm)", e))?;
 
-    // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
 
@@ -834,7 +795,6 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
     let mut stdout_reader = BufReader::new(stdout).lines();
     let mut stderr_reader = BufReader::new(stderr).lines();
 
-    // Read both stdout and stderr line by line
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -881,15 +841,12 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
         return Err(format!("Conversion failed:\n{}", error_output));
     }
 
-    // Clean up temp extraction directory if we created one
     if let Some(ref temp_dir) = temp_extract_dir {
         let _ = std::fs::remove_dir_all(temp_dir);
         output_lines.push(format!("Cleaned up temp directory: {}", temp_dir.display()));
     }
 
-    // Helper function to extract filename from a line
     fn extract_filename_from_line(line: &str, target_ext: &str) -> Option<String> {
-        // Try to extract path from {:path=>"..."} format
         if let Some(path_start) = line.find(":path=>\"") {
             let path_str = &line[path_start + 7..];
             if let Some(path_end) = path_str.find('"') {
@@ -900,7 +857,6 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
             }
         }
 
-        // Fallback: look for file extension in the line
         for part in line.split_whitespace() {
             let cleaned = part.trim_matches(['"', '\'', ',', '}']);
             if !target_ext.is_empty() && cleaned.ends_with(target_ext) {
@@ -912,7 +868,6 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
         None
     }
 
-    // Parse the output filename from fpm's output
     let generated_file_name = output_lines
         .iter()
         .find_map(|line| {
@@ -930,20 +885,17 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
 
     output_lines.push(format!("Searching for output file in: {}", parent_dir_abs.display()));
 
-    // Look for the output file
     let mut found_file: Option<PathBuf> = None;
 
-    // First, try the parsed name
     if let Some(ref file_name) = generated_file_name {
         output_lines.push(format!("Looking for file: {}", file_name));
         let file_path = parent_dir_abs.join(file_name);
         if file_path.exists() {
-            output_lines.push(format!("✓ Found file: {}", file_path.display()));
+            output_lines.push(format!("[OK] Found file: {}", file_path.display()));
             found_file = Some(file_path);
         }
     }
 
-    // If we didn't find it by name, search for recently created files
     if found_file.is_none() {
         output_lines.push("Parsed file name not found, searching for recently created files...".to_string());
 
@@ -980,7 +932,7 @@ async fn convert_package_streaming(file_path: String, conv_type: ConversionType)
     }
 
     if let Some(file) = found_file {
-        output_lines.push(format!("✓ Successfully found converted file: {}", file.display()));
+        output_lines.push(format!("[OK] Successfully found converted file: {}", file.display()));
         Ok((output_lines, file.to_string_lossy().to_string()))
     } else {
         let error_output = output_lines.join("\n");

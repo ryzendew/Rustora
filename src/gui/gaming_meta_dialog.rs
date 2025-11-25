@@ -11,7 +11,7 @@ use crate::gui::settings::AppSettings;
 #[derive(Debug, Clone)]
 pub enum Message {
     StartInstallation,
-    InstallationProgress(String, f32), // Output and progress (0.0 to 1.0)
+    InstallationProgress(String, f32),
     InstallationComplete(Result<(), String>),
     Close,
 }
@@ -24,7 +24,7 @@ pub struct GamingMetaDialog {
     progress_text: String,
     terminal_output: String,
     current_step: String,
-    progress: f32, // 0.0 to 1.0
+    progress: f32,
 }
 
 impl GamingMetaDialog {
@@ -98,11 +98,9 @@ impl Application for GamingMetaDialog {
                 })
             }
             Message::InstallationProgress(output, progress) => {
-                // Update terminal output and progress
                 self.terminal_output = output.clone();
                 self.progress = progress;
 
-                // Calculate progress based on which step we're on
                 let step_progress = if output.contains("Step 1 completed") {
                     self.progress = 1.0 / 7.0;
                     "Step 1/7: Installing core gaming tools..."
@@ -146,7 +144,6 @@ impl Application for GamingMetaDialog {
                     self.progress = 6.1 / 7.0;
                     "Step 7/7: Installing Heroic Games Launcher..."
                 } else {
-                    // Use provided progress if available, otherwise keep current
                     if progress > 0.0 {
                         self.progress = progress;
                     }
@@ -155,15 +152,13 @@ impl Application for GamingMetaDialog {
 
                 self.progress_text = step_progress.to_string();
 
-                // Check if installation is complete (look for success/error indicators)
-                if output.contains("✓ ALL STEPS COMPLETED SUCCESSFULLY!") {
+                if output.contains("[OK] ALL STEPS COMPLETED SUCCESSFULLY!") {
                     self.is_running = false;
                     self.is_complete = true;
                     self.progress = 1.0;
                     self.progress_text = "Installation completed successfully!".to_string();
-                } else if output.contains("✗ Step") && output.contains("failed") {
-                    // Check if it's a final failure (not just a step that might continue)
-                    if output.matches("✗").count() > 1 || output.contains("return Err") {
+                } else if output.contains("[FAIL] Step") && output.contains("failed") {
+                    if output.matches("[FAIL]").count() > 1 || output.contains("return Err") {
                         self.is_running = false;
                         self.has_error = true;
                         self.progress_text = "Installation failed".to_string();
@@ -177,14 +172,14 @@ impl Application for GamingMetaDialog {
                     Ok(_) => {
                         self.is_complete = true;
                         self.progress_text = "Installation completed successfully!".to_string();
-                        if !self.terminal_output.contains("✓ All gaming tools installed successfully") {
-                            self.terminal_output.push_str("\n✓ All gaming tools installed successfully!\n");
+                        if !self.terminal_output.contains("[OK] All gaming tools installed successfully") {
+                            self.terminal_output.push_str("\n[OK] All gaming tools installed successfully!\n");
                         }
                     }
                     Err(e) => {
                         self.has_error = true;
                         self.progress_text = format!("Installation failed: {}", e);
-                        self.terminal_output.push_str(&format!("\n✗ Error: {}\n", e));
+                        self.terminal_output.push_str(&format!("\n[FAIL] Error: {}\n", e));
                     }
                 }
                 Command::none()
@@ -261,7 +256,6 @@ impl GamingMetaDialog {
 
         container(
             column![
-                // Header
                 row![
                     text(title_text).size(title_font_size).style(iced::theme::Text::Color(
                         if self.has_error {
@@ -283,15 +277,12 @@ impl GamingMetaDialog {
                 .align_items(Alignment::Center)
                 .width(Length::Fill),
                 Space::with_height(Length::Fixed(16.0)),
-                // Progress bar
                 progress_bar(0.0..=1.0, self.progress)
                     .width(Length::Fill)
                     .height(Length::Fixed(8.0)),
                 Space::with_height(Length::Fixed(8.0)),
-                // Progress text
                 progress_display.style(iced::theme::Text::Color(theme.text())),
                 Space::with_height(Length::Fixed(16.0)),
-                // Terminal output
                 container(terminal_output)
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -316,7 +307,6 @@ impl GamingMetaDialog {
 async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
     let mut output = String::new();
 
-    // Step 1: Install core gaming tools
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("Step 1: Installing core gaming tools\n");
     output.push_str("Packages: steam, lutris, mangohud, gamescope\n");
@@ -324,15 +314,14 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
     match install_core_gaming_tools().await {
         Ok(cmd_output) => {
             output.push_str(&cmd_output);
-            output.push_str("\n✓ Step 1 completed: Core gaming tools installed successfully\n\n");
+            output.push_str("\n[OK] Step 1 completed: Core gaming tools installed successfully\n\n");
         }
         Err(e) => {
-            output.push_str(&format!("✗ Step 1 failed: {}\n", e));
+            output.push_str(&format!("[FAIL] Step 1 failed: {}\n", e));
             return Err(e);
         }
     }
 
-    // Step 2: Check Flatpak availability
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("Step 2: Checking Flatpak availability\n");
     output.push_str("═══════════════════════════════════════════════════════════════\n\n");
@@ -340,45 +329,42 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
     match flatpak_check {
         Ok(msg) => {
             output.push_str(&msg);
-            output.push_str("\n✓ Step 2 completed: Flatpak is available\n\n");
+            output.push_str("\n[OK] Step 2 completed: Flatpak is available\n\n");
         }
         Err(e) => {
-            output.push_str(&format!("✗ Step 2 failed: {}\n", e));
+            output.push_str(&format!("[FAIL] Step 2 failed: {}\n", e));
             return Err(e);
         }
     }
 
-    // Step 3: Install MangoJuice
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("Step 3: Installing MangoJuice (io.github.radiolamp.mangojuice)\n");
     output.push_str("═══════════════════════════════════════════════════════════════\n\n");
     match install_flatpak_package("io.github.radiolamp.mangojuice", "MangoJuice").await {
         Ok(cmd_output) => {
             output.push_str(&cmd_output);
-            output.push_str("\n✓ Step 3 completed: MangoJuice installed successfully\n\n");
+            output.push_str("\n[OK] Step 3 completed: MangoJuice installed successfully\n\n");
         }
         Err(e) => {
-            output.push_str(&format!("✗ Step 3 failed: {}\n", e));
+            output.push_str(&format!("[FAIL] Step 3 failed: {}\n", e));
             return Err(e);
         }
     }
 
-    // Step 4: Install ProtonPlus
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("Step 4: Installing ProtonPlus (com.vysp3r.ProtonPlus)\n");
     output.push_str("═══════════════════════════════════════════════════════════════\n\n");
     match install_flatpak_package("com.vysp3r.ProtonPlus", "ProtonPlus").await {
         Ok(cmd_output) => {
             output.push_str(&cmd_output);
-            output.push_str("\n✓ Step 4 completed: ProtonPlus installed successfully\n\n");
+            output.push_str("\n[OK] Step 4 completed: ProtonPlus installed successfully\n\n");
         }
         Err(e) => {
-            output.push_str(&format!("✗ Step 4 failed: {}\n", e));
+            output.push_str(&format!("[FAIL] Step 4 failed: {}\n", e));
             return Err(e);
         }
     }
 
-    // Step 5: Fetch Heroic Games Launcher release info
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("Step 5: Fetching Heroic Games Launcher release information\n");
     output.push_str("═══════════════════════════════════════════════════════════════\n\n");
@@ -386,9 +372,8 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
     match release_info {
         Ok((download_url, filename, info_output)) => {
             output.push_str(&info_output);
-            output.push_str("\n✓ Step 5 completed: Release information fetched\n\n");
+            output.push_str("\n[OK] Step 5 completed: Release information fetched\n\n");
 
-            // Step 6: Download Heroic Games Launcher
             output.push_str("═══════════════════════════════════════════════════════════════\n");
             output.push_str("Step 6: Downloading Heroic Games Launcher\n");
             output.push_str(&format!("File: {}\n", filename));
@@ -396,9 +381,8 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
             match download_heroic_rpm(&download_url, &filename).await {
                 Ok((rpm_path, download_output)) => {
                     output.push_str(&download_output);
-                    output.push_str("\n✓ Step 6 completed: Download completed\n\n");
+                    output.push_str("\n[OK] Step 6 completed: Download completed\n\n");
 
-                    // Step 7: Install Heroic Games Launcher
                     output.push_str("═══════════════════════════════════════════════════════════════\n");
                     output.push_str("Step 7: Installing Heroic Games Launcher\n");
                     output.push_str(&format!("RPM: {}\n", filename));
@@ -406,30 +390,29 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
                     match install_heroic_rpm(&rpm_path).await {
                         Ok(install_output) => {
                             output.push_str(&install_output);
-                            output.push_str("\n✓ Step 7 completed: Heroic Games Launcher installed successfully\n\n");
+                            output.push_str("\n[OK] Step 7 completed: Heroic Games Launcher installed successfully\n\n");
                         }
                         Err(e) => {
-                            // Clean up downloaded file on error
                             let _ = std::fs::remove_file(&rpm_path);
-                            output.push_str(&format!("✗ Step 7 failed: {}\n", e));
+                            output.push_str(&format!("[FAIL] Step 7 failed: {}\n", e));
                             return Err(e);
                         }
                     }
                 }
                 Err(e) => {
-                    output.push_str(&format!("✗ Step 6 failed: {}\n", e));
+                    output.push_str(&format!("[FAIL] Step 6 failed: {}\n", e));
                     return Err(e);
                 }
             }
         }
         Err(e) => {
-            output.push_str(&format!("✗ Step 5 failed: {}\n", e));
+            output.push_str(&format!("[FAIL] Step 5 failed: {}\n", e));
             return Err(e);
         }
     }
 
     output.push_str("═══════════════════════════════════════════════════════════════\n");
-    output.push_str("✓ ALL STEPS COMPLETED SUCCESSFULLY!\n");
+    output.push_str("[OK] ALL STEPS COMPLETED SUCCESSFULLY!\n");
     output.push_str("═══════════════════════════════════════════════════════════════\n");
     output.push_str("\nInstalled packages:\n");
     output.push_str("  • steam\n");
@@ -440,7 +423,6 @@ async fn install_gaming_meta_streaming() -> Result<(String, f32), String> {
     output.push_str("  • com.vysp3r.ProtonPlus (Flatpak)\n");
     output.push_str("  • Heroic Games Launcher\n");
 
-    // Return output with 100% progress
     Ok((output, 1.0))
 }
 
@@ -455,7 +437,6 @@ async fn install_core_gaming_tools() -> Result<String, String> {
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
 
-    // Ensure DISPLAY is set for GUI password dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
@@ -475,7 +456,6 @@ async fn install_core_gaming_tools() -> Result<String, String> {
     output.push_str(&format!("$ pkexec dnf install -y {}\n", packages.join(" ")));
     output.push_str("─────────────────────────────────────────────────────────────\n");
 
-    // Read both stdout and stderr
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -508,7 +488,6 @@ async fn install_core_gaming_tools() -> Result<String, String> {
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for dnf install: {}", e))?;
 
-    // Check for pkexec cancellation (exit codes 126/127)
     if status.code() == Some(126) || status.code() == Some(127) {
         return Err("Authentication cancelled or polkit not available. Please try again.".to_string());
     }
@@ -556,7 +535,6 @@ async fn install_flatpak_package(package_id: &str, package_name: &str) -> Result
     let mut child = cmd.spawn()
         .map_err(|e| format!("Failed to execute flatpak install: {}", e))?;
 
-    // Capture output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
 
@@ -568,7 +546,6 @@ async fn install_flatpak_package(package_id: &str, package_name: &str) -> Result
     output.push_str(&format!("$ flatpak install -y flathub {}\n", package_id));
     output.push_str("─────────────────────────────────────────────────────────────\n");
 
-    // Read both stdout and stderr
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -602,7 +579,6 @@ async fn install_flatpak_package(package_id: &str, package_name: &str) -> Result
         .map_err(|e| format!("Failed to wait for flatpak install: {}", e))?;
 
     if !status.success() {
-        // Check if package is already installed (that's okay)
         if output.contains("already installed") || output.contains("is already installed") {
             output.push_str("\n(Note: Package was already installed)\n");
             return Ok(output);
@@ -644,7 +620,6 @@ async fn fetch_heroic_release_info() -> Result<(String, String, String), String>
     output.push_str(&format!("Release: {}\n", release_name));
     output.push_str(&format!("Tag: {}\n", tag_name));
 
-    // Find the x86_64 RPM file
     let assets = release["assets"].as_array()
         .ok_or("No assets found in release")?;
 
@@ -708,7 +683,7 @@ async fn download_heroic_rpm(download_url: &str, filename: &str) -> Result<(std:
     std::fs::write(&rpm_path, bytes.as_ref())
         .map_err(|e| format!("Failed to save RPM file: {}", e))?;
 
-    output.push_str(&format!("✓ Download completed: {}\n", rpm_path.display()));
+    output.push_str(&format!("[OK] Download completed: {}\n", rpm_path.display()));
 
     Ok((rpm_path, output))
 }
@@ -742,7 +717,6 @@ async fn install_heroic_rpm(rpm_path: &std::path::PathBuf) -> Result<String, Str
     output.push_str(&format!("$ pkexec dnf install -y {}\n", rpm_path.display()));
     output.push_str("─────────────────────────────────────────────────────────────\n");
 
-    // Read both stdout and stderr
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -775,10 +749,8 @@ async fn install_heroic_rpm(rpm_path: &std::path::PathBuf) -> Result<String, Str
     let status = child.wait().await
         .map_err(|e| format!("Failed to wait for dnf install: {}", e))?;
 
-    // Clean up the downloaded file
     let _ = std::fs::remove_file(rpm_path);
 
-    // Check for pkexec cancellation (exit codes 126/127)
     if status.code() == Some(126) || status.code() == Some(127) {
         return Err("Authentication cancelled or polkit not available. Please try again.".to_string());
     }
@@ -790,7 +762,6 @@ async fn install_heroic_rpm(rpm_path: &std::path::PathBuf) -> Result<String, Str
     Ok(output)
 }
 
-// Style structs
 struct RoundedButtonStyle {
     is_primary: bool,
     radius: f32,

@@ -10,7 +10,7 @@ Rustora is a feature-rich package management application built with Rust and the
 
 ## Features
 
-### 📦 Core Package Management
+### Core Package Management
 
 #### Search Tab
 - **Real-time package search** with debounced input for optimal performance
@@ -86,7 +86,7 @@ rustora install package.rpm
 # Or right-click RPM file in file manager and select "Open with Rustora"
 ```
 
-### 📱 Flatpak Management
+### Flatpak Management
 
 #### Flatpak Tab
 - **Search Flatpak applications** from all configured remotes
@@ -110,7 +110,7 @@ rustora install package.rpm
 # 3. Select updates to install
 ```
 
-### 🔄 Package Conversion
+### Package Conversion
 
 #### FPM Tab
 - **Convert DEB to RPM** - convert Debian/Ubuntu packages to RPM format
@@ -132,7 +132,7 @@ rustora install package.rpm
 
 **Requirements:** `fpm` gem (installed automatically by `build-and-install.sh`, or manually: `gem install fpm`)
 
-### 🛠️ System Maintenance
+### System Maintenance
 
 #### Maintenance Tab
 - **Rebuild kernel modules** - rebuild modules for current kernel
@@ -151,7 +151,7 @@ rustora install package.rpm
 # 3. Monitor progress in separate window
 ```
 
-### 📚 Repository Management
+### Repository Management
 
 #### Repositories Tab
 - **View all repositories** - enabled and disabled
@@ -168,7 +168,7 @@ rustora install package.rpm
 # 3. Add new repository with "Add Repository" button
 ```
 
-### 🐧 Kernel Management
+### Kernel Management
 
 #### Kernels Tab
 - **View available kernel branches** from multiple sources
@@ -186,7 +186,7 @@ rustora install package.rpm
 # 4. Click Install
 ```
 
-### 🖥️ Device Driver Management
+### Device Driver Management
 
 #### Devices Tab
 - **PCI device detection** - automatically detect PCI hardware
@@ -206,7 +206,7 @@ rustora install package.rpm
 # 4. Click Install to install driver
 ```
 
-### ⚙️ System Tweaks & Optimizations
+### System Tweaks & Optimizations
 
 #### Tweaks Tab
 
@@ -228,7 +228,7 @@ The Tweaks tab provides comprehensive system optimization and gaming tools manag
 **Example:**
 ```bash
 # Install gaming meta
-# 1. Navigate to Tweaks tab → Gaming Meta
+# 1. Navigate to Tweaks tab -> Gaming Meta
 # 2. Click "Check Status" to see what's installed
 # 3. Click "Install Gaming Meta" to install all components
 ```
@@ -242,7 +242,7 @@ The Tweaks tab provides comprehensive system optimization and gaming tools manag
 **Example:**
 ```bash
 # Configure DNF
-# 1. Navigate to Tweaks tab → DNF Config
+# 1. Navigate to Tweaks tab -> DNF Config
 # 2. Set parallel downloads (e.g., 10)
 # 3. Toggle "Fastest Mirror" if desired
 # 4. Click "Save Configuration"
@@ -258,7 +258,7 @@ The Tweaks tab provides comprehensive system optimization and gaming tools manag
 **Example:**
 ```bash
 # Install CachyOS kernel
-# 1. Navigate to Tweaks tab → Cachyos Kernel
+# 1. Navigate to Tweaks tab -> Cachyos Kernel
 # 2. Check installation status
 # 3. Click "Install Cachyos Kernel" to install
 ```
@@ -281,7 +281,7 @@ The Tweaks tab provides comprehensive system optimization and gaming tools manag
 **Example:**
 ```bash
 # Install Hyprland
-# 1. Navigate to Tweaks tab → Hyprland
+# 1. Navigate to Tweaks tab -> Hyprland
 # 2. Check installation status
 # 3. Click "Install Hyprland" to install compositor
 # 4. Click "Install Dotfiles" to install configuration
@@ -322,7 +322,7 @@ The Tweaks tab provides comprehensive system optimization and gaming tools manag
 **Example:**
 ```bash
 # Manage Proton/Wine builds
-# 1. Navigate to Tweaks tab → Proton
+# 1. Navigate to Tweaks tab -> Proton
 # 2. Select launcher (Steam, Lutris, etc.)
 # 3. Select runner (Proton-GE, Wine-Staging, etc.)
 # 4. Click Install on desired build
@@ -339,13 +339,13 @@ The Tweaks tab provides comprehensive system optimization and gaming tools manag
 **Example:**
 ```bash
 # Manage Steam game compatibility
-# 1. Navigate to Tweaks tab → Steam Games
+# 1. Navigate to Tweaks tab -> Steam Games
 # 2. View list of all Steam games
 # 3. Select game and choose compatibility tool
 # 4. Changes apply immediately
 ```
 
-### 🎨 Customization & Settings
+### Customization & Settings
 
 #### Settings Dialog
 - **Theme customization:**
@@ -377,7 +377,7 @@ The Tweaks tab provides comprehensive system optimization and gaming tools manag
 # 4. Save as theme for reuse
 ```
 
-### 🖼️ User Interface
+### User Interface
 
 - **Modern design** - clean, professional interface built with Iced
 - **Dark/Light themes** - toggle between themes in top bar
@@ -534,7 +534,7 @@ rustora install firefox
 ### Example 2: Managing Proton Builds
 
 1. Open Rustora
-2. Navigate to **Tweaks** tab → **Proton**
+2. Navigate to **Tweaks** tab -> **Proton**
 3. Wait for builds to load (uses local cache for speed)
 4. Select launcher (Steam, Lutris, etc.)
 5. Select runner (Proton-GE, Wine-Staging, etc.)
@@ -560,7 +560,7 @@ rustora install firefox
 ### Example 4: Configuring DNF for Faster Downloads
 
 1. Open Rustora
-2. Navigate to **Tweaks** tab → **DNF Config**
+2. Navigate to **Tweaks** tab -> **DNF Config**
 3. Set **Parallel Downloads** to 10 (or higher)
 4. Enable **Fastest Mirror** option
 5. Click **Save Configuration**
@@ -569,7 +569,7 @@ rustora install firefox
 ### Example 5: Setting Up Gaming Environment
 
 1. Open Rustora
-2. Navigate to **Tweaks** tab → **Gaming Meta**
+2. Navigate to **Tweaks** tab -> **Gaming Meta**
 3. Click **Check Status** to see what's installed
 4. Click **Install Gaming Meta** to install:
    - Steam

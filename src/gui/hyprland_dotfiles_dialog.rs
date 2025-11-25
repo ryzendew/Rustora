@@ -12,7 +12,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone)]
 pub enum Message {
     StartInstallation,
-    StepProgress(String, f32), // Step output and progress (0.0 to 1.0)
+    StepProgress(String, f32),
     InstallationComplete(Result<(), String>),
     Close,
 }
@@ -24,8 +24,8 @@ pub struct HyprlandDotfilesDialog {
     has_error: bool,
     progress_text: String,
     terminal_output: String,
-    progress: f32, // 0.0 to 1.0
-    current_step_num: usize, // Current step (0-2)
+    progress: f32,
+    current_step_num: usize,
 }
 
 impl HyprlandDotfilesDialog {
@@ -92,7 +92,6 @@ impl Application for HyprlandDotfilesDialog {
                 self.terminal_output.push_str("Starting dotfiles installation...\n");
                 self.terminal_output.push_str("=====================================\n\n");
 
-                // Start with step 0
                 Command::perform(run_installation_step(0), |result| {
                     match result {
                         Ok((output, step_num, progress)) => {
@@ -107,22 +106,18 @@ impl Application for HyprlandDotfilesDialog {
                 })
             }
             Message::StepProgress(output, progress) => {
-                // Append new output
                 if !self.terminal_output.is_empty() && !self.terminal_output.ends_with('\n') {
                     self.terminal_output.push('\n');
                 }
                 self.terminal_output.push_str(&output);
                 self.progress = progress;
 
-                // Update progress text based on current step
                 self.progress_text = get_step_progress_text(self.current_step_num);
 
-                // Check if this step is complete
                 let step_complete = output.contains("completed") || output.contains("failed");
 
                 if step_complete {
-                    // Check if installation is fully complete
-                    if output.contains("✓ ALL STEPS COMPLETED SUCCESSFULLY!") {
+                    if output.contains("[OK] ALL STEPS COMPLETED SUCCESSFULLY!") {
                         self.is_running = false;
                         self.is_complete = true;
                         self.progress = 1.0;
@@ -130,7 +125,6 @@ impl Application for HyprlandDotfilesDialog {
                         return Command::none();
                     }
 
-                    // Continue to next step
                     self.current_step_num += 1;
 
                     if self.current_step_num < 2 {
@@ -147,7 +141,6 @@ impl Application for HyprlandDotfilesDialog {
                             }
                         })
                     } else {
-                        // All steps done
                         self.is_running = false;
                         self.is_complete = true;
                         self.progress = 1.0;
@@ -164,14 +157,14 @@ impl Application for HyprlandDotfilesDialog {
                         self.is_complete = true;
                         self.progress = 1.0;
                         self.progress_text = "Installation completed successfully!".to_string();
-                        if !self.terminal_output.contains("✓ ALL STEPS COMPLETED SUCCESSFULLY!") {
-                            self.terminal_output.push_str("\n✓ All steps completed successfully!\n");
+                        if !self.terminal_output.contains("[OK] ALL STEPS COMPLETED SUCCESSFULLY!") {
+                            self.terminal_output.push_str("\n[OK] All steps completed successfully!\n");
                         }
                     }
                     Err(e) => {
                         self.has_error = true;
                         self.progress_text = format!("Installation failed: {}", e);
-                        self.terminal_output.push_str(&format!("\n✗ Error: {}\n", e));
+                        self.terminal_output.push_str(&format!("\n[FAIL] Error: {}\n", e));
                     }
                 }
                 Command::none()
@@ -244,7 +237,6 @@ impl HyprlandDotfilesDialog {
 
         container(
             column![
-                // Header
                 row![
                     text(title_text).size(title_font_size).style(iced::theme::Text::Color(
                         if self.has_error {
@@ -266,15 +258,12 @@ impl HyprlandDotfilesDialog {
                 .align_items(Alignment::Center)
                 .width(Length::Fill),
                 Space::with_height(Length::Fixed(16.0)),
-                // Progress bar
                 progress_bar(0.0..=1.0, self.progress)
                     .width(Length::Fill)
                     .height(Length::Fixed(8.0)),
                 Space::with_height(Length::Fixed(8.0)),
-                // Progress text
                 progress_display.style(iced::theme::Text::Color(theme.text())),
                 Space::with_height(Length::Fixed(16.0)),
-                // Terminal output
                 container(terminal_output)
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -308,14 +297,12 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
 
     match step {
         0 => {
-            // Clone repository
             let output = clone_repository().await?;
-            Ok((format!("{}\n✓ Step 1 completed: Repository cloned\n", output), 1, progress))
+            Ok((format!("{}\n[OK] Step 1 completed: Repository cloned\n", output), 1, progress))
         }
         1 => {
-            // Copy configuration files
             let output = copy_config_files().await?;
-            Ok((format!("{}\n✓ Step 2 completed: Configuration files copied\n\n✓ ALL STEPS COMPLETED SUCCESSFULLY!\n", output), 2, progress))
+            Ok((format!("{}\n[OK] Step 2 completed: Configuration files copied\n\n[OK] ALL STEPS COMPLETED SUCCESSFULLY!\n", output), 2, progress))
         }
         _ => Err("Invalid step number".to_string()),
     }
@@ -325,7 +312,6 @@ async fn clone_repository() -> Result<String, String> {
     let temp_dir = std::env::temp_dir();
     let repo_dir = temp_dir.join("Dark-Material-shell");
 
-    // Remove existing directory if it exists
     if repo_dir.exists() {
         std::fs::remove_dir_all(&repo_dir)
             .map_err(|e| format!("Failed to remove existing directory: {}", e))?;
@@ -369,7 +355,6 @@ async fn copy_config_files() -> Result<String, String> {
         .map_err(|_| "HOME environment variable not set")?;
     let config_dir = PathBuf::from(&home_dir).join(".config");
 
-    // Create .config directory if it doesn't exist
     std::fs::create_dir_all(&config_dir)
         .map_err(|e| format!("Failed to create .config directory: {}", e))?;
 
@@ -377,12 +362,10 @@ async fn copy_config_files() -> Result<String, String> {
     output.push_str("Copying configuration files...\n");
     output.push_str("─────────────────────────────────────────────────────────────\n");
 
-    // Copy hypr folder
     let hypr_source = repo_dir.join("hypr");
     let hypr_dest = config_dir.join("hypr");
 
     if hypr_source.exists() {
-        // Remove existing destination if it exists
         if hypr_dest.exists() {
             std::fs::remove_dir_all(&hypr_dest)
                 .map_err(|e| format!("Failed to remove existing hypr directory: {}", e))?;
@@ -390,17 +373,15 @@ async fn copy_config_files() -> Result<String, String> {
 
         copy_dir_all(&hypr_source, &hypr_dest)
             .map_err(|e| format!("Failed to copy hypr directory: {}", e))?;
-        output.push_str(&format!("✓ Copied hypr → {}\n", hypr_dest.display()));
+        output.push_str(&format!("[OK] Copied hypr → {}\n", hypr_dest.display()));
     } else {
         return Err("hypr directory not found in repository".to_string());
     }
 
-    // Copy quickshell folder
     let quickshell_source = repo_dir.join("quickshell");
     let quickshell_dest = config_dir.join("quickshell");
 
     if quickshell_source.exists() {
-        // Remove existing destination if it exists
         if quickshell_dest.exists() {
             std::fs::remove_dir_all(&quickshell_dest)
                 .map_err(|e| format!("Failed to remove existing quickshell directory: {}", e))?;
@@ -408,15 +389,14 @@ async fn copy_config_files() -> Result<String, String> {
 
         copy_dir_all(&quickshell_source, &quickshell_dest)
             .map_err(|e| format!("Failed to copy quickshell directory: {}", e))?;
-        output.push_str(&format!("✓ Copied quickshell → {}\n", quickshell_dest.display()));
+        output.push_str(&format!("[OK] Copied quickshell → {}\n", quickshell_dest.display()));
     } else {
         return Err("quickshell directory not found in repository".to_string());
     }
 
-    // Clean up temporary directory
     std::fs::remove_dir_all(&repo_dir)
         .map_err(|e| format!("Failed to remove temporary directory: {}", e))?;
-    output.push_str("✓ Cleaned up temporary files\n");
+    output.push_str("[OK] Cleaned up temporary files\n");
 
     Ok(output)
 }
@@ -440,7 +420,6 @@ fn copy_dir_all(src: &PathBuf, dst: &PathBuf) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-// Style structs (same as hyprland_dialog.rs)
 struct RoundedButtonStyle {
     is_primary: bool,
     radius: f32,

@@ -356,14 +356,14 @@ impl RepoTab {
                     }
                 }
                 if success {
-                    self.terminal_output.push("✓ Command completed successfully".to_string());
+                    self.terminal_output.push("[OK] Command completed successfully".to_string());
                     // Auto-refresh repositories if command was successful
                     self.terminal_command = String::new();
                     return iced::Command::batch(vec![
                         iced::Command::perform(async {}, |_| Message::LoadRepositories),
                     ]);
                 } else {
-                    self.terminal_output.push("✗ Command failed".to_string());
+                    self.terminal_output.push("[FAIL] Command failed".to_string());
                 }
                 self.terminal_output.push("".to_string());
                 iced::Command::none()
@@ -1435,9 +1435,9 @@ impl RepoTab {
                                 theme.secondary_text_with_settings(Some(settings))
                             } else if line.starts_with('$') {
                                 theme.primary_with_settings(Some(settings))
-                            } else if line.starts_with("✓") {
+                            } else if line.starts_with("[OK]") {
                                 iced::Color::from_rgb(0.1, 0.5, 0.1)
-                            } else if line.starts_with("✗") || line.starts_with("[stderr]") {
+                            } else if line.starts_with("[FAIL]") || line.starts_with("[stderr]") {
                                 iced::Color::from_rgb(0.9, 0.2, 0.2)
                             } else if line.starts_with("[Prompt detected:") || line.starts_with("[User responded:") {
                                 iced::Color::from_rgb(0.9, 0.7, 0.1)

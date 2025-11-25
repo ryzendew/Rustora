@@ -11,7 +11,7 @@ use crate::gui::settings::AppSettings;
 #[derive(Debug, Clone)]
 pub enum Message {
     StartInstallation,
-    StepProgress(String, f32), // Step output and progress (0.0 to 1.0)
+    StepProgress(String, f32),
     InstallationComplete(Result<(), String>),
     Close,
 }
@@ -23,8 +23,8 @@ pub struct HyprlandDialog {
     has_error: bool,
     progress_text: String,
     terminal_output: String,
-    progress: f32, // 0.0 to 1.0
-    current_step_num: usize, // Current step (0-9)
+    progress: f32,
+    current_step_num: usize,
 }
 
 impl HyprlandDialog {
@@ -92,7 +92,6 @@ impl Application for HyprlandDialog {
                 self.terminal_output.push_str("Starting Hyprland installation...\n");
                 self.terminal_output.push_str("=====================================\n\n");
 
-                // Start with step 0
                 Command::perform(run_installation_step(0), |result| {
                     match result {
                         Ok((output, step_num, progress)) => {
@@ -107,22 +106,18 @@ impl Application for HyprlandDialog {
                 })
             }
             Message::StepProgress(output, progress) => {
-                // Append new output
                 if !self.terminal_output.is_empty() && !self.terminal_output.ends_with('\n') {
                     self.terminal_output.push('\n');
                 }
                 self.terminal_output.push_str(&output);
                 self.progress = progress;
 
-                // Update progress text based on current step
                 self.progress_text = get_step_progress_text(self.current_step_num);
 
-                // Check if this step is complete
                 let step_complete = output.contains("completed") || output.contains("failed");
 
                 if step_complete {
-                    // Check if installation is fully complete
-                    if output.contains("✓ ALL STEPS COMPLETED SUCCESSFULLY!") {
+                    if output.contains("[OK] ALL STEPS COMPLETED SUCCESSFULLY!") {
                         self.is_running = false;
                         self.is_complete = true;
                         self.progress = 1.0;
@@ -130,7 +125,6 @@ impl Application for HyprlandDialog {
                         return Command::none();
                     }
 
-                    // Continue to next step
                     self.current_step_num += 1;
 
                     if self.current_step_num < 10 {
@@ -147,7 +141,6 @@ impl Application for HyprlandDialog {
                             }
                         })
                     } else {
-                        // All steps done
                         self.is_running = false;
                         self.is_complete = true;
                         self.progress = 1.0;
@@ -164,14 +157,14 @@ impl Application for HyprlandDialog {
                         self.is_complete = true;
                         self.progress = 1.0;
                         self.progress_text = "Installation completed successfully!".to_string();
-                        if !self.terminal_output.contains("✓ ALL STEPS COMPLETED SUCCESSFULLY!") {
-                            self.terminal_output.push_str("\n✓ All steps completed successfully!\n");
+                        if !self.terminal_output.contains("[OK] ALL STEPS COMPLETED SUCCESSFULLY!") {
+                            self.terminal_output.push_str("\n[OK] All steps completed successfully!\n");
                         }
                     }
                     Err(e) => {
                         self.has_error = true;
                         self.progress_text = format!("Installation failed: {}", e);
-                        self.terminal_output.push_str(&format!("\n✗ Error: {}\n", e));
+                        self.terminal_output.push_str(&format!("\n[FAIL] Error: {}\n", e));
                     }
                 }
                 Command::none()
@@ -244,7 +237,6 @@ impl HyprlandDialog {
 
         container(
             column![
-                // Header
                 row![
                     text(title_text).size(title_font_size).style(iced::theme::Text::Color(
                         if self.has_error {
@@ -266,15 +258,12 @@ impl HyprlandDialog {
                 .align_items(Alignment::Center)
                 .width(Length::Fill),
                 Space::with_height(Length::Fixed(16.0)),
-                // Progress bar
                 progress_bar(0.0..=1.0, self.progress)
                     .width(Length::Fill)
                     .height(Length::Fixed(8.0)),
                 Space::with_height(Length::Fixed(8.0)),
-                // Progress text
                 progress_display.style(iced::theme::Text::Color(theme.text())),
                 Space::with_height(Length::Fixed(16.0)),
-                // Terminal output
                 container(terminal_output)
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -308,14 +297,12 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
 
     match step {
         0 => {
-            // Enable COPR repos (only quickshell and hyprland)
             let output = enable_copr_repos().await?;
-            Ok((format!("{}\n✓ Step 1 completed: COPR repositories enabled\n", output), 1, progress))
+            Ok((format!("{}\n[OK] Step 1 completed: COPR repositories enabled\n", output), 1, progress))
         }
         1 => {
-            // Update package cache and install Hyprland dependencies in one command
             let output = update_cache_and_install().await?;
-            Ok((format!("{}\n✓ Step 2 completed: Cache updated and Hyprland dependencies installed\n\n✓ ALL STEPS COMPLETED SUCCESSFULLY!\n", output), 2, progress))
+            Ok((format!("{}\n[OK] Step 2 completed: Cache updated and Hyprland dependencies installed\n\n[OK] ALL STEPS COMPLETED SUCCESSFULLY!\n", output), 2, progress))
         }
         _ => Err("Invalid step number".to_string()),
     }
@@ -376,7 +363,7 @@ async fn execute_command_with_output(cmd: &mut TokioCommand, description: &str) 
     if !status.success() {
         let output_lower = output.to_lowercase();
         if output_lower.contains("already installed") || output_lower.contains("is already installed") {
-            output.push_str("\nℹ️  Note: Repository was already enabled. Continuing...\n");
+            output.push_str("\n[INFO] Note: Repository was already enabled. Continuing...\n");
             return Ok(output);
         }
         return Err(format!("Command failed with exit code: {:?}\n\nOutput:\n{}", status.code(), output));
@@ -386,7 +373,6 @@ async fn execute_command_with_output(cmd: &mut TokioCommand, description: &str) 
 }
 
 async fn enable_copr_repos() -> Result<String, String> {
-    // Enable both repos in a single command
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("dnf");
     cmd.arg("copr");
@@ -397,7 +383,7 @@ async fn enable_copr_repos() -> Result<String, String> {
 
     let mut output = String::new();
     output.push_str("$ pkexec dnf copr enable -y solopasha/hyprland errornointernet/quickshell\n");
-    output.push_str("─────────────────────────────────────────────────────────────\n");
+    output.push_str("-------------------------------------------------------------\n");
 
     let cmd_output = execute_command_with_output(&mut cmd, "COPR repositories").await?;
     output.push_str(&cmd_output);
@@ -406,7 +392,6 @@ async fn enable_copr_repos() -> Result<String, String> {
 }
 
 async fn update_cache_and_install() -> Result<String, String> {
-    // Update cache and install packages in a single command
     let packages = vec![
         "hyprland",
         "hyprpicker",
@@ -430,7 +415,7 @@ async fn update_cache_and_install() -> Result<String, String> {
     output.push_str("$ pkexec dnf makecache && dnf install -y ");
     output.push_str(&packages.join(" "));
     output.push_str("\n");
-    output.push_str("─────────────────────────────────────────────────────────────\n");
+    output.push_str("-------------------------------------------------------------\n");
 
     let cmd_output = execute_command_with_output(&mut cmd, "cache update and package installation").await?;
     output.push_str(&cmd_output);
@@ -438,8 +423,6 @@ async fn update_cache_and_install() -> Result<String, String> {
     Ok(output)
 }
 
-
-// Style structs (same as cachyos_kernel_dialog.rs)
 struct RoundedButtonStyle {
     is_primary: bool,
     radius: f32,

@@ -91,7 +91,6 @@ impl FlatpakDialog {
             return Space::with_width(Length::Shrink).into();
         }
 
-        // Load settings and calculate font sizes like tabs do
         let settings = crate::gui::settings::AppSettings::load();
         let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
         let _body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
@@ -264,7 +263,6 @@ impl FlatpakDialog {
                             } else {
                                 theme.text()
                             })),
-                        // Embedded terminal output
                         {
                             if !self.terminal_output.is_empty() {
                                 column![
@@ -468,16 +466,13 @@ impl Application for FlatpakDialog {
                 })
             }
             Message::InstallationProgress(output) => {
-                // Append new output to terminal
                 if !self.terminal_output.is_empty() {
                     self.terminal_output.push('\n');
                 }
                 self.terminal_output.push_str(&output);
 
-                // Update progress text
                 self.installation_progress = output.clone();
 
-                // Check if installation is complete
                 if output.contains("Complete") ||
                    output.contains("Installed") ||
                    output.contains("complete") ||
@@ -493,7 +488,7 @@ impl Application for FlatpakDialog {
                 self.is_complete = true;
                 self.installation_progress = "Installation completed successfully!".to_string();
                 if !self.terminal_output.contains("completed successfully") {
-                    self.terminal_output.push_str("\n✓ Installation completed successfully!");
+                    self.terminal_output.push_str("\n[OK] Installation completed successfully!");
                 }
                 iced::Command::none()
             }
@@ -528,7 +523,6 @@ async fn load_flatpak_info(app_id: String, remote: Option<String>) -> Result<Fla
     let mut runtime = String::new();
     let dependencies = Vec::new();
 
-    // Try remote-info first if remote is provided
     if let Some(ref remote_name) = remote {
         let output = TokioCommand::new("flatpak")
             .args(["remote-info", remote_name, &app_id])
@@ -562,7 +556,6 @@ async fn load_flatpak_info(app_id: String, remote: Option<String>) -> Result<Fla
         }
     }
 
-    // Fallback to info if remote-info didn't work
     if version.is_empty() {
         let output = TokioCommand::new("flatpak")
             .args(["info", &app_id])
@@ -648,27 +641,20 @@ async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String
 
 async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Result<String, String> {
     let mut cmd = TokioCommand::new("flatpak");
-    // Use verbose mode to get more output for debugging
-    // --assumeyes (-y) and --noninteractive for automated installation
     cmd.args(["install", "-y", "--noninteractive", "--verbose"]);
 
-    // If remote is provided, add it before the app_id
-    // Format: flatpak install [OPTIONS] [REMOTE] [REF...]
     if let Some(ref remote_name) = remote {
         if !remote_name.is_empty() {
             cmd.arg(remote_name);
         }
     }
 
-    // Add the application ID (full ref like org.app.id or just the ID)
     cmd.arg(&app_id);
 
-    // Log the command being executed
     let command_str = format!("flatpak install -y --noninteractive --verbose {} {}",
         remote.as_ref().map(|r| r.as_str()).unwrap_or(""),
         &app_id);
 
-    // Use spawn to get streaming output
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
 
@@ -676,7 +662,6 @@ async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Re
         .spawn()
         .map_err(|e| format!("Failed to execute flatpak install: {}", e))?;
 
-    // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
 
@@ -688,7 +673,6 @@ async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Re
     combined_output.push_str(&format!("Command: {}\n", command_str));
     combined_output.push_str("--- Output ---\n");
 
-    // Read both stdout and stderr
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -734,11 +718,9 @@ async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Re
     let success = status.success();
     let exit_code = status.code().unwrap_or(-1);
 
-    // Write log file
     write_flatpak_log("install", &app_id, remote.as_ref(), &combined_output, success).await;
 
     if !success {
-        // Check if it's a known "no updates" or "already installed" case
         let output_lower = combined_output.to_lowercase();
         if output_lower.contains("already installed") ||
            output_lower.contains("is already installed") ||
@@ -747,22 +729,18 @@ async fn install_flatpak_streaming(app_id: String, remote: Option<String>) -> Re
             return Ok(format!("Application is already installed.\n\n{}", combined_output));
         }
 
-        // For other failures, return error with full output
         return Err(format!("Installation failed (exit code: {}):\n{}", exit_code, combined_output));
     }
 
-    // Success - return the output or a success message
     if combined_output.trim().is_empty() || combined_output.trim() == format!("Command: {}\n--- Output ---\n", command_str).trim() {
         Ok("Installation Complete!".to_string())
     } else {
-        // Check if output indicates success
         let output_lower = combined_output.to_lowercase();
         if output_lower.contains("complete") ||
            output_lower.contains("installed") ||
            output_lower.contains("success") {
             Ok(combined_output)
         } else {
-            // Even if exit code is 0, check output for success indicators
             Ok(format!("Installation completed.\n\n{}", combined_output))
         }
     }
@@ -934,7 +912,6 @@ impl iced::widget::container::StyleSheet for TerminalContainerStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, _style: &Self::Style) -> Appearance {
-        // Dark terminal-like background
         Appearance {
             background: Some(iced::Background::Color(iced::Color::from_rgb(0.1, 0.1, 0.1))),
             border: Border {

@@ -74,7 +74,6 @@ impl FlatpakUpdateDialog {
     }
 
     fn view_impl(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
-        // Load settings and calculate font sizes like tabs do
         let settings = crate::gui::settings::AppSettings::load();
         let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
         let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
@@ -105,10 +104,9 @@ impl FlatpakUpdateDialog {
             .align_items(Alignment::Center)
             .width(Length::Fill)
         )
-        .width(Length::Fill)
-        .padding(Padding::new(16.0));
+            .width(Length::Fill)
+            .padding(Padding::new(16.0));
 
-        // Packages list section
         let packages_section = container(
             column![
                 text("Packages to Update").size(15).style(iced::theme::Text::Color(theme.primary())),
@@ -144,7 +142,6 @@ impl FlatpakUpdateDialog {
         )
         .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)));
 
-        // Progress section
         let progress_section = if self.is_updating || self.is_complete || self.has_error {
             let progress_value = if self.is_complete { 1.0 } else if self.has_error { 0.0 } else { 0.7 };
             let progress_text = if self.is_complete {
@@ -169,14 +166,12 @@ impl FlatpakUpdateDialog {
                         } else {
                             theme.text()
                         })),
-                    // Current package being updated
                     if let Some(ref current) = self.current_package {
                         text(format!("Updating: {}", current)).size(11)
                             .style(iced::theme::Text::Color(theme.primary()))
                     } else {
                         text("").size(0)
                     },
-                    // Terminal output
                     {
                         if !self.terminal_output.is_empty() {
                             column![
@@ -210,7 +205,6 @@ impl FlatpakUpdateDialog {
             container(Space::with_height(Length::Shrink))
         };
 
-        // Buttons
         let buttons = if self.is_complete {
             row![
                 Space::with_width(Length::Fill),
@@ -362,16 +356,13 @@ impl Application for FlatpakUpdateDialog {
                 })
             }
             Message::UpdateProgress(output) => {
-                // Append new output to terminal
                 if !self.terminal_output.is_empty() {
                     self.terminal_output.push('\n');
                 }
                 self.terminal_output.push_str(&output);
 
-                // Update progress text
                 self.progress_text = output.clone();
 
-                // Try to detect which package is being updated
                 let output_lower = output.to_lowercase();
                 for pkg in &self.packages {
                     if output_lower.contains(&pkg.name.to_lowercase()) ||
@@ -381,7 +372,6 @@ impl Application for FlatpakUpdateDialog {
                     }
                 }
 
-                // Check if update is complete
                 if output.contains("Complete") ||
                    output.contains("Installed") ||
                    output.contains("complete") ||
@@ -398,7 +388,7 @@ impl Application for FlatpakUpdateDialog {
                 self.current_package = None;
                 self.progress_text = "Update completed successfully!".to_string();
                 if !self.terminal_output.contains("completed successfully") {
-                    self.terminal_output.push_str("\n✓ Update completed successfully!");
+                    self.terminal_output.push_str("\n[OK] Update completed successfully!");
                 }
                 iced::Command::none()
             }
@@ -408,7 +398,7 @@ impl Application for FlatpakUpdateDialog {
                 self.current_package = None;
                 self.progress_text = format!("Update failed: {}", msg);
                 if !self.terminal_output.contains("failed") {
-                    self.terminal_output.push_str(&format!("\n✗ Update failed: {}", msg));
+                    self.terminal_output.push_str(&format!("\n[FAIL] Update failed: {}", msg));
                 }
                 iced::Command::none()
             }
@@ -432,16 +422,13 @@ async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, Stri
     let mut cmd = TokioCommand::new("flatpak");
     cmd.args(["update", "--app", "-y", "--noninteractive", "--verbose"]);
 
-    // Add specific packages if provided
     if !packages.is_empty() {
         cmd.args(&packages);
     }
 
-    // Log the command being executed
     let command_str = format!("flatpak update --app -y --noninteractive --verbose {}",
         packages.join(" "));
 
-    // Use spawn to get streaming output
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
 
@@ -449,7 +436,6 @@ async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, Stri
         .spawn()
         .map_err(|e| format!("Failed to execute flatpak update: {}", e))?;
 
-    // Read output in real-time
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
 
@@ -461,7 +447,6 @@ async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, Stri
     combined_output.push_str(&format!("Command: {}\n", command_str));
     combined_output.push_str("--- Output ---\n");
 
-    // Read both stdout and stderr
     loop {
         tokio::select! {
             result = stdout_reader.next_line() => {
@@ -507,12 +492,10 @@ async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, Stri
     let success = status.success();
     let exit_code = status.code().unwrap_or(-1);
 
-    // Write log file
     let packages_str = packages.join(", ");
     write_flatpak_log("update", &packages_str, None, &combined_output, success).await;
 
     if !success {
-        // Check if it's a known "no updates" case
         let output_lower = combined_output.to_lowercase();
         if output_lower.contains("nothing to do") ||
            output_lower.contains("no updates") {
@@ -520,22 +503,18 @@ async fn update_flatpaks_streaming(packages: Vec<String>) -> Result<String, Stri
             return Ok(format!("No updates needed.\n\n{}", combined_output));
         }
 
-        // For other failures, return error with full output
         return Err(format!("Update failed (exit code: {}):\n{}", exit_code, combined_output));
     }
 
-    // Success - return the output or a success message
     if combined_output.trim().is_empty() || combined_output.trim() == format!("Command: {}\n--- Output ---\n", command_str).trim() {
         Ok("Update Complete!".to_string())
     } else {
-        // Check if output indicates success
         let output_lower = combined_output.to_lowercase();
         if output_lower.contains("complete") ||
            output_lower.contains("installed") ||
            output_lower.contains("success") {
             Ok(combined_output)
         } else {
-            // Even if exit code is 0, check output for success indicators
             Ok(format!("Update completed.\n\n{}", combined_output))
         }
     }
@@ -572,7 +551,6 @@ async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String
     }
 }
 
-// Style implementations
 struct RoundedButtonStyle {
     is_primary: bool,
 }
@@ -744,7 +722,6 @@ impl iced::widget::container::StyleSheet for TerminalContainerStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, _style: &Self::Style) -> Appearance {
-        // Dark terminal-like background
         Appearance {
             background: Some(iced::Background::Color(iced::Color::from_rgb(0.1, 0.1, 0.1))),
             border: Border {

@@ -91,8 +91,6 @@ impl InstalledTab {
     pub fn update(&mut self, message: Message) -> iced::Command<Message> {
         match message {
             Message::LoadPackages => {
-                // Only show loading if we don't already have packages loaded
-                // This prevents flickering when switching to the tab
                 if self.packages.is_empty() {
                     self.is_loading = true;
                     iced::Command::perform(load_installed_packages(), |result| {
@@ -102,7 +100,6 @@ impl InstalledTab {
                         }
                     })
                 } else {
-                    // Packages already loaded, just refresh the filter
                     self.filter_packages();
                     iced::Command::none()
                 }
@@ -145,7 +142,6 @@ impl InstalledTab {
                 if self.selected_packages.is_empty() {
                     return iced::Command::none();
                 }
-                // Spawn a separate window for package removal
                 let packages: Vec<String> = self.selected_packages.iter().cloned().collect();
                 let _packages_str = packages.join(" ");
                 iced::Command::perform(
@@ -159,11 +155,10 @@ impl InstalledTab {
                             .spawn()
                             .ok();
                     },
-                    |_| Message::RemoveComplete, // Dummy message
+                    |_| Message::RemoveComplete,
                 )
             }
             Message::RemoveComplete => {
-                // Refresh the package list after removal dialog closes
                 self.selected_packages.clear();
                 iced::Command::perform(load_installed_packages(), |result| {
                     match result {
@@ -173,7 +168,6 @@ impl InstalledTab {
                 })
             }
             Message::Error(_msg) => {
-                // Error occurred, just reset state
                 self.is_removing = false;
                 iced::Command::none()
             }
@@ -186,7 +180,6 @@ impl InstalledTab {
         let package_detail_size = settings.font_size_package_details * settings.scale_package_cards;
         let icon_size = (settings.font_size_icons * settings.scale_icons).round();
         if let Some(ref details) = self.package_details {
-            // Icon widget - try to load actual icon
             let icon_widget = if let Some(ref icon_path) = details.icon_path {
                 if std::path::Path::new(icon_path).exists() {
                     let icon_handle = iced::widget::image::Handle::from_path(icon_path);
@@ -203,7 +196,7 @@ impl InstalledTab {
                     .style(iced::theme::Container::Custom(Box::new(IconContainerStyle)))
                 } else {
                     container(
-                        text("📦")
+                        text("PKG")
                             .size(48)
                             .horizontal_alignment(iced::alignment::Horizontal::Center)
                     )
@@ -215,7 +208,7 @@ impl InstalledTab {
                 }
             } else {
                 container(
-                    text("📦")
+                    text("PKG")
                         .size(48)
                         .horizontal_alignment(iced::alignment::Horizontal::Center)
                 )
@@ -229,7 +222,6 @@ impl InstalledTab {
             container(
                 scrollable(
                     column![
-                        // Header with close button
                         row![
                             text("Package Details").size(title_font_size).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                             Space::with_width(Length::Fill),
@@ -246,16 +238,13 @@ impl InstalledTab {
                         .width(Length::Fill)
                         .align_items(Alignment::Center),
                         Space::with_height(Length::Fixed(20.0)),
-                        // Icon
                         icon_widget,
                         Space::with_height(Length::Fixed(20.0)),
-                        // Package name
                         text(&details.name)
                             .size(title_font_size * 1.2)
-                            .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))) // Darker for better visibility
+                            .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
                             .horizontal_alignment(iced::alignment::Horizontal::Center),
                         Space::with_height(Length::Fixed(20.0)),
-                        // Package details
                         container(
                             column![
                                 row![
@@ -293,12 +282,10 @@ impl InstalledTab {
                         .padding(Padding::new(18.0))
                         .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
                         Space::with_height(Length::Fixed(20.0)),
-                        // Summary
                         text("Summary").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                         Space::with_height(Length::Fixed(8.0)),
                         text(&details.summary).size(package_detail_size),
                         Space::with_height(Length::Fixed(20.0)),
-                        // Description
                         text("Description").size(title_font_size * 0.9).style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
                         Space::with_height(Length::Fixed(8.0)),
                         text(&details.description).size(package_detail_size).width(Length::Fill),
@@ -461,9 +448,9 @@ impl InstalledTab {
                                     container(
                                         row![
                                             checkbox_widget,
-                                            text(&pkg.name)
+                                                text(&pkg.name)
                                                 .size(package_name_size)
-                                                .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings)))) // Darker for better visibility
+                                                .style(iced::theme::Text::Color(theme.text_with_settings(Some(settings))))
                                                 .width(Length::FillPortion(3)),
                                             text(&pkg.version).size(package_detail_size).width(Length::FillPortion(2)),
                                             text(&pkg.repository).size(package_detail_size).width(Length::FillPortion(2)),
@@ -492,7 +479,6 @@ impl InstalledTab {
             column![header, package_list].spacing(10).into()
         };
 
-        // Create the slide-out panel
         let panel = if self.panel_open {
             self.view_panel(theme, settings)
         } else {
@@ -545,8 +531,6 @@ async fn load_installed_packages() -> Result<Vec<PackageInfo>, String> {
         if line.is_empty() || line == "Installed packages" {
             continue;
         }
-        // Format: "package.arch  version  repository"
-        // Split by whitespace but handle multiple spaces
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 3 {
             let name = parts[0].split('.').next().unwrap_or(parts[0]);
@@ -563,7 +547,6 @@ async fn load_installed_packages() -> Result<Vec<PackageInfo>, String> {
 }
 
 async fn load_package_details(package_name: String) -> PackageDetails {
-    // Get package info from rpm -qi
     let rpm_output = TokioCommand::new("rpm")
         .args(["-qi", &package_name])
         .output()
@@ -628,7 +611,6 @@ async fn load_package_details(package_name: String) -> PackageDetails {
         }
     }
 
-    // Get repository information using dnf repoquery
     let repo_output = TokioCommand::new("dnf")
         .args(["repoquery", "--installed", "--qf", "%{repo}", &package_name])
         .output()
@@ -644,7 +626,6 @@ async fn load_package_details(package_name: String) -> PackageDetails {
         }
     }
 
-    // Try to find .desktop file and icon
     let desktop_output = TokioCommand::new("rpm")
         .args(["-ql", &package_name])
         .output()
@@ -655,19 +636,15 @@ async fn load_package_details(package_name: String) -> PackageDetails {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
                 if line.trim().ends_with(".desktop") {
-                    // Found a desktop file, try to read it
                     if let Ok(desktop_content) = std::fs::read_to_string(line.trim()) {
                         for desktop_line in desktop_content.lines() {
                             if desktop_line.trim().starts_with("Icon=") {
                                 let icon_value = desktop_line.splitn(2, '=').nth(1).unwrap_or("").trim();
-                                // Try to resolve icon path
                                 if icon_value.starts_with('/') {
-                                    // Absolute path
                                     if std::path::Path::new(icon_value).exists() {
                                         icon_path = Some(icon_value.to_string());
                                     }
                                 } else {
-                                    // Icon name - try common locations using gtk-update-icon-cache paths
                                     let icon_dirs = [
                                         "/usr/share/icons/hicolor/256x256/apps",
                                         "/usr/share/icons/hicolor/128x128/apps",
@@ -690,7 +667,6 @@ async fn load_package_details(package_name: String) -> PackageDetails {
                                             break;
                                         }
                                     }
-                                    // Also try without extension in pixmaps
                                     if icon_path.is_none() {
                                         let pixmap_file = format!("/usr/share/pixmaps/{}", icon_value);
                                         if std::path::Path::new(&pixmap_file).exists() {

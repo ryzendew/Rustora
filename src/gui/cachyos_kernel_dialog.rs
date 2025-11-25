@@ -11,7 +11,7 @@ use crate::gui::settings::AppSettings;
 #[derive(Debug, Clone)]
 pub enum Message {
     StartInstallation,
-    StepProgress(String, f32), // Step output and progress (0.0 to 1.0)
+    StepProgress(String, f32),
     InstallationComplete(Result<(), String>),
     Close,
 }
@@ -23,8 +23,8 @@ pub struct CachyosKernelDialog {
     has_error: bool,
     progress_text: String,
     terminal_output: String,
-    progress: f32, // 0.0 to 1.0
-    current_step_num: usize, // Current step (0-7)
+    progress: f32,
+    current_step_num: usize,
 }
 
 impl CachyosKernelDialog {
@@ -91,7 +91,6 @@ impl Application for CachyosKernelDialog {
                 self.terminal_output.push_str("Starting Cachyos Kernel installation...\n");
                 self.terminal_output.push_str("=====================================\n\n");
 
-                // Start with step 0
                 Command::perform(run_installation_step(0), |result| {
                     match result {
                         Ok((output, step_num, progress)) => {
@@ -106,22 +105,18 @@ impl Application for CachyosKernelDialog {
                 })
             }
             Message::StepProgress(output, progress) => {
-                // Append new output
                 if !self.terminal_output.is_empty() && !self.terminal_output.ends_with('\n') {
                     self.terminal_output.push('\n');
                 }
                 self.terminal_output.push_str(&output);
                 self.progress = progress;
 
-                // Update progress text based on current step
                 self.progress_text = get_step_progress_text(self.current_step_num);
 
-                // Check if this step is complete
                 let step_complete = output.contains("completed") || output.contains("failed");
 
                 if step_complete {
-                    // Check if installation is fully complete
-                    if output.contains("✓ ALL STEPS COMPLETED SUCCESSFULLY!") {
+                    if output.contains("[OK] ALL STEPS COMPLETED SUCCESSFULLY!") {
                         self.is_running = false;
                         self.is_complete = true;
                         self.progress = 1.0;
@@ -129,7 +124,6 @@ impl Application for CachyosKernelDialog {
                         return Command::none();
                     }
 
-                    // Continue to next step
                     self.current_step_num += 1;
 
                     if self.current_step_num < 8 {
@@ -146,7 +140,6 @@ impl Application for CachyosKernelDialog {
                             }
                         })
                     } else {
-                        // All steps done
                         self.is_running = false;
                         self.is_complete = true;
                         self.progress = 1.0;
@@ -163,14 +156,14 @@ impl Application for CachyosKernelDialog {
                         self.is_complete = true;
                         self.progress = 1.0;
                         self.progress_text = "Installation completed successfully!".to_string();
-                        if !self.terminal_output.contains("✓ ALL STEPS COMPLETED SUCCESSFULLY!") {
-                            self.terminal_output.push_str("\n✓ All steps completed successfully!\n");
+                        if !self.terminal_output.contains("[OK] ALL STEPS COMPLETED SUCCESSFULLY!") {
+                            self.terminal_output.push_str("\n[OK] All steps completed successfully!\n");
                         }
                     }
                     Err(e) => {
                         self.has_error = true;
                         self.progress_text = format!("Installation failed: {}", e);
-                        self.terminal_output.push_str(&format!("\n✗ Error: {}\n", e));
+                        self.terminal_output.push_str(&format!("\n[FAIL] Error: {}\n", e));
                     }
                 }
                 Command::none()
@@ -243,7 +236,6 @@ impl CachyosKernelDialog {
 
         container(
             column![
-                // Header
                 row![
                     text(title_text).size(title_font_size).style(iced::theme::Text::Color(
                         if self.has_error {
@@ -265,15 +257,12 @@ impl CachyosKernelDialog {
                 .align_items(Alignment::Center)
                 .width(Length::Fill),
                 Space::with_height(Length::Fixed(16.0)),
-                // Progress bar
                 progress_bar(0.0..=1.0, self.progress)
                     .width(Length::Fill)
                     .height(Length::Fixed(8.0)),
                 Space::with_height(Length::Fixed(8.0)),
-                // Progress text
                 progress_display.style(iced::theme::Text::Color(theme.text())),
                 Space::with_height(Length::Fixed(16.0)),
-                // Terminal output
                 container(terminal_output)
                     .width(Length::Fill)
                     .height(Length::Fill)
@@ -316,39 +305,36 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
 
     match step {
         0 => {
-            // Step 1: Enable kernel-cachyos repo
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("Step 1: Enabling kernel-cachyos repository\n");
             step_output.push_str("═══════════════════════════════════════════════════════════════\n\n");
             match enable_repo("bieszczaders/kernel-cachyos").await {
                 Ok(cmd_output) => {
                     step_output.push_str(&cmd_output);
-                    step_output.push_str("\n✓ Step 1 completed: kernel-cachyos repository enabled\n\n");
+                    step_output.push_str("\n[OK] Step 1 completed: kernel-cachyos repository enabled\n\n");
                 }
                 Err(e) => {
-                    step_output.push_str(&format!("✗ Step 1 failed: {}\n", e));
+                    step_output.push_str(&format!("[FAIL] Step 1 failed: {}\n", e));
                     return Err(e);
                 }
             }
         }
         1 => {
-            // Step 2: Enable kernel-cachyos-addons repo
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("Step 2: Enabling kernel-cachyos-addons repository\n");
             step_output.push_str("═══════════════════════════════════════════════════════════════\n\n");
             match enable_repo("bieszczaders/kernel-cachyos-addons").await {
                 Ok(cmd_output) => {
                     step_output.push_str(&cmd_output);
-                    step_output.push_str("\n✓ Step 2 completed: kernel-cachyos-addons repository enabled\n\n");
+                    step_output.push_str("\n[OK] Step 2 completed: kernel-cachyos-addons repository enabled\n\n");
                 }
                 Err(e) => {
-                    step_output.push_str(&format!("✗ Step 2 failed: {}\n", e));
+                    step_output.push_str(&format!("[FAIL] Step 2 failed: {}\n", e));
                     return Err(e);
                 }
             }
         }
         2 => {
-            // Step 3: Install Cachyos kernel
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("Step 3: Installing Cachyos kernel\n");
             step_output.push_str("═══════════════════════════════════════════════════════════════\n\n");
@@ -360,16 +346,15 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
                     } else {
                         "Cachyos kernel installed"
                     };
-                    step_output.push_str(&format!("\n✓ Step 3 completed: {}\n\n", status_msg));
+                    step_output.push_str(&format!("\n[OK] Step 3 completed: {}\n\n", status_msg));
                 }
                 Err(e) => {
-                    step_output.push_str(&format!("✗ Step 3 failed: {}\n", e));
+                    step_output.push_str(&format!("[FAIL] Step 3 failed: {}\n", e));
                     return Err(e);
                 }
             }
         }
         3 => {
-            // Step 4: Install Cachyos settings and ananicy
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("Step 4: Installing Cachyos settings and ananicy\n");
             step_output.push_str("Packages: cachyos-settings, ananicy-cpp, cachyos-ananicy-rules\n");
@@ -382,16 +367,15 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
                     } else {
                         "Cachyos settings and ananicy installed"
                     };
-                    step_output.push_str(&format!("\n✓ Step 4 completed: {}\n\n", status_msg));
+                    step_output.push_str(&format!("\n[OK] Step 4 completed: {}\n\n", status_msg));
                 }
                 Err(e) => {
-                    step_output.push_str(&format!("✗ Step 4 failed: {}\n", e));
+                    step_output.push_str(&format!("[FAIL] Step 4 failed: {}\n", e));
                     return Err(e);
                 }
             }
         }
         4 => {
-            // Step 5: Install scheduler extensions
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("Step 5: Installing scheduler extensions\n");
             step_output.push_str("Packages: scx-manager, scx-scheds-git, scx-tools\n");
@@ -404,32 +388,30 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
                     } else {
                         "Scheduler extensions installed"
                     };
-                    step_output.push_str(&format!("\n✓ Step 5 completed: {}\n\n", status_msg));
+                    step_output.push_str(&format!("\n[OK] Step 5 completed: {}\n\n", status_msg));
                 }
                 Err(e) => {
-                    step_output.push_str(&format!("✗ Step 5 failed: {}\n", e));
+                    step_output.push_str(&format!("[FAIL] Step 5 failed: {}\n", e));
                     return Err(e);
                 }
             }
         }
         5 => {
-            // Step 6: Update GRUB configuration
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("Step 6: Updating GRUB configuration\n");
             step_output.push_str("═══════════════════════════════════════════════════════════════\n\n");
             match update_grub().await {
                 Ok(cmd_output) => {
                     step_output.push_str(&cmd_output);
-                    step_output.push_str("\n✓ Step 6 completed: GRUB configuration updated\n\n");
+                    step_output.push_str("\n[OK] Step 6 completed: GRUB configuration updated\n\n");
                 }
                 Err(e) => {
-                    step_output.push_str(&format!("✗ Step 6 failed: {}\n", e));
+                    step_output.push_str(&format!("[FAIL] Step 6 failed: {}\n", e));
                     return Err(e);
                 }
             }
         }
         6 => {
-            // Step 7: Detect GPU and rebuild modules if NVIDIA
             let gpu_type = detect_gpu().await;
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str(&format!("Step 7: GPU detected - {}\n", gpu_type));
@@ -440,37 +422,35 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
                 match rebuild_kernel_modules().await {
                     Ok(cmd_output) => {
                         step_output.push_str(&cmd_output);
-                        step_output.push_str("\n✓ Step 7 completed: Kernel modules rebuilt\n\n");
+                        step_output.push_str("\n[OK] Step 7 completed: Kernel modules rebuilt\n\n");
                     }
                     Err(e) => {
-                        step_output.push_str(&format!("✗ Step 7 failed: {}\n", e));
+                        step_output.push_str(&format!("[FAIL] Step 7 failed: {}\n", e));
                         return Err(e);
                     }
                 }
             } else {
                 step_output.push_str(&format!("{} GPU detected - skipping kernel module rebuild\n\n", gpu_type));
-                step_output.push_str("✓ Step 7 completed: Skipped (not NVIDIA)\n\n");
+                step_output.push_str("[OK] Step 7 completed: Skipped (not NVIDIA)\n\n");
             }
         }
         7 => {
-            // Step 8: Regenerate initramfs
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("Step 8: Regenerating initramfs\n");
             step_output.push_str("═══════════════════════════════════════════════════════════════\n\n");
             match regenerate_initramfs().await {
                 Ok(cmd_output) => {
                     step_output.push_str(&cmd_output);
-                    step_output.push_str("\n✓ Step 8 completed: Initramfs regenerated\n\n");
+                    step_output.push_str("\n[OK] Step 8 completed: Initramfs regenerated\n\n");
                 }
                 Err(e) => {
-                    step_output.push_str(&format!("✗ Step 8 failed: {}\n", e));
+                    step_output.push_str(&format!("[FAIL] Step 8 failed: {}\n", e));
                     return Err(e);
                 }
             }
 
-            // Final summary
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
-            step_output.push_str("✓ ALL STEPS COMPLETED SUCCESSFULLY!\n");
+            step_output.push_str("[OK] ALL STEPS COMPLETED SUCCESSFULLY!\n");
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("\nInstalled packages:\n");
             step_output.push_str("  • kernel-cachyos\n");
@@ -480,7 +460,7 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
             step_output.push_str("  • scx-manager\n");
             step_output.push_str("  • scx-scheds-git\n");
             step_output.push_str("  • scx-tools\n");
-            step_output.push_str("\n⚠️  Please reboot to use the new kernel!\n");
+            step_output.push_str("\n[WARN] Please reboot to use the new kernel!\n");
         }
         _ => {
             return Ok((String::new(), step, 1.0));
@@ -647,7 +627,7 @@ async fn install_packages(packages: &[&str]) -> Result<String, String> {
 
     // If packages are already installed or nothing to do, treat as success
     if already_installed || nothing_to_do {
-        output.push_str("\nℹ️  Note: Some packages were already installed. Continuing...\n");
+        output.push_str("\n[INFO] Note: Some packages were already installed. Continuing...\n");
         return Ok(output);
     }
 
@@ -663,7 +643,7 @@ async fn install_packages(packages: &[&str]) -> Result<String, String> {
         }
         // If exit code is 1 but no clear error, might be "nothing to do" case
         if status.code() == Some(1) {
-            output.push_str("\nℹ️  Note: Installation completed (exit code 1, but no clear errors detected). Continuing...\n");
+            output.push_str("\n[INFO] Note: Installation completed (exit code 1, but no clear errors detected). Continuing...\n");
             return Ok(output);
         }
         return Err(format!("Command failed with exit code: {:?}\n\nOutput:\n{}",
@@ -682,7 +662,6 @@ async fn update_grub() -> Result<String, String> {
 }
 
 async fn detect_gpu() -> String {
-    // Check for NVIDIA
     let mut cmd = TokioCommand::new("lspci");
     cmd.arg("-k");
     cmd.stdout(std::process::Stdio::piped());
