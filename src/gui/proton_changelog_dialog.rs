@@ -257,13 +257,9 @@ impl ProtonChangelogDialog {
 }
 
 async fn fetch_changelog(page_url: String) -> Result<String, String> {
-    // Try to fetch the release page and extract changelog
-    // For GitHub releases, we can try to get the release body
     let client = reqwest::Client::new();
 
-    // If it's a GitHub release URL, try to get the release API
     if page_url.contains("github.com") && page_url.contains("/releases/") {
-        // Try to convert to API URL
         if let Some(api_url) = convert_to_github_api_url(&page_url) {
             match client.get(&api_url)
                 .header("User-Agent", "Rustora/1.0")
@@ -286,13 +282,10 @@ async fn fetch_changelog(page_url: String) -> Result<String, String> {
         }
     }
 
-    // Fallback: return a message with the URL
     Ok(format!("Changelog available at:\n{}\n\n(Full changelog can be viewed on the GitHub release page)", page_url))
 }
 
 fn convert_to_github_api_url(release_url: &str) -> Option<String> {
-    // Convert https://github.com/user/repo/releases/tag/v1.0.0
-    // to https://api.github.com/repos/user/repo/releases/tags/v1.0.0
     if let Some(stripped) = release_url.strip_prefix("https://github.com/") {
         let parts: Vec<&str> = stripped.split('/').collect();
         if parts.len() >= 4 && parts[2] == "releases" && parts[3] == "tag" {
@@ -305,7 +298,6 @@ fn convert_to_github_api_url(release_url: &str) -> Option<String> {
     None
 }
 
-// Style structs
 struct DialogContainerStyle {
     theme: crate::gui::Theme,
 }

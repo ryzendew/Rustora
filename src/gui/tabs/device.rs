@@ -1,6 +1,3 @@
-// Device Manager Tab - Ported from nobara-device-manager
-// This is a massive port from GTK4/libadwaita to Iced
-
 use iced::widget::{button, column, container, row, scrollable, text, Space};
 use iced::{Alignment, Element, Length, Padding, Border, Color};
 use crate::gui::app::CustomScrollableStyle;
@@ -12,12 +9,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::path::Path;
 
-// Re-export types from cfhdb for convenience
-// Note: The cfhdb crate exports modules as libcfhdb
 use libcfhdb::pci::{CfhdbPciDevice, CfhdbPciProfile};
 use libcfhdb::usb::{CfhdbUsbDevice, CfhdbUsbProfile};
 
-// Wrapper types similar to nobara-device-manager
 #[derive(Debug, Clone)]
 pub struct PreCheckedPciDevice {
     pub device: CfhdbPciDevice,
@@ -863,18 +857,18 @@ impl DeviceTab {
                 iced::Command::perform(async {}, |_| Message::UpdateStatus)
             }
             Message::UpdateStatus => {
-                // Only update the selected device's profiles (not all devices) for better performance
+
                 if let Some((dev_type, class, device_idx)) = &self.selected_device {
-                    // Refresh the specific device
+
                     match dev_type {
                         DeviceType::Pci => {
                             if let Some((_, devices)) = self.pci_devices.iter_mut().find(|(c, _)| c == class) {
                                 if let Some(device) = devices.get_mut(*device_idx) {
-                                    // Update device by fetching fresh data
+
                                     if let Ok(updated) = libcfhdb::pci::CfhdbPciDevice::get_device_from_busid(&device.device.sysfs_busid) {
                                         device.device = updated;
                                     }
-                                    // Update all profiles for this device only
+
                                     for profile in &device.profiles {
                                         profile.update_installed();
                                     }
@@ -884,11 +878,11 @@ impl DeviceTab {
                         DeviceType::Usb => {
                             if let Some((_, devices)) = self.usb_devices.iter_mut().find(|(c, _)| c == class) {
                                 if let Some(device) = devices.get_mut(*device_idx) {
-                                    // Update device by fetching fresh data
+
                                     if let Ok(updated) = libcfhdb::usb::CfhdbUsbDevice::get_device_from_busid(&device.device.sysfs_busid) {
                                         device.device = updated;
                                     }
-                                    // Update all profiles for this device only
+
                                     for profile in &device.profiles {
                                         profile.update_installed();
                                     }
@@ -897,7 +891,7 @@ impl DeviceTab {
                         }
                     }
                 }
-                // Don't update all devices - only update when explicitly needed
+
                 iced::Command::none()
             }
             Message::Error(msg) => {
@@ -909,7 +903,7 @@ impl DeviceTab {
     }
 
     pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
-        // Calculate font sizes from settings
+
         let _title_font_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_font_size = (settings.font_size_body * settings.scale_body).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons).round();
@@ -981,18 +975,14 @@ impl DeviceTab {
             .padding(20)
             .into()
         } else {
-            // Main view with sidebar and content
+
             self.view_main(theme, settings)
         }
     }
 
     fn view_main(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
-
-        // Sidebar with categories - wider and cleaner
         let sidebar = self.view_sidebar(theme, &material_font, settings);
-
-        // Main content area
         let content = self.view_content(theme, &material_font, settings);
 
         container(
@@ -1016,15 +1006,11 @@ impl DeviceTab {
 
     fn view_sidebar(&self, theme: &crate::gui::Theme, material_font: &iced::Font, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
-
-        // Calculate font sizes from settings - larger for better readability
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.15).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.2).round();
         let section_font_size = (settings.font_size_body * settings.scale_body * 1.05).round();
 
         let mut sidebar_items = column![].spacing(8);
-
-        // Download Profiles Button - larger and more prominent
         let download_button_text = if self.is_loading && self.loading_message.contains("Downloading") {
             row![
                 text(glyphs::REFRESH_SYMBOL).font(*material_font).size(icon_size),
@@ -1062,8 +1048,6 @@ impl DeviceTab {
 
         sidebar_items = sidebar_items.push(download_button);
         sidebar_items = sidebar_items.push(Space::with_height(Length::Fixed(24.0)));
-
-        // PCI Devices Section
         sidebar_items = sidebar_items.push(
             container(
                 text("PCI Devices")
@@ -1100,8 +1084,6 @@ impl DeviceTab {
         }
 
         sidebar_items = sidebar_items.push(Space::with_height(Length::Fixed(24.0)));
-
-        // USB Devices Section
         sidebar_items = sidebar_items.push(
             container(
                 text("USB Devices")
@@ -1163,14 +1145,14 @@ impl DeviceTab {
     fn view_content(&self, theme: &crate::gui::Theme, material_font: &iced::Font, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         if let Some((cat_type, class)) = &self.selected_category {
             if let Some((dev_type, _, device_idx)) = &self.selected_device {
-                // Show device details
+
                 self.view_device_details(theme, material_font, *dev_type, class, *device_idx, settings)
             } else {
-                // Show device list for category
+
                 self.view_device_list(theme, material_font, *cat_type, class, settings)
             }
         } else {
-            // Welcome/empty state
+
             let title_font_size = (settings.font_size_titles * settings.scale_titles).round();
             let body_font_size = (settings.font_size_body * settings.scale_body).round();
             container(
@@ -1369,13 +1351,11 @@ impl DeviceTab {
     }
 
     fn view_device_details(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
-        // Calculate font sizes from settings - larger for better readability
+
         let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
         use crate::gui::fonts::glyphs;
-
-        // Get the device
         let (device_name, device_info, profiles_pci, profiles_usb, status) = match dev_type {
             DeviceType::Pci => {
                 if let Some((_, devices)) = self.pci_devices.iter().find(|(c, _)| c == class) {
@@ -1428,8 +1408,6 @@ impl DeviceTab {
                 }
             }
         };
-
-        // Back button - larger and better styled
         let back_button = button(
             row![
                 text(glyphs::CLOSE_SYMBOL).font(*material_font).size(icon_size * 0.85),
@@ -1444,14 +1422,10 @@ impl DeviceTab {
             radius: settings.border_radius,
         })))
         .padding(Padding::from([14.0, 20.0, 14.0, 20.0]));
-
-        // Device title - larger and more prominent
         let device_title = text(&device_name)
             .size(title_font_size)
             .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
             .width(Length::Fill);
-
-        // Status indicator
         let status_color = match status {
             DeviceStatus::ActiveEnabled => theme.primary_with_settings(Some(settings)),
             DeviceStatus::ActiveDisabled => iced::Color::from_rgb(0.2, 0.5, 0.9),
@@ -1467,14 +1441,8 @@ impl DeviceTab {
             color: status_color,
             radius: settings.border_radius,
         })));
-
-        // Status badges
         let status_badges = self.view_status_badges(theme, &device_info, settings);
-
-        // Control buttons
         let control_buttons = self.view_control_buttons(theme, material_font, dev_type, class, device_idx, &device_info, settings);
-
-        // Profiles section - use references to avoid cloning
         let profiles_section = match (profiles_pci, profiles_usb) {
             (Some(p), None) => self.view_profiles_section_pci(theme, material_font, dev_type, class, device_idx, &p, settings),
             (None, Some(p)) => self.view_profiles_section_usb(theme, material_font, dev_type, class, device_idx, &p, settings),
@@ -1484,7 +1452,7 @@ impl DeviceTab {
         container(
             scrollable(
                 column![
-                    // Header with back button
+
                     container(
                         row![
                             back_button,
@@ -1498,8 +1466,6 @@ impl DeviceTab {
                     .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
 
                     Space::with_height(Length::Fixed(20.0)),
-
-                    // Device title and status - larger and more prominent
                     container(
                         row![
                             device_title,
@@ -1514,15 +1480,13 @@ impl DeviceTab {
                     .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
 
                     Space::with_height(Length::Fixed(20.0)),
-
-                    // Two-column layout: Status badges on left, Control buttons on right
                     container(
                         row![
-                            // Left column: Status badges
+
                             container(status_badges)
                                 .width(Length::FillPortion(2)),
                             Space::with_width(Length::Fixed(20.0)),
-                            // Right column: Control buttons
+
                             container(
                                 control_buttons
                             )
@@ -1537,8 +1501,6 @@ impl DeviceTab {
                     .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
 
                     Space::with_height(Length::Fixed(24.0)),
-
-                    // Profiles section - full width
                     container(profiles_section)
                         .width(Length::Fill)
                         .padding(Padding::from([0.0, 0.0, 16.0, 0.0])),
@@ -1759,8 +1721,6 @@ impl DeviceTab {
 
     fn view_profiles_section_pci(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedPciProfile>], settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
-
-        // Larger font sizes for better readability
         let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
@@ -1778,35 +1738,27 @@ impl DeviceTab {
         }
 
         let mut profile_cards = column![].spacing(10);
-
-        // Sort profiles - NVIDIA profiles first (always), then by priority
-        // Create a Vec from the slice for sorting (Arc cloning is cheap)
-        // Cache NVIDIA vendor ID check to avoid repeated string allocations
         let nvidia_vendor_id = "10de".to_string();
         let mut sorted_profiles: Vec<_> = profiles.iter().cloned().collect();
         sorted_profiles.sort_by(|a, b| {
             let a_profile = a.profile();
             let b_profile = b.profile();
-            // Use cached string reference to avoid repeated allocations
+
             let a_is_nvidia = a_profile.vendor_ids.contains(&nvidia_vendor_id);
             let b_is_nvidia = b_profile.vendor_ids.contains(&nvidia_vendor_id);
-
-            // NVIDIA profiles always first, regardless of device type
             match (a_is_nvidia, b_is_nvidia) {
                 (true, false) => std::cmp::Ordering::Less,  // NVIDIA before non-NVIDIA
                 (false, true) => std::cmp::Ordering::Greater, // non-NVIDIA after NVIDIA
                 (true, true) => {
-                    // Both NVIDIA - sort by priority (higher priority first)
+
                     b_profile.priority.cmp(&a_profile.priority)
                 }
                 (false, false) => {
-                    // Neither NVIDIA - sort by priority (higher priority first)
+
                     b_profile.priority.cmp(&a_profile.priority)
                 }
             }
         });
-
-        // Install Selected button - only show if there are uninstalled profiles
         let has_uninstalled = sorted_profiles.iter().any(|p| !p.installed());
         let selected_count = sorted_profiles.iter()
             .filter(|p| self.selected_profiles.contains(&p.profile().codename))
@@ -1846,8 +1798,6 @@ impl DeviceTab {
             let profile_data = profile.profile();
             let is_installed = profile.installed();
             let is_selected = self.selected_profiles.contains(&profile_data.codename);
-
-            // Checkbox for selection (only show for uninstalled profiles)
             let codename_clone = profile_data.codename.clone();
             let class_clone = class.to_string();
             let checkbox: Element<Message> = if !is_installed {
@@ -1928,12 +1878,10 @@ impl DeviceTab {
             } else {
                 Space::with_width(Length::Shrink).into()
             };
-
-            // Format profile name properly - capitalize NVIDIA, etc.
             let display_name = if profile_data.i18n_desc.contains("NVIDIA") {
                 profile_data.i18n_desc.clone()
             } else if profile_data.codename.starts_with("nvidia-") {
-                // Extract version and format as "NVIDIA Graphics Driver X.X.X"
+
                 if let Some(version) = profile_data.codename.strip_prefix("nvidia-") {
                     format!("NVIDIA Graphics Driver {}", version)
                 } else {
@@ -1978,12 +1926,12 @@ impl DeviceTab {
                         .size(body_font_size * 0.9)
                         .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                     {
-                        // Use cached driver version (loaded asynchronously) - extract clean version
+
                         let driver_version_display = if let Some(driver_version) = profile.driver_version() {
                             if !driver_version.is_empty() {
-                                // For repository profiles, prefer version from codename if available
+
                                 let cleaned = if profile_data.codename.starts_with("nvidia-") {
-                                    // Extract from codename first (most reliable for repo profiles)
+
                                     if let Some(version_from_codename) = profile_data.codename.strip_prefix("nvidia-") {
                                         let clean: String = version_from_codename
                                             .chars()
@@ -1992,11 +1940,11 @@ impl DeviceTab {
                                         if !clean.is_empty() && clean.matches('.').count() >= 1 {
                                             clean
                                         } else {
-                                            // Fallback: clean up concatenated versions
+
                                             if driver_version.contains("580") && driver_version.contains("390") {
-                                                // Multiple versions concatenated - extract the one matching the profile
+
                                                 if profile_data.codename.contains("580") {
-                                                    // Try to extract 580.x.x.x
+
                                                     if let Some(start) = driver_version.find("580") {
                                                         let rest = &driver_version[start..];
                                                         let clean: String = rest
@@ -2012,7 +1960,7 @@ impl DeviceTab {
                                                         driver_version
                                                     }
                                                 } else if profile_data.codename.contains("390") {
-                                                    // Try to extract 390.x.x
+
                                                     if let Some(start) = driver_version.find("390") {
                                                         let rest = &driver_version[start..];
                                                         let clean: String = rest
@@ -2031,7 +1979,7 @@ impl DeviceTab {
                                                     driver_version
                                                 }
                                             } else {
-                                                // Single version - just clean it
+
                                                 driver_version
                                                     .chars()
                                                     .take_while(|c| c.is_ascii_digit() || *c == '.')
@@ -2039,11 +1987,11 @@ impl DeviceTab {
                                             }
                                         }
                                     } else {
-                                        // Fallback: clean up concatenated versions
+
                                         if driver_version.contains("580") && driver_version.contains("390") {
-                                            // Multiple versions concatenated - extract the one matching the profile
+
                                             if profile_data.codename.contains("580") {
-                                                // Try to extract 580.x.x.x
+
                                                 if let Some(start) = driver_version.find("580") {
                                                     let rest = &driver_version[start..];
                                                     let clean: String = rest
@@ -2059,7 +2007,7 @@ impl DeviceTab {
                                                     driver_version
                                                 }
                                             } else if profile_data.codename.contains("390") {
-                                                // Try to extract 390.x.x
+
                                                 if let Some(start) = driver_version.find("390") {
                                                     let rest = &driver_version[start..];
                                                     let clean: String = rest
@@ -2078,7 +2026,7 @@ impl DeviceTab {
                                                 driver_version
                                             }
                                         } else {
-                                            // Single version - just clean it
+
                                             driver_version
                                                 .chars()
                                                 .take_while(|c| c.is_ascii_digit() || *c == '.')
@@ -2086,7 +2034,7 @@ impl DeviceTab {
                                         }
                                     }
                                 } else if profile_data.codename.starts_with("mesa-") {
-                                    // Extract from Mesa codename
+
                                     if let Some(version_from_codename) = profile_data.codename.strip_prefix("mesa-") {
                                         let clean: String = version_from_codename
                                             .chars()
@@ -2095,21 +2043,21 @@ impl DeviceTab {
                                         if !clean.is_empty() && clean.matches('.').count() >= 1 {
                                             clean
                                         } else {
-                                            // Fallback: clean the version string
+
                                             driver_version
                                                 .chars()
                                                 .take_while(|c| c.is_ascii_digit() || *c == '.')
                                                 .collect()
                                         }
                                     } else {
-                                        // Fallback: clean the version string
+
                                         driver_version
                                             .chars()
                                             .take_while(|c| c.is_ascii_digit() || *c == '.')
                                             .collect()
                                     }
                                 } else {
-                                    // For other profiles, just clean the version
+
                                     driver_version
                                         .chars()
                                         .take_while(|c| c.is_ascii_digit() || *c == '.')
@@ -2132,8 +2080,6 @@ impl DeviceTab {
                                     .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings))))
                             );
                         }
-
-                        // Show repository if available
                         if let Some(repo) = profile.repository() {
                             info_rows = info_rows.push(
                                 text(format!("Repository: {}", repo))
@@ -2141,8 +2087,6 @@ impl DeviceTab {
                                     .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                             );
                         }
-
-                        // Show package size if available
                         if let Some(size) = profile.package_size() {
                             info_rows = info_rows.push(
                                 text(format!("Total Size: {}", size))
@@ -2150,8 +2094,6 @@ impl DeviceTab {
                                     .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings))))
                             );
                         }
-
-                        // Show dependencies count if available
                         if let Some(deps) = profile.dependencies() {
                             if !deps.is_empty() {
                                 info_rows = info_rows.push(
@@ -2224,8 +2166,6 @@ impl DeviceTab {
 
     fn view_profiles_section_usb(&self, theme: &crate::gui::Theme, material_font: &iced::Font, dev_type: DeviceType, class: &str, device_idx: usize, profiles: &[Arc<PreCheckedUsbProfile>], settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
-
-        // Larger font sizes for better readability
         let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
@@ -2243,8 +2183,6 @@ impl DeviceTab {
 
         let mut profile_cards = column![].spacing(10);
 
-        // Sort profiles by priority
-        // Create a Vec from the slice for sorting (Arc cloning is cheap)
         let mut sorted_profiles: Vec<_> = profiles.iter().cloned().collect();
         sorted_profiles.sort_by_key(|p| p.profile().priority);
 
@@ -2252,8 +2190,6 @@ impl DeviceTab {
             let profile_data = profile.profile();
             let is_installed = profile.installed();
             let is_selected = self.selected_profiles.contains(&profile_data.codename);
-
-            // Checkbox for selection (only show for uninstalled profiles)
             let codename_clone = profile_data.codename.clone();
             let class_clone = class.to_string();
             let checkbox: Element<Message> = if !is_installed {
@@ -2334,12 +2270,10 @@ impl DeviceTab {
             } else {
                 Space::with_width(Length::Shrink).into()
             };
-
-            // Format profile name properly - capitalize NVIDIA, etc.
             let display_name = if profile_data.i18n_desc.contains("NVIDIA") {
                 profile_data.i18n_desc.clone()
             } else if profile_data.codename.starts_with("nvidia-") {
-                // Extract version and format as "NVIDIA Graphics Driver X.X.X"
+
                 if let Some(version) = profile_data.codename.strip_prefix("nvidia-") {
                     format!("NVIDIA Graphics Driver {}", version)
                 } else {
@@ -2384,7 +2318,7 @@ impl DeviceTab {
                         .size(body_font_size * 0.9)
                         .style(iced::theme::Text::Color(theme.secondary_text_with_settings(Some(settings)))),
                     {
-                        // Use cached driver version (loaded asynchronously)
+
                         if let Some(driver_version) = profile.driver_version() {
                             if !driver_version.is_empty() {
                                 row![
@@ -2452,36 +2386,28 @@ impl DeviceTab {
     }
 }
 
-// Helper functions
-// Load driver versions and installed status for all profiles asynchronously
 async fn load_profile_versions(pci_profiles: Vec<Arc<PreCheckedPciProfile>>, usb_profiles: Vec<Arc<PreCheckedUsbProfile>>) -> () {
     use tokio::task;
-
-    // Load PCI profile versions and installed status in parallel
     let pci_handles: Vec<_> = pci_profiles.into_iter().map(|profile| {
         let profile_clone = profile.clone();
         task::spawn_blocking(move || {
-            // Update installed status (this can be slow, so do it in background)
+
             profile_clone.update_installed();
-            // Extract driver version
+
             let version = extract_driver_version_sync(&profile_clone.profile());
             profile_clone.set_driver_version(Some(version));
         })
     }).collect();
-
-    // Load USB profile versions and installed status in parallel
     let usb_handles: Vec<_> = usb_profiles.into_iter().map(|profile| {
         let profile_clone = profile.clone();
         task::spawn_blocking(move || {
-            // Update installed status (this can be slow, so do it in background)
+
             profile_clone.update_installed();
-            // Extract driver version
+
             let version = extract_driver_version_sync_usb(&profile_clone.profile());
             profile_clone.set_driver_version(Some(version));
         })
     }).collect();
-
-    // Wait for all to complete (but don't block UI)
     for handle in pci_handles {
         let _ = handle.await;
     }
@@ -2489,16 +2415,14 @@ async fn load_profile_versions(pci_profiles: Vec<Arc<PreCheckedPciProfile>>, usb
         let _ = handle.await;
     }
 }
-
-// Extract driver version synchronously (called from background thread)
 fn extract_driver_version_sync(profile: &CfhdbPciProfile) -> String {
-    // For repository-based NVIDIA profiles, extract from codename/description first
+
     if profile.vendor_ids.contains(&"10de".to_string()) && profile.priority == 100 {
-        // Try to extract version from codename (format: "nvidia-580.95.05" or "nvidia-390.157")
+
         if let Some(version_part) = profile.codename.strip_prefix("nvidia-") {
-            // Check if it's a valid version (has at least one dot and digits)
+
             if version_part.matches('.').count() >= 1 && version_part.chars().any(|c| c.is_ascii_digit()) {
-                // Extract just the version part (stop at first non-digit/non-dot character)
+
                 let clean_version: String = version_part
                     .chars()
                     .take_while(|c| c.is_ascii_digit() || *c == '.')
@@ -2508,30 +2432,28 @@ fn extract_driver_version_sync(profile: &CfhdbPciProfile) -> String {
                 }
             }
         }
-        // If not found, try to extract from description
+
         if profile.i18n_desc.contains("Driver ") {
-            // Look for pattern like "NVIDIA Graphics Driver 580.95.05" or "NVIDIA Graphics Driver 390.157"
+
             let parts: Vec<&str> = profile.i18n_desc.split("Driver ").collect();
             if parts.len() > 1 {
                 let version_part = parts[1].trim();
-                // Extract just the version part (stop at first non-digit/non-dot character)
+
                 let clean_version: String = version_part
                     .chars()
                     .take_while(|c| c.is_ascii_digit() || *c == '.')
                     .collect();
-                // Check if it looks like a version (contains dots and numbers)
+
                 if clean_version.matches('.').count() >= 1 && clean_version.chars().any(|c| c.is_ascii_digit()) {
                     return clean_version;
                 }
             }
         }
     }
-
-    // For repository-based Mesa profiles, extract from codename/description
     if profile.codename.starts_with("mesa-") && profile.priority == 90 {
-        // Try to extract version from codename (format: "mesa-25.2.4")
+
         if let Some(version_part) = profile.codename.strip_prefix("mesa-") {
-            // Extract just the version part (stop at first non-digit/non-dot character)
+
             let clean_version: String = version_part
                 .chars()
                 .take_while(|c| c.is_ascii_digit() || *c == '.')
@@ -2540,7 +2462,7 @@ fn extract_driver_version_sync(profile: &CfhdbPciProfile) -> String {
                 return clean_version;
             }
         }
-        // If not found, try to extract from description
+
         if profile.i18n_desc.contains("Driver ") {
             let parts: Vec<&str> = profile.i18n_desc.split("Driver ").collect();
             if parts.len() > 1 {
@@ -2555,8 +2477,6 @@ fn extract_driver_version_sync(profile: &CfhdbPciProfile) -> String {
             }
         }
     }
-
-    // Try to extract from package names first (fast, no blocking)
     let mut version = extract_driver_version_from_packages_fast(&profile.packages);
     if version.is_empty() {
         version = extract_driver_version_from_install_script_fast(&profile.install_script);
@@ -2572,12 +2492,10 @@ fn extract_driver_version_sync_usb(profile: &CfhdbUsbProfile) -> String {
     version
 }
 
-// Fast version extraction (no blocking I/O, just parsing)
-// NOTE: This function should NOT call get_package_version() as it's supposed to be non-blocking
 fn extract_driver_version_from_packages_fast(packages: &Option<Vec<String>>) -> String {
     if let Some(pkgs) = packages {
         for pkg in pkgs {
-            // Look for patterns like "nvidia-driver-580", "nvidia-driver-580.95", etc.
+
             if pkg.contains("nvidia-driver") {
                 if let Some(version_part) = pkg.strip_prefix("nvidia-driver-") {
                     if version_part.chars().any(|c| c.is_ascii_digit()) {
@@ -2586,7 +2504,7 @@ fn extract_driver_version_from_packages_fast(packages: &Option<Vec<String>>) -> 
                         }
                         if let Some(major_version) = version_part.split('.').next() {
                             if major_version.chars().all(|c| c.is_ascii_digit()) {
-                                // Return major version only (full version will be queried separately if needed)
+
                                 return major_version.to_string();
                             }
                         }
@@ -2594,7 +2512,7 @@ fn extract_driver_version_from_packages_fast(packages: &Option<Vec<String>>) -> 
                 }
             }
             if pkg.contains("akmod-nvidia") {
-                // Try to extract from package name (format: "akmod-nvidia-580.95.05")
+
                 if let Some(version_part) = pkg.strip_prefix("akmod-nvidia-") {
                     if version_part.chars().any(|c| c.is_ascii_digit()) {
                         if version_part.contains('.') && version_part.matches('.').count() >= 2 {
@@ -2613,8 +2531,6 @@ fn extract_driver_version_from_packages_fast(packages: &Option<Vec<String>>) -> 
     String::new()
 }
 
-// Fast version extraction from install script (no blocking I/O, just parsing)
-// NOTE: This function should NOT call get_package_version() as it's supposed to be non-blocking
 fn extract_driver_version_from_install_script_fast(install_script: &Option<String>) -> String {
     if let Some(script) = install_script {
         for line in script.lines() {
@@ -2629,7 +2545,7 @@ fn extract_driver_version_from_install_script_fast(install_script: &Option<Strin
                                 }
                                 if let Some(major_version) = version_part.split('.').next() {
                                     if major_version.chars().all(|c| c.is_ascii_digit()) {
-                                        // Return major version only (full version will be queried separately if needed)
+
                                         return major_version.to_string();
                                     }
                                 }
@@ -2642,28 +2558,22 @@ fn extract_driver_version_from_install_script_fast(install_script: &Option<Strin
     }
     String::new()
 }
-
-// Get package version from package manager (dnf/rpm)
-// This uses std::thread to avoid blocking the async runtime
-// Returns the version that would be installed (not just what's available)
 #[allow(dead_code)]
 fn get_package_version(package_name: &str) -> Result<String, ()> {
     let pkg = package_name.to_string();
-    // Use a thread to run the blocking command
+
     let handle = std::thread::spawn(move || {
-        // First, try dnf repoquery to get the exact version that would be installed
-        // This is the most accurate method as it respects repository priorities
         if let Ok(output) = std::process::Command::new("dnf")
             .args(["repoquery", "--qf", "%{VERSION}", "--whatprovides", &pkg])
             .output()
         {
             if output.status.success() {
                 if let Ok(versions) = String::from_utf8(output.stdout) {
-                    // Get the first (highest priority) version
+
                     if let Some(first_line) = versions.lines().next() {
                         let version = first_line.trim();
                         if !version.is_empty() && version.contains('.') {
-                            // Extract just the version part (before the dash if present)
+
                             let version = version.split('-').next().unwrap_or(version);
                             if version.chars().any(|c| c.is_ascii_digit()) {
                                 return Ok(version.to_string());
@@ -2673,8 +2583,6 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
                 }
             }
         }
-
-        // Fallback: Try dnf list to see what's available (shows what would be installed)
         if let Ok(output) = std::process::Command::new("dnf")
             .args(["list", "--available", "--quiet", &pkg])
             .output()
@@ -2682,16 +2590,16 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
             if output.status.success() {
                 if let Ok(info) = String::from_utf8(output.stdout) {
                     for line in info.lines() {
-                        // Skip header lines
+
                         if line.contains("Available Packages") || line.contains("Installed Packages") || line.contains("Last metadata") {
                             continue;
                         }
-                        // Format: "package-name.arch  version-release    repo"
+
                         let parts: Vec<&str> = line.split_whitespace().collect();
                         if parts.len() >= 2 {
-                            // The version-release is in the second column
+
                             let version_release = parts[1];
-                            // Extract version part (before the dash)
+
                             if let Some(version) = version_release.split('-').next() {
                                 if version.contains('.') && version.chars().any(|c| c.is_ascii_digit()) {
                                     return Ok(version.to_string());
@@ -2702,8 +2610,6 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
                 }
             }
         }
-
-        // Try dnf info as another fallback
         if let Ok(output) = std::process::Command::new("dnf")
             .args(["info", "--available", "--quiet", &pkg])
             .output()
@@ -2713,10 +2619,8 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
                     for line in info.lines() {
                         if line.starts_with("Version") {
                             if let Some(version) = line.split_whitespace().nth(1) {
-                                // Version format is usually "580.99.99" or "580.99.99-1.fc43"
-                                // Extract just the version part (before the dash if present)
                                 let version = version.split('-').next().unwrap_or(version);
-                                // Check if it looks like a proper version (contains dots and numbers)
+
                                 if version.contains('.') && version.chars().any(|c| c.is_ascii_digit()) {
                                     return Ok(version.to_string());
                                 }
@@ -2726,8 +2630,6 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
                 }
             }
         }
-
-        // Try rpm -q for installed packages (if already installed)
         if let Ok(output) = std::process::Command::new("rpm")
             .args(["-q", "--qf", "%{VERSION}", &pkg])
             .output()
@@ -2747,8 +2649,6 @@ fn get_package_version(package_name: &str) -> Result<String, ()> {
 
     handle.join().unwrap_or(Err(()))
 }
-
-// Query package size and dependencies (batched for efficiency)
 fn query_package_info(profile: &PreCheckedPciProfile, package_names: &[String]) {
     use std::process::Command;
     use std::collections::HashSet;
@@ -2756,8 +2656,6 @@ fn query_package_info(profile: &PreCheckedPciProfile, package_names: &[String]) 
     if package_names.is_empty() {
         return;
     }
-
-    // Query total size of all packages in one batch query
     let mut total_size = 0u64;
 
     if let Ok(output) = Command::new("dnf")
@@ -2778,8 +2676,6 @@ fn query_package_info(profile: &PreCheckedPciProfile, package_names: &[String]) 
             }
         }
     }
-
-    // Query dependencies in one batch query
     let mut all_deps = HashSet::new();
 
     if let Ok(output) = Command::new("dnf")
@@ -2798,8 +2694,6 @@ fn query_package_info(profile: &PreCheckedPciProfile, package_names: &[String]) 
             }
         }
     }
-
-    // Format total size
     let size_str = if total_size > 0 {
         if total_size > 1024 * 1024 * 1024 {
             format!("{:.2} GB", total_size as f64 / (1024.0 * 1024.0 * 1024.0))
@@ -2817,21 +2711,17 @@ fn query_package_info(profile: &PreCheckedPciProfile, package_names: &[String]) 
     profile.set_package_size(Some(size_str));
     profile.set_dependencies(Some(all_deps.into_iter().collect()));
 }
-
-// Extract repository names from install script
 fn extract_repositories_from_script(install_script: &Option<String>) -> Vec<String> {
     let mut repos = Vec::new();
     if let Some(script) = install_script {
         for line in script.lines() {
-            // Look for dnf config-manager commands that enable/disable repos
+
             if line.contains("dnf config-manager") && line.contains("setopt") {
-                // Extract repo names from patterns like:
-                // "dnf config-manager setopt nobara-nvidia-beta.enabled=0"
-                // "dnf config-manager setopt nobara-nvidia-new-feature.enabled=1"
+
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 for part in &parts {
                     if part.contains(".enabled=") {
-                        // Extract repo name (before .enabled=)
+
                         if let Some(repo_name) = part.split(".enabled=").next() {
                             let enabled = part.contains("=1");
                             if enabled {
@@ -2841,9 +2731,9 @@ fn extract_repositories_from_script(install_script: &Option<String>) -> Vec<Stri
                     }
                 }
             }
-            // Also look for dnf install commands that might reference repos
+
             if line.contains("dnf install") && line.contains("--enablerepo") {
-                // Extract repo names from --enablerepo flags
+
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 for (i, part) in parts.iter().enumerate() {
                     if *part == "--enablerepo" && i + 1 < parts.len() {
@@ -2853,29 +2743,25 @@ fn extract_repositories_from_script(install_script: &Option<String>) -> Vec<Stri
             }
         }
     }
-    // Remove duplicates and sort
+
     repos.sort();
     repos.dedup();
     repos
 }
-
-// Get driver version for a given driver name
 fn get_driver_version(driver: &str) -> String {
     if driver.is_empty() || driver == "none" {
         return String::new();
     }
 
-    // For NVIDIA drivers, check /proc/driver/nvidia/version first
-    // Format: "NVRM version: NVIDIA UNIX Open Kernel Module for x86_64  580.95.05  Release Build ..."
     if driver == "nvidia" {
         if let Ok(version) = std::fs::read_to_string("/proc/driver/nvidia/version") {
             if let Some(line) = version.lines().next() {
-                // Find the version number (format: X.YY.ZZ) after "x86_64" or "Kernel Module"
+
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 for part in &parts {
-                    // Look for a pattern like "580.95.05" (numbers with dots)
+
                     if part.contains('.') && part.chars().all(|c| c.is_ascii_digit() || c == '.') {
-                        // Count dots to ensure it's a version number (at least 2 dots)
+
                         if part.matches('.').count() >= 1 {
                             return part.to_string();
                         }
@@ -2884,8 +2770,6 @@ fn get_driver_version(driver: &str) -> String {
             }
         }
     }
-
-    // Try to get version using modinfo
     if let Ok(output) = std::process::Command::new("modinfo")
         .arg(driver)
         .arg("-F")
@@ -2901,8 +2785,6 @@ fn get_driver_version(driver: &str) -> String {
             }
         }
     }
-
-    // If modinfo version fails, try vermagic
     if let Ok(output) = std::process::Command::new("modinfo")
         .arg(driver)
         .arg("-F")
@@ -2913,7 +2795,7 @@ fn get_driver_version(driver: &str) -> String {
             if let Ok(vermagic) = String::from_utf8(output.stdout) {
                 let vermagic = vermagic.trim();
                 if !vermagic.is_empty() {
-                    // Extract version from vermagic (format: "5.x.x-MODULE_VERSION x86_64")
+
                     if let Some(version) = vermagic.split_whitespace().next() {
                         return version.to_string();
                     }
@@ -2926,7 +2808,7 @@ fn get_driver_version(driver: &str) -> String {
 }
 
 fn get_pci_class_name(class: &str) -> String {
-    // Map PCI class codes to names
+
     match class {
         "0300" => "VGA Compatible Controller".to_string(),
         "0200" => "Ethernet Controller".to_string(),
@@ -2937,7 +2819,7 @@ fn get_pci_class_name(class: &str) -> String {
 }
 
 fn get_usb_class_name(class: &str) -> String {
-    // Map USB class codes to names
+
     match class {
         "01" => "Audio".to_string(),
         "02" => "Communications".to_string(),
@@ -2986,26 +2868,18 @@ impl From<CategoryType> for DeviceType {
         }
     }
 }
-
-// Query repositories for NVIDIA driver packages
 async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, String> {
     use std::process::Command;
     use tokio::task;
-
-    // Run dnf repoquery in a blocking task to avoid blocking the async runtime
     let result = task::spawn_blocking(move || {
-        // Query rpmfusion (free and non-free) and negativo17 repositories for NVIDIA driver packages
-        // Query each package pattern in parallel using rayon for better performance
         use rayon::prelude::*;
 
         let patterns = vec!["nvidia-driver*", "akmod-nvidia*", "xorg-x11-drv-nvidia*"];
         let all_packages: Vec<String> = patterns
             .par_iter()
             .flat_map(|pattern| {
-                // Query from all enabled repos first (general query)
-                let mut results = Vec::new();
 
-                // Query from RPM Fusion free repositories
+                let mut results = Vec::new();
                 if let Ok(output) = Command::new("dnf")
                     .args(&["repoquery", "--available", "--quiet", "--qf", "%{name}|%{version}|%{repoid}", "--enablerepo=rpmfusion-free*"])
                     .arg(pattern)
@@ -3020,8 +2894,6 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                     }
                 }
 
-                // Query from RPM Fusion non-free repositories
-                // Query each repo separately to ensure we get all packages
                 let rpmfusion_nonfree_repos = vec![
                     "rpmfusion-nonfree",
                     "rpmfusion-nonfree-updates",
@@ -3043,8 +2915,6 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                         }
                     }
                 }
-
-                // Query from negativo17/fedora-nvidia repositories
                 if let Ok(output) = Command::new("dnf")
                     .args(&["repoquery", "--available", "--quiet", "--qf", "%{name}|%{version}|%{repoid}"])
                     .arg(pattern)
@@ -3063,26 +2933,16 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
             })
             .collect();
 
-        // Process the combined results
-        // Note: dnf repoquery --quiet outputs all results on one line without newlines
-        // Format: name|version|repoidname|version|repoid...
-        // We need to split on package name patterns to separate entries
         let mut packages: Vec<NvidiaDriverPackage> = Vec::new();
-
-        // Join all lines (they're already on one line from --quiet)
         let all_text = all_packages.join("");
 
-        // Split by finding package name patterns
-        // Package names start with: akmod-nvidia, nvidia-driver, or xorg-x11-drv-nvidia
         let package_patterns = vec!["akmod-nvidia", "nvidia-driver", "xorg-x11-drv-nvidia"];
-
-        // Find all package name positions
         let mut positions = Vec::new();
         for pattern in &package_patterns {
             let mut search_pos = 0;
             while let Some(pos) = all_text[search_pos..].find(pattern) {
                 let absolute_pos = search_pos + pos;
-                // Check if this is at the start or after a pipe (new entry)
+
                 if absolute_pos == 0 || all_text.chars().nth(absolute_pos - 1) == Some('|') {
                     positions.push(absolute_pos);
                 }
@@ -3091,8 +2951,6 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
         }
         positions.sort();
         positions.dedup();
-
-        // Parse each entry
         for i in 0..positions.len() {
             let start = positions[i];
             let end = if i + 1 < positions.len() {
@@ -3107,9 +2965,9 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
             if parts.len() >= 3 {
                 let name = parts[0].to_string();
                 let version = parts[1].to_string();
-                // The repo might be concatenated with the next package name, so extract just the repo part
+
                 let repo_full = parts[2];
-                // Find where the repo name ends (before the next package name pattern)
+
                 let repo = if let Some(next_pkg_pos) = package_patterns.iter()
                     .filter_map(|pattern| repo_full.find(pattern))
                     .min()
@@ -3119,16 +2977,12 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
                     repo_full.to_string()
                 };
 
-                // Include packages from:
-                // - RPM Fusion free repositories (rpmfusion-free, rpmfusion-free-updates)
-                // - RPM Fusion non-free repositories (rpmfusion-nonfree, rpmfusion-nonfree-updates, rpmfusion-nonfree-nvidia-driver)
-                // - negativo17/fedora-nvidia repositories
                 let is_rpmfusion_free = repo.contains("rpmfusion-free");
                 let is_rpmfusion_nonfree = repo.contains("rpmfusion-nonfree");
                 let is_negativo17 = repo.contains("negativo17") || repo.contains("negativo") || repo.contains("fedora-nvidia");
 
                 if is_rpmfusion_free || is_rpmfusion_nonfree || is_negativo17 {
-                    // Extract driver version from package name or version
+
                     let driver_version = extract_nvidia_version(&name, &version);
 
                     packages.push(NvidiaDriverPackage {
@@ -3168,51 +3022,41 @@ struct MesaDriverPackage {
 }
 
 fn extract_nvidia_version(package_name: &str, package_version: &str) -> String {
-    // Handle legacy driver series like akmod-nvidia-470xx and akmod-nvidia-390xx
-    // These packages have the series in the name (e.g., "470xx") and full version in package_version
     if package_name.starts_with("akmod-nvidia-") {
-        // Check for legacy series like "470xx" or "390xx"
+
         if let Some(suffix) = package_name.strip_prefix("akmod-nvidia-") {
-            // Check if it's a legacy series (ends with "xx")
+
             if suffix.ends_with("xx") {
-                // Extract the major version number (e.g., "470" from "470xx")
+
                 if let Some(major_version) = suffix.strip_suffix("xx") {
-                    // Use the package version which contains the full version (e.g., "470.256.02")
+
                     if let Some(version) = package_version.split('-').next() {
-                        // Verify it starts with the major version
+
                         if version.starts_with(&format!("{}.", major_version)) {
                             return version.to_string();
                         }
-                        // If version doesn't match, still return it as it's the actual driver version
+
                         if version.matches('.').count() >= 1 && version.chars().any(|c| c.is_ascii_digit()) {
                             return version.to_string();
                         }
                     }
-                    // Fallback: return major version
+
                     return major_version.to_string();
                 }
             }
         }
     }
-
-    // Try to extract from akmod-nvidia package version (for standard packages like akmod-nvidia)
     if package_name == "akmod-nvidia" || (package_name.contains("akmod-nvidia") && !package_name.contains("-")) {
-        // akmod-nvidia version format is usually like "580.95.05-1.fc40"
-        // Extract the version part before the first dash
         if let Some(version) = package_version.split('-').next() {
-            // Check if it's a proper version format (e.g., "580.95.05")
+
             if version.matches('.').count() >= 2 && version.chars().any(|c| c.is_ascii_digit()) {
                 return version.to_string();
             }
         }
     }
-
-    // Try to extract version from package name (e.g., "nvidia-driver-580" -> "580")
     if let Some(version_part) = package_name.strip_prefix("nvidia-driver-") {
-        // If it's a major version like "580", we need to query for the full version
+
         if let Ok(major_version) = version_part.parse::<u32>() {
-            // Try to get full version from akmod-nvidia package for this series
-            // Query dnf for akmod-nvidia packages matching this major version
             if let Ok(output) = std::process::Command::new("dnf")
                 .args(&["repoquery", "--available", "--quiet", "--qf", "%{VERSION}"])
                 .arg("akmod-nvidia")
@@ -3220,13 +3064,13 @@ fn extract_nvidia_version(package_name: &str, package_version: &str) -> String {
             {
                 if output.status.success() {
                     if let Ok(versions) = String::from_utf8(output.stdout) {
-                        // Find the version that matches this major version series
+
                         for line in versions.lines() {
                             let version = line.trim();
                             if let Some(version_part) = version.split('-').next() {
-                                // Check if version starts with the major version
+
                                 if version_part.starts_with(&format!("{}.", major_version)) {
-                                    // This is a full version like "580.95.05"
+
                                     if version_part.matches('.').count() >= 2 {
                                         return version_part.to_string();
                                     }
@@ -3236,12 +3080,10 @@ fn extract_nvidia_version(package_name: &str, package_version: &str) -> String {
                     }
                 }
             }
-            // Fallback: return major version if we can't find full version
+
             return version_part.to_string();
         }
     }
-
-    // Try to extract from xorg-x11-drv-nvidia package version
     if package_name.contains("xorg-x11-drv-nvidia") {
         if let Some(version) = package_version.split('-').next() {
             if version.matches('.').count() >= 2 {
@@ -3249,38 +3091,24 @@ fn extract_nvidia_version(package_name: &str, package_version: &str) -> String {
             }
         }
     }
-
-    // Fallback: use package version (extract before dash)
     package_version.split('-').next().unwrap_or(package_version).to_string()
 }
-
-// Extract Mesa version from package name and version
 fn extract_mesa_version(package_name: &str, package_version: &str) -> String {
-    // Mesa packages typically have versions like "25.2.4" or "25.2.6"
-    // The main package is mesa-dri-drivers
     if package_name.contains("mesa-dri-drivers") || package_name.contains("mesa-libGL") || package_name.contains("mesa-vulkan-drivers") {
-        // Extract version from package version (format: "25.2.4-1.fc40")
+
         if let Some(version) = package_version.split('-').next() {
-            // Check if it's a proper version format (e.g., "25.2.4")
+
             if version.matches('.').count() >= 1 && version.chars().any(|c| c.is_ascii_digit()) {
                 return version.to_string();
             }
         }
     }
-
-    // Fallback: use package version (extract before dash)
     package_version.split('-').next().unwrap_or(package_version).to_string()
 }
-
-// Query repositories for Mesa driver packages
 async fn query_mesa_driver_packages() -> Result<Vec<MesaDriverPackage>, String> {
     use std::process::Command;
     use tokio::task;
-
-    // Run dnf repoquery in a blocking task to avoid blocking the async runtime
     let result = task::spawn_blocking(move || {
-        // Query Mesa driver packages from all enabled repositories
-        // Query each package pattern in parallel using rayon for better performance
         use rayon::prelude::*;
 
         let patterns = vec!["mesa-dri-drivers", "mesa-libGL", "mesa-vulkan-drivers"];
@@ -3304,8 +3132,6 @@ async fn query_mesa_driver_packages() -> Result<Vec<MesaDriverPackage>, String> 
                 Vec::new()
             })
             .collect();
-
-        // Process the combined results
         let packages: Vec<MesaDriverPackage> = all_packages
             .into_iter()
             .filter_map(|line| {
@@ -3315,8 +3141,6 @@ async fn query_mesa_driver_packages() -> Result<Vec<MesaDriverPackage>, String> 
                     let version = parts[1].to_string();
                     let repo = parts[2].to_string();
 
-                    // Include packages from all repositories (Mesa is in Fedora repos)
-                    // Extract driver version from package name or version
                     let driver_version = extract_mesa_version(&name, &version);
 
                     Some(MesaDriverPackage {
@@ -3339,34 +3163,24 @@ async fn query_mesa_driver_packages() -> Result<Vec<MesaDriverPackage>, String> 
     result
 }
 
-// Create Mesa profiles from repository packages
-// Returns (profile, repository_name, package_names)
 fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(CfhdbPciProfile, String, Vec<String>)> {
     let mut profiles = Vec::new();
-
-    // Group packages by driver version
     let mut version_groups: HashMap<String, Vec<MesaDriverPackage>> = HashMap::new();
     for pkg in packages {
         version_groups.entry(pkg.driver_version.clone())
             .or_insert_with(Vec::new)
             .push(pkg);
     }
-
-    // Create a profile for each driver version
     for (driver_version, pkgs) in version_groups {
-        // Determine repository (prefer updates, then fedora)
+
         let repo = pkgs.iter()
             .find(|p| p.repo.contains("updates"))
             .map(|p| p.repo.clone())
             .or_else(|| pkgs.first().map(|p| p.repo.clone()))
             .unwrap_or_default();
-
-        // Build install script - Mesa is in standard Fedora repos
         let package_names: Vec<String> = pkgs.iter()
             .map(|p| p.name.clone())
             .collect();
-
-        // Store repository name for display (clean it up)
         let repo_display = if repo.contains("updates") {
             "Fedora Updates".to_string()
         } else if repo.contains("fedora") {
@@ -3377,19 +3191,15 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
 
         let install_script = format!("dnf install -y {}", package_names.join(" "));
 
-        // Create profile description with full driver version
-        // Format: "Mesa Graphics Driver 25.2.4"
         let desc = if driver_version.matches('.').count() >= 2 {
-            // Full version like "25.2.4"
+
             format!("Mesa Graphics Driver {}", driver_version)
         } else if driver_version.matches('.').count() >= 1 {
-            // Partial version like "25.2"
+
             format!("Mesa Graphics Driver {}", driver_version)
         } else {
             format!("Mesa Graphics Driver {}", driver_version)
         };
-
-
         let profile = CfhdbPciProfile {
             codename: format!("mesa-{}", driver_version),
             i18n_desc: desc.clone(),
@@ -3418,8 +3228,6 @@ fn create_mesa_profiles_from_repos(packages: Vec<MesaDriverPackage>) -> Vec<(Cfh
     profiles
 }
 
-// Compare version strings (e.g., "580.105.08" vs "580.95.05")
-// Returns Ordering::Greater if a > b, Ordering::Less if a < b, Ordering::Equal if a == b
 fn version_compare(a: &str, b: &str) -> std::cmp::Ordering {
     let a_parts: Vec<u32> = a.split('.').filter_map(|s| s.parse().ok()).collect();
     let b_parts: Vec<u32> = b.split('.').filter_map(|s| s.parse().ok()).collect();
@@ -3438,51 +3246,37 @@ fn version_compare(a: &str, b: &str) -> std::cmp::Ordering {
     std::cmp::Ordering::Equal
 }
 
-// Create NVIDIA profiles from repository packages
-// Returns (profile, repository_name, package_names)
 fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<(CfhdbPciProfile, String, Vec<String>)> {
     let mut profiles = Vec::new();
 
-    // Group packages by driver version directly (use the version already extracted from packages)
-    // Don't query dnf here to avoid blocking - full versions will be extracted later if needed
     let mut version_groups: HashMap<String, Vec<NvidiaDriverPackage>> = HashMap::new();
     for pkg in packages {
-        // Use the driver version as-is (it should already be extracted from package name/version)
-        // If it's only a major version, that's fine - we'll display it as "XXX Series" or extract full version later
         version_groups.entry(pkg.driver_version.clone())
             .or_insert_with(Vec::new)
             .push(pkg);
     }
 
-    // Create a profile for each driver version
-    // Sort by version to ensure consistent ordering (newer versions first)
     let mut version_groups_vec: Vec<(String, Vec<NvidiaDriverPackage>)> = version_groups.into_iter().collect();
     version_groups_vec.sort_by(|a, b| {
-        // Compare versions numerically (e.g., 580.105.08 > 580.95.05)
+
         version_compare(&b.0, &a.0)
     });
 
     for (driver_version, pkgs) in version_groups_vec {
-        // Determine repository (prefer negativo17/fedora-nvidia, then rpmfusion)
-        // For RPM Fusion, prefer rpmfusion-nonfree-nvidia-driver if available (newer driver repo)
         let repo = pkgs.iter()
             .find(|p| p.repo.contains("negativo17") || p.repo.contains("negativo") || p.repo.contains("fedora-nvidia"))
             .map(|p| p.repo.clone())
             .or_else(|| {
-                // Prefer rpmfusion-nonfree-nvidia-driver over rpmfusion-nonfree for newer drivers
+
                 pkgs.iter()
                     .find(|p| p.repo.contains("rpmfusion-nonfree-nvidia-driver"))
                     .map(|p| p.repo.clone())
             })
             .or_else(|| pkgs.first().map(|p| p.repo.clone()))
             .unwrap_or_default();
-
-        // Build install script
         let package_names: Vec<String> = pkgs.iter()
             .map(|p| p.name.clone())
             .collect();
-
-        // Store repository name for display (clean it up)
         let repo_display = if repo.contains("fedora-nvidia") || repo.contains("negativo17") || repo.contains("negativo") {
             "negativo17.org".to_string()
         } else if repo.contains("rpmfusion-nonfree") {
@@ -3494,23 +3288,9 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
         } else {
             repo.clone()
         };
-
-        // Build install script with removal of old NVIDIA drivers first
-        // Use || true to continue even if packages don't exist (graceful removal)
-        // Include legacy driver series in removal (akmod-nvidia-470xx, akmod-nvidia-390xx, etc.)
         let removal_commands = "(dnf remove -y nvidia* || true) && (dnf remove -y kmod-nvidia* || true) && (dnf remove -y akmod-nvidia* || true) && (dnf remove -y dkms-nvidia || true) && (dnf remove -y xorg-x11-drv-nvidia* || true) && (rm -rf /var/lib/dkms/nvidia* || true)";
-
-        // Determine package list based on repository
-        // negativo17 uses: nvidia-driver, nvidia-settings
-        // RPM Fusion uses: akmod-nvidia (pulls in xorg-x11-drv-nvidia automatically)
         let (nvidia_packages, install_script) = if repo.contains("negativo17") || repo.contains("negativo") || repo.contains("fedora-nvidia") {
-            // negativo17 repository - only add if not already present
-            // According to negativo17.org documentation, installation includes:
-            // dnf install nvidia-driver nvidia-driver-cuda nvidia-settings
-            // This will automatically pull in akmod-nvidia and all required dependencies
-            // nvidia-driver-cuda provides CUDA/NVDEC/NVENC support
-            // We avoid nvidia-persistenced (not needed for normal use) and nvidia-xconfig (not required with modular X.org)
-            // nvidia-gpu-firmware is NOT needed - firmware is in nvidia-kmod-common
+
             let packages = vec![
                 "nvidia-driver".to_string(),
                 "nvidia-driver-cuda".to_string(),
@@ -3524,13 +3304,7 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             );
             (packages, script)
         } else if repo.contains("rpmfusion-nonfree") {
-            // RPM Fusion non-free repository
-            // According to rpmfusion.org/Howto/NVIDIA, minimal installation is:
-            // dnf install akmod-nvidia (or akmod-nvidia-470xx, akmod-nvidia-390xx for legacy drivers)
-            // This will automatically pull in xorg-x11-drv-nvidia and all required dependencies
-            // CUDA support is optional via xorg-x11-drv-nvidia-cuda (not installed by default)
 
-            // Find the actual akmod-nvidia package name (could be akmod-nvidia, akmod-nvidia-470xx, etc.)
             let akmod_pkg = pkgs.iter()
                 .find(|p| p.name.starts_with("akmod-nvidia"))
                 .map(|p| p.name.as_str())
@@ -3545,8 +3319,6 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             );
             (packages, script)
         } else if repo.contains("rpmfusion-free") {
-            // RPM Fusion free repository (unlikely for NVIDIA, but handle it)
-            // Find the actual akmod-nvidia package name (could be akmod-nvidia, akmod-nvidia-470xx, etc.)
             let akmod_pkg = pkgs.iter()
                 .find(|p| p.name.starts_with("akmod-nvidia"))
                 .map(|p| p.name.as_str())
@@ -3561,8 +3333,6 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             );
             (packages, script)
         } else {
-            // Fallback: try both RPM Fusion repos (assume RPM Fusion package names)
-            // Find the actual akmod-nvidia package name (could be akmod-nvidia, akmod-nvidia-470xx, etc.)
             let akmod_pkg = pkgs.iter()
                 .find(|p| p.name.starts_with("akmod-nvidia"))
                 .map(|p| p.name.as_str())
@@ -3578,13 +3348,11 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
             (packages, script)
         };
 
-        // Create profile description with full driver version
-        // Format: "NVIDIA Graphics Driver 580.95.05" or "NVIDIA Graphics Driver 390.xx.xx"
         let desc = if driver_version.matches('.').count() >= 2 {
-            // Full version like "580.95.05"
+
             format!("NVIDIA Graphics Driver {}", driver_version)
         } else if driver_version.chars().all(|c| c.is_ascii_digit()) {
-            // Major version only like "580"
+
             format!("NVIDIA Graphics Driver {} Series", driver_version)
         } else {
             format!("NVIDIA Graphics Driver {}", driver_version)
@@ -3617,74 +3385,54 @@ fn create_nvidia_profiles_from_repos(packages: Vec<NvidiaDriverPackage>) -> Vec<
     profiles.sort_by_key(|(p, _, _)| p.priority);
     profiles
 }
-
-// Async function to load all devices
 async fn load_all_devices() -> Result<(
     Vec<(String, Vec<PreCheckedPciDevice>)>,
     Vec<(String, Vec<PreCheckedUsbDevice>)>,
     Vec<Arc<PreCheckedPciProfile>>,
     Vec<Arc<PreCheckedUsbProfile>>,
 ), String> {
-    // Load PCI profiles
-    let mut pci_profiles = load_pci_profiles().await?;
 
-    // Combine all filtering operations into a single pass for better performance
+    let mut pci_profiles = load_pci_profiles().await?;
     pci_profiles.retain(|p| {
-        // Filter out Nobara profiles for NVIDIA devices (vendor_id "10de")
+
         let is_nvidia_nobara = p.vendor_ids.contains(&"10de".to_string()) &&
             p.install_script.as_ref().map(|s| s.contains("nobara") || s.contains("Nobara")).unwrap_or(false);
-
-        // Filter out Mesa profiles from downloaded profiles (we'll use repository versions instead)
         let is_mesa = p.codename.to_lowercase().contains("mesa") ||
             p.i18n_desc.to_lowercase().contains("mesa") ||
             p.install_script.as_ref().map(|s| s.to_lowercase().contains("mesa")).unwrap_or(false);
-
-        // Filter out separate CUDA profiles (CUDA is included in the main driver installation)
         let is_cuda_profile = p.codename.to_lowercase().contains("cuda") ||
             (p.i18n_desc.to_lowercase().contains("cuda") &&
              !p.i18n_desc.to_lowercase().contains("nvidia graphics driver"));
-
-        // Keep profile if it's not a Nobara NVIDIA profile, not a Mesa profile, and not a separate CUDA profile
         !is_nvidia_nobara && !is_mesa && !is_cuda_profile
     });
-
-    // Query repositories for NVIDIA and Mesa drivers in parallel
     let (nvidia_result, mesa_result) = tokio::join!(
         query_nvidia_driver_packages(),
         query_mesa_driver_packages()
     );
 
     let mut repo_profiles_with_info: Vec<(CfhdbPciProfile, String, Vec<String>)> = Vec::new();
-
-    // Process NVIDIA packages
     match nvidia_result {
         Ok(repo_packages) if !repo_packages.is_empty() => {
             let nvidia_profiles = create_nvidia_profiles_from_repos(repo_packages);
             repo_profiles_with_info.extend(nvidia_profiles);
         }
         Ok(_) => {
-            // No packages found, continue
+
         }
         Err(_e) => {
         }
     }
-
-    // Process Mesa packages
     match mesa_result {
         Ok(repo_packages) if !repo_packages.is_empty() => {
             let mesa_profiles = create_mesa_profiles_from_repos(repo_packages);
             repo_profiles_with_info.extend(mesa_profiles);
         }
         Ok(_) => {
-            // No packages found, continue
+
         }
         Err(_e) => {
         }
     }
-
-    // Total PCI profiles after adding repository profiles
-
-    // Convert repository profiles and add them to the list
     let mut all_pci_profiles = pci_profiles;
     let mut repo_info_map: HashMap<String, (String, Vec<String>)> = HashMap::new();
     for (profile, repo_name, package_names) in repo_profiles_with_info {
@@ -3697,14 +3445,10 @@ async fn load_all_devices() -> Result<(
         .into_iter()
         .map(|p| {
             let profile = PreCheckedPciProfile::new(p.clone());
-            // Defer update_installed() to avoid blocking - will be called later in background
-            // profile.update_installed();
-
-            // For NVIDIA profiles from repositories, set the driver version, repository, and query package info
             if p.vendor_ids.contains(&"10de".to_string()) {
-                // Try to extract version from codename (format: "nvidia-580.95.05" or "nvidia-390.157")
+
                 if let Some(version_part) = p.codename.strip_prefix("nvidia-") {
-                    // Extract clean version (stop at first non-digit/non-dot character)
+
                     let clean_version: String = version_part
                         .chars()
                         .take_while(|c| c.is_ascii_digit() || *c == '.')
@@ -3713,32 +3457,30 @@ async fn load_all_devices() -> Result<(
                         profile.set_driver_version(Some(clean_version));
                     }
                 }
-                // If not found, try to extract from description
+
                 else if p.i18n_desc.contains("Driver ") {
-                    // Look for pattern like "NVIDIA Graphics Driver 580.95.05" or "NVIDIA Graphics Driver 390.157"
+
                     let parts: Vec<&str> = p.i18n_desc.split("Driver ").collect();
                     if parts.len() > 1 {
                         let version_part = parts[1].trim();
-                        // Extract clean version (stop at first non-digit/non-dot character)
+
                         let clean_version: String = version_part
                             .chars()
                             .take_while(|c| c.is_ascii_digit() || *c == '.')
                             .collect();
-                        // Check if it looks like a version (contains dots and numbers)
+
                         if !clean_version.is_empty() && clean_version.matches('.').count() >= 1 {
                             profile.set_driver_version(Some(clean_version));
                         }
                     }
                 }
-
-                // Check if this is a repository profile (high priority and has packages)
                 if p.priority == 100 && p.packages.is_some() {
-                    // This is a repository profile - get repo info from the map
+
                     if let Some((repo_name, _package_names)) = repo_info_map.get(&p.codename) {
                         profile.set_repository(Some(repo_name.clone()));
-                        // Package info will be queried in batch later
+
                     } else {
-                        // Fallback: determine repository from install script
+
                         if let Some(pkgs) = &p.packages {
                             if !pkgs.is_empty() {
                                 let repo = if p.install_script.as_ref().map(|s| s.contains("negativo17") || s.contains("negativo")).unwrap_or(false) {
@@ -3753,17 +3495,17 @@ async fn load_all_devices() -> Result<(
                                     None
                                 };
                                 profile.set_repository(repo);
-                                // Package info will be queried in batch later
+
                             }
                         }
                     }
                 }
             }
-            // For Mesa profiles from repositories, set the driver version, repository, and query package info
+
             else if p.codename.starts_with("mesa-") || p.i18n_desc.contains("Mesa") {
-                // Try to extract version from codename (format: "mesa-25.2.4")
+
                 if let Some(version_part) = p.codename.strip_prefix("mesa-") {
-                    // Extract clean version (stop at first non-digit/non-dot character)
+
                     let clean_version: String = version_part
                         .chars()
                         .take_while(|c| c.is_ascii_digit() || *c == '.')
@@ -3772,32 +3514,30 @@ async fn load_all_devices() -> Result<(
                         profile.set_driver_version(Some(clean_version));
                     }
                 }
-                // If not found, try to extract from description
+
                 else if p.i18n_desc.contains("Driver ") {
-                    // Look for pattern like "Mesa Graphics Driver 25.2.4"
+
                     let parts: Vec<&str> = p.i18n_desc.split("Driver ").collect();
                     if parts.len() > 1 {
                         let version_part = parts[1].trim();
-                        // Extract clean version (stop at first non-digit/non-dot character)
+
                         let clean_version: String = version_part
                             .chars()
                             .take_while(|c| c.is_ascii_digit() || *c == '.')
                             .collect();
-                        // Check if it looks like a version (contains dots and numbers)
+
                         if !clean_version.is_empty() && clean_version.matches('.').count() >= 1 {
                             profile.set_driver_version(Some(clean_version));
                         }
                     }
                 }
-
-                // Check if this is a repository profile (priority 90 and has packages)
                 if p.priority == 90 && p.packages.is_some() {
-                    // This is a repository profile - get repo info from the map
+
                     if let Some((repo_name, _package_names)) = repo_info_map.get(&p.codename) {
                         profile.set_repository(Some(repo_name.clone()));
-                        // Package info will be queried in batch later
+
                     } else {
-                        // Fallback: determine repository from install script
+
                         if let Some(pkgs) = &p.packages {
                             if !pkgs.is_empty() {
                                 let repo = if p.install_script.as_ref().map(|s| s.contains("updates")).unwrap_or(false) {
@@ -3808,7 +3548,7 @@ async fn load_all_devices() -> Result<(
                                     None
                                 };
                                 profile.set_repository(repo);
-                                // Package info will be queried in batch later
+
                             }
                         }
                     }
@@ -3818,12 +3558,10 @@ async fn load_all_devices() -> Result<(
             Arc::new(profile)
         })
         .collect();
-
-    // Batch query package info for all profiles that need it (instead of spawning individual threads)
     let profiles_to_query: Vec<_> = pci_profiles_arc.iter()
         .filter_map(|profile_arc| {
             let p = profile_arc.profile();
-            // Only query for repository profiles with packages
+
             if (p.priority == 100 || p.priority == 90) && p.packages.is_some() {
                 if let Some(pkgs) = &p.packages {
                     if !pkgs.is_empty() {
@@ -3834,8 +3572,6 @@ async fn load_all_devices() -> Result<(
             None
         })
         .collect();
-
-    // Process package info queries in a single background thread to avoid spawning many threads
     if !profiles_to_query.is_empty() {
         std::thread::spawn(move || {
             for (profile, package_names) in profiles_to_query {
@@ -3843,28 +3579,18 @@ async fn load_all_devices() -> Result<(
             }
         });
     }
-
-    // Load USB profiles
     let usb_profiles = load_usb_profiles().await?;
     let usb_profiles_arc: Vec<Arc<PreCheckedUsbProfile>> = usb_profiles
         .into_iter()
         .map(|p| {
             let profile = PreCheckedUsbProfile::new(p);
-            // Defer update_installed() to avoid blocking - will be called later in background
-            // profile.update_installed();
             Arc::new(profile)
         })
         .collect();
-
-    // Get PCI devices
     let pci_devices = get_pci_devices(&pci_profiles_arc)
         .ok_or_else(|| "Failed to get PCI devices".to_string())?;
-
-    // Get USB devices
     let usb_devices = get_usb_devices(&usb_profiles_arc)
         .ok_or_else(|| "Failed to get USB devices".to_string())?;
-
-    // Convert to vectors and sort
     let mut pci_vec: Vec<(String, Vec<PreCheckedPciDevice>)> = pci_devices.into_iter().collect();
     let mut usb_vec: Vec<(String, Vec<PreCheckedUsbDevice>)> = usb_devices.into_iter().collect();
 
@@ -3876,8 +3602,6 @@ async fn load_all_devices() -> Result<(
 
 async fn load_pci_profiles() -> Result<Vec<CfhdbPciProfile>, String> {
     let cached_db_path = Path::new("/var/cache/cfhdb/pci.json");
-
-    // Try to read from cache first
     if cached_db_path.exists() {
         match std::fs::read_to_string(cached_db_path) {
             Ok(data) => {
@@ -3894,8 +3618,6 @@ async fn load_pci_profiles() -> Result<Vec<CfhdbPciProfile>, String> {
         }
     } else {
     }
-
-    // If cache doesn't exist or is unreadable, try to download
     let profile_url = match get_profile_url_config() {
         Ok(url) => {
             url
@@ -3936,8 +3658,6 @@ async fn load_pci_profiles() -> Result<Vec<CfhdbPciProfile>, String> {
 
 async fn load_usb_profiles() -> Result<Vec<CfhdbUsbProfile>, String> {
     let cached_db_path = Path::new("/var/cache/cfhdb/usb.json");
-
-    // Try to read from cache first
     if cached_db_path.exists() {
         match std::fs::read_to_string(cached_db_path) {
             Ok(data) => {
@@ -3954,8 +3674,6 @@ async fn load_usb_profiles() -> Result<Vec<CfhdbUsbProfile>, String> {
         }
     } else {
     }
-
-    // If cache doesn't exist or is unreadable, try to download
     let profile_url = match get_profile_url_config() {
         Ok(url) => {
             url
@@ -3996,29 +3714,21 @@ async fn load_usb_profiles() -> Result<Vec<CfhdbUsbProfile>, String> {
 
 fn get_profile_url_config() -> Result<ProfileUrlConfig, std::io::Error> {
     let file_path = "/etc/cfhdb/profile-config.json";
-
-    // Try to read from config file, fallback to defaults if not found
     if let Ok(json_content) = std::fs::read_to_string(file_path) {
         if let Ok(config) = serde_json::from_str::<ProfileUrlConfig>(&json_content) {
             return Ok(config);
         }
     }
 
-    // Default URLs (from Nobara project)
-    // Using GitHub raw content URLs
     Ok(ProfileUrlConfig {
         pci_json_url: "https://raw.githubusercontent.com/Nobara-Project/cfhdb/refs/heads/master/data/profiles/pci.json".to_string(),
         usb_json_url: "https://raw.githubusercontent.com/Nobara-Project/cfhdb/refs/heads/master/data/profiles/usb.json".to_string(),
     })
 }
-
-// Check if profiles need to be updated (check once per day)
 fn profiles_need_update(cached_path: &Path) -> bool {
     if !cached_path.exists() {
         return true;
     }
-
-    // Check file modification time - update if older than 24 hours
     match std::fs::metadata(cached_path) {
         Ok(metadata) => {
             match metadata.modified() {
@@ -4044,8 +3754,6 @@ fn profiles_need_update(cached_path: &Path) -> bool {
         }
     }
 }
-
-// Ensure profiles are cached, downloading if needed (force download)
 async fn ensure_profiles_cached_force() -> Result<(), String> {
 
     let pci_path = Path::new("/var/cache/cfhdb/pci.json");
@@ -4059,8 +3767,6 @@ async fn ensure_profiles_cached_force() -> Result<(), String> {
             return Err(format!("Failed to read profile config: {}", e));
         }
     };
-
-    // Force download PCI profiles
     match reqwest::get(&profile_url.pci_json_url).await {
         Ok(response) => {
             if response.status().is_success() {
@@ -4082,8 +3788,6 @@ async fn ensure_profiles_cached_force() -> Result<(), String> {
             return Err(format!("Failed to download PCI profiles: {}", e));
         }
     }
-
-    // Force download USB profiles
     match reqwest::get(&profile_url.usb_json_url).await {
         Ok(response) => {
             if response.status().is_success() {
@@ -4108,8 +3812,6 @@ async fn ensure_profiles_cached_force() -> Result<(), String> {
 
     Ok(())
 }
-
-// Ensure profiles are cached, downloading if needed
 async fn ensure_profiles_cached() -> Result<(), String> {
 
     let pci_path = Path::new("/var/cache/cfhdb/pci.json");
@@ -4123,8 +3825,6 @@ async fn ensure_profiles_cached() -> Result<(), String> {
             return Err(format!("Failed to read profile config: {}", e));
         }
     };
-
-    // Check if we need to download/update PCI profiles
     if profiles_need_update(pci_path) {
         match reqwest::get(&profile_url.pci_json_url).await {
             Ok(response) => {
@@ -4149,8 +3849,6 @@ async fn ensure_profiles_cached() -> Result<(), String> {
         }
     } else {
     }
-
-    // Check if we need to download/update USB profiles
     if profiles_need_update(usb_path) {
         match reqwest::get(&profile_url.usb_json_url).await {
             Ok(response) => {
@@ -4179,20 +3877,14 @@ async fn ensure_profiles_cached() -> Result<(), String> {
     Ok(())
 }
 
-// Request elevated permissions using pkexec (shows GUI password dialog)
-// Also ensures /var/cache/cfhdb/ directory exists and is writable
 async fn request_permissions() -> Result<(), String> {
     use tokio::process::Command as TokioCommand;
 
-
-    // Get current user to set ownership
     let current_user = users::get_current_username()
         .ok_or("Failed to get current username")?
         .to_string_lossy()
         .to_string();
 
-    // Combine all operations into a single command to reduce sudo prompts
-    // mkdir, chown, and chmod all in one pkexec call
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("sh");
     cmd.arg("-c");
@@ -4200,8 +3892,6 @@ async fn request_permissions() -> Result<(), String> {
         "mkdir -p /var/cache/cfhdb && chown -R {}:{} /var/cache/cfhdb && chmod -R 777 /var/cache/cfhdb",
         current_user, current_user
     ));
-
-    // Ensure DISPLAY is set for GUI dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
@@ -4215,7 +3905,7 @@ async fn request_permissions() -> Result<(), String> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        // Check if user cancelled the password dialog
+
         if output.status.code() == Some(126) || output.status.code() == Some(127) {
             return Err("Authentication cancelled or failed. Please try again.".to_string());
         }
@@ -4224,12 +3914,8 @@ async fn request_permissions() -> Result<(), String> {
 
     Ok(())
 }
-
-// Cache a profile file to /var/cache/cfhdb/ using sudo if needed
 async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
     use tokio::process::Command as TokioCommand;
-
-    // Try to write directly first (in case we're already root or have permissions)
     if let Some(parent) = path.parent() {
         match std::fs::create_dir_all(parent) {
             Ok(_) => {
@@ -4246,8 +3932,6 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
         }
     }
 
-    // If direct write failed, use sudo to write to /var/cache/
-    // Write to a temp file first, then use sudo to move it
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -4258,14 +3942,10 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
     if let Err(e) = std::fs::write(&temp_file, content) {
         return Err(format!("Failed to write temp file: {}", e));
     }
-
-    // Use sudo to create directory and copy file - combine all operations into one command
     let parent_dir = path.parent().ok_or("Invalid path")?;
     let parent_str = parent_dir.to_str().ok_or("Invalid path")?;
     let path_str = path.to_str().ok_or("Invalid path")?;
     let temp_str = temp_file.to_str().ok_or("Invalid temp path")?;
-
-    // Combine mkdir, chmod (dir), cp, and chmod (file) into a single pkexec command to reduce sudo prompts
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("sh");
     cmd.arg("-c");
@@ -4273,7 +3953,7 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
         "mkdir -p {} && chmod 755 {} && cp {} {} && chmod 644 {}",
         parent_str, parent_str, temp_str, path_str, path_str
     ));
-    // Ensure DISPLAY is set for GUI dialog
+
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
@@ -4284,22 +3964,16 @@ async fn cache_profile_file(path: &Path, content: &str) -> Result<(), String> {
             let _ = std::fs::remove_file(&temp_file);
             format!("Failed to execute command: {}. Make sure polkit is installed.", e)
         })?;
-
-    // Clean up temp file
     let _ = std::fs::remove_file(&temp_file);
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        // Check if user cancelled the password dialog
+
         if output.status.code() == Some(126) || output.status.code() == Some(127) {
             return Err("Authentication cancelled or failed. Please try again.".to_string());
         }
         return Err(format!("Failed to cache profile: {}", stderr));
     }
-
-
-    // Fix permissions on all files in the directory (including check_cmd.sh that cfhdb library needs)
-    // Combine both find commands into a single pkexec call
 
     let mut fix_perms_cmd = TokioCommand::new("pkexec");
     fix_perms_cmd.arg("sh");
@@ -4338,7 +4012,7 @@ fn parse_pci_profiles(data: &str) -> Result<Vec<CfhdbPciProfile>, String> {
 
     if let serde_json::Value::Array(profiles_array) = &res["profiles"] {
         for profile in profiles_array {
-            // Parse profile similar to nobara-device-manager
+
             let codename = profile["codename"].as_str().unwrap_or_default().to_string();
             let i18n_desc = profile["i18n_desc"].as_str().unwrap_or_default().to_string();
             let icon_name = profile["icon_name"].as_str().unwrap_or("package-x-generic").to_string();
@@ -4425,7 +4099,7 @@ fn parse_usb_profiles(data: &str) -> Result<Vec<CfhdbUsbProfile>, String> {
 
     if let serde_json::Value::Array(profiles_array) = &res["profiles"] {
         for profile in profiles_array {
-            // Similar parsing for USB profiles
+
             let codename = profile["codename"].as_str().unwrap_or_default().to_string();
             let i18n_desc = profile["i18n_desc"].as_str().unwrap_or_default().to_string();
             let icon_name = profile["icon_name"].as_str().unwrap_or("package-x-generic").to_string();
@@ -4628,8 +4302,6 @@ fn get_pre_checked_usb_device(
         profiles: available_profiles,
     }
 }
-
-// Style sheets
 struct RoundedButtonStyle {
     is_primary: bool,
     radius: f32,

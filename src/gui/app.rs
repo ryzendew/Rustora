@@ -153,68 +153,66 @@ impl Application for RustoraApp {
         match message {
             Message::SettingsCheck => {
                 let new_settings = AppSettings::load();
+                let old = &self.settings;
+                let new = &new_settings;
+                
+                let visual_changed = old.font_size != new.font_size
+                    || old.font_family != new.font_family
+                    || old.scaling != new.scaling
+                    || old.border_radius != new.border_radius
+                    || old.background_color.r != new.background_color.r
+                    || old.background_color.g != new.background_color.g
+                    || old.background_color.b != new.background_color.b
+                    || old.text_color.r != new.text_color.r
+                    || old.text_color.g != new.text_color.g
+                    || old.text_color.b != new.text_color.b
+                    || old.primary_color.r != new.primary_color.r
+                    || old.primary_color.g != new.primary_color.g
+                    || old.primary_color.b != new.primary_color.b
+                    || old.secondary_text_color.r != new.secondary_text_color.r
+                    || old.secondary_text_color.g != new.secondary_text_color.g
+                    || old.secondary_text_color.b != new.secondary_text_color.b
+                    || old.font_size_buttons != new.font_size_buttons
+                    || old.font_size_titles != new.font_size_titles
+                    || old.font_size_body != new.font_size_body
+                    || old.font_size_inputs != new.font_size_inputs
+                    || old.font_size_tabs != new.font_size_tabs
+                    || old.font_size_icons != new.font_size_icons
+                    || old.scale_buttons != new.scale_buttons
+                    || old.scale_titles != new.scale_titles
+                    || old.scale_body != new.scale_body
+                    || old.scale_inputs != new.scale_inputs
+                    || old.scale_tabs != new.scale_tabs
+                    || old.scale_icons != new.scale_icons;
 
-                let old_settings = self.settings.clone();
-                self.settings = new_settings.clone();
-
-                if old_settings.font_size == self.settings.font_size
-                    && old_settings.font_family == self.settings.font_family
-                    && old_settings.scaling == self.settings.scaling
-                    && old_settings.border_radius == self.settings.border_radius
-                    && old_settings.background_color.r == self.settings.background_color.r
-                    && old_settings.background_color.g == self.settings.background_color.g
-                    && old_settings.background_color.b == self.settings.background_color.b
-                    && old_settings.text_color.r == self.settings.text_color.r
-                    && old_settings.text_color.g == self.settings.text_color.g
-                    && old_settings.text_color.b == self.settings.text_color.b
-                    && old_settings.primary_color.r == self.settings.primary_color.r
-                    && old_settings.primary_color.g == self.settings.primary_color.g
-                    && old_settings.primary_color.b == self.settings.primary_color.b
-                    && old_settings.secondary_text_color.r == self.settings.secondary_text_color.r
-                    && old_settings.secondary_text_color.g == self.settings.secondary_text_color.g
-                    && old_settings.secondary_text_color.b == self.settings.secondary_text_color.b
-                    && old_settings.font_size_buttons == self.settings.font_size_buttons
-                    && old_settings.font_size_titles == self.settings.font_size_titles
-                    && old_settings.font_size_body == self.settings.font_size_body
-                    && old_settings.font_size_inputs == self.settings.font_size_inputs
-                    && old_settings.font_size_tabs == self.settings.font_size_tabs
-                    && old_settings.font_size_icons == self.settings.font_size_icons
-                    && old_settings.scale_buttons == self.settings.scale_buttons
-                    && old_settings.scale_titles == self.settings.scale_titles
-                    && old_settings.scale_body == self.settings.scale_body
-                    && old_settings.scale_inputs == self.settings.scale_inputs
-                    && old_settings.scale_tabs == self.settings.scale_tabs
-                    && old_settings.scale_icons == self.settings.scale_icons {
-
-                    self.settings.tab_visibility = new_settings.tab_visibility;
+                let tab_visibility = new_settings.tab_visibility.clone();
+                self.settings = new_settings;
+                if !visual_changed {
+                    self.settings.tab_visibility = tab_visibility;
                 }
                 Command::none()
             }
             Message::TabSelected(tab) => {
                 self.current_tab = tab;
-                if tab == Tab::Installed {
-
-                    return Command::perform(async {}, |_| {
+                let cmd = match tab {
+                    Tab::Installed => Command::perform(async {}, |_| {
                         Message::InstalledTabMessage(installed::Message::LoadPackages)
-                    });
-                } else if tab == Tab::Repo {
-                    return Command::perform(async {}, |_| {
+                    }),
+                    Tab::Repo => Command::perform(async {}, |_| {
                         Message::RepoTabMessage(repo::Message::LoadRepositories)
-                    });
-                } else if tab == Tab::Kernel {
-                    return Command::perform(async {}, |_| {
+                    }),
+                    Tab::Kernel => Command::perform(async {}, |_| {
                         Message::KernelTabMessage(kernel::Message::LoadBranches)
-                    });
-                } else if tab == Tab::Device {
-                    return Command::perform(async {}, |_| {
+                    }),
+                    Tab::Device => Command::perform(async {}, |_| {
                         Message::DeviceTabMessage(device::Message::RequestPermissions)
-                    });
-                } else if tab == Tab::Tweaks {
-                    return Command::perform(async {}, |_| {
+                    }),
+                    Tab::Tweaks => Command::perform(async {}, |_| {
                         Message::TweaksTabMessage(tweaks::Message::LoadDnfConfig)
-                    });
-                }
-                Command::none()
+                    }),
+                    _ => Command::none(),
+                };
+                cmd
             }
             Message::SearchTabMessage(msg) => {
                 self.search_tab.update(msg).map(Message::SearchTabMessage)
@@ -257,7 +255,6 @@ impl Application for RustoraApp {
                 Command::perform(open_file_picker(), Message::RpmFileSelected)
             }
             Message::RpmFileSelected(Some(rpm_path)) => {
-
                 let rpm_path_str = rpm_path.to_string_lossy().to_string();
                 Command::perform(
                     async move {
@@ -276,7 +273,6 @@ impl Application for RustoraApp {
                 Command::none()
             }
             Message::OpenSettings => {
-
                 Command::perform(
                     async {
                         use tokio::process::Command as TokioCommand;
@@ -295,17 +291,13 @@ impl Application for RustoraApp {
     fn view(&self) -> Element<'_, Message> {
         use crate::gui::fonts::glyphs;
 
-        // Use cached Material Symbols font (optimized - loaded once)
         let material_font = glyphs::material_font();
-
-        // Create icon text with Material Symbols font
         let download_icon = text(glyphs::DOWNLOAD_SYMBOL).font(material_font);
         let theme_icon = text(glyphs::THEME_SYMBOL).font(material_font);
         let search_icon = text(glyphs::SEARCH_SYMBOL).font(material_font);
         let installed_icon = text(glyphs::INSTALLED_SYMBOL).font(material_font);
         let refresh_icon = text(glyphs::REFRESH_SYMBOL).font(material_font);
 
-        // Use individual font sizes and scales
         let button_font_size = self.settings.font_size_buttons * self.settings.scale_buttons;
         let tab_font_size = self.settings.font_size_tabs * self.settings.scale_tabs;
         let icon_size = (self.settings.font_size_icons * self.settings.scale_icons).round();

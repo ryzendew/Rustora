@@ -8,13 +8,12 @@ const FIRA_CODE_URL: &str = "https://github.com/tonsky/FiraCode/releases/downloa
 const MATERIAL_SYMBOLS_URL: &str = "https://github.com/google/material-design-icons/raw/master/variablefont/MaterialSymbolsRounded%5BFILL%2CGRAD%2Copsz%2Cwght%5D.ttf";
 const FONT_DIR: &str = ".local/share/fonts";
 
-// Cache fonts to avoid reloading on every render
 static INTER_FONT_CACHE: Lazy<iced::Font> = Lazy::new(|| {
-    load_inter_font().unwrap_or_else(|_| iced::Font::DEFAULT)
+    load_inter_font().unwrap_or(iced::Font::DEFAULT)
 });
 
 static MATERIAL_SYMBOLS_FONT_CACHE: Lazy<iced::Font> = Lazy::new(|| {
-    load_material_symbols_font().unwrap_or_else(|_| iced::Font::DEFAULT)
+    load_material_symbols_font().unwrap_or(iced::Font::DEFAULT)
 });
 
 pub fn fonts_exist() -> bool {
@@ -34,10 +33,8 @@ pub async fn ensure_fonts() -> Result<(), String> {
     let home = std::env::var("HOME").map_err(|_| "HOME environment variable not set")?;
     let font_dir = PathBuf::from(&home).join(FONT_DIR);
 
-    // Create font directory if it doesn't exist
     fs::create_dir_all(&font_dir).map_err(|e| format!("Failed to create font directory: {}", e))?;
 
-    // Install InterVariable font
     let inter_variable = font_dir.join("InterVariable.ttf");
     let inter_variable_italic = font_dir.join("InterVariable-Italic.ttf");
     if !inter_variable.exists() || !inter_variable_italic.exists() {
@@ -65,7 +62,6 @@ pub async fn ensure_fonts() -> Result<(), String> {
         }
     }
 
-    // Install Fira Code font
     let fira_code_regular = font_dir.join("FiraCode-Regular.ttf");
     if !fira_code_regular.exists() {
         let zip_path = "/tmp/FiraCode.zip";
@@ -92,7 +88,6 @@ pub async fn ensure_fonts() -> Result<(), String> {
         }
     }
 
-    // Install Material Symbols font
     let material_symbols = font_dir.join("MaterialSymbolsRounded.ttf");
     if !material_symbols.exists() {
         let output = TokioCommand::new("curl")

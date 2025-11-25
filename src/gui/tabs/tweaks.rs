@@ -568,9 +568,7 @@ impl TweaksTab {
             }
             Message::SelectLauncher(launcher_title) => {
                 self.selected_launcher = Some(launcher_title);
-                // Update installation status when launcher changes
                 self.update_proton_installation_status();
-                // Check usage counts
                 iced::Command::perform(check_proton_usage(self.proton_runners.clone(), self.detected_launchers.clone()), Message::ProtonUsageChecked)
             }
             Message::ToggleFilterInstalled => {
@@ -611,7 +609,6 @@ impl TweaksTab {
                 iced::Command::none()
             }
             Message::DownloadProtonBuild(runner_title, title, download_url) => {
-                // Launch separate installation window as a separate process
                 let runner_info = self.proton_runners.iter()
                     .find(|r| r.title == runner_title)
                     .and_then(|r| serde_json::to_string(r).ok());
@@ -674,10 +671,8 @@ impl TweaksTab {
                         self.installing_build = Some(title.clone());
                         self.install_progress = 0.0;
                         self.progress_text = format!("Installing {}...", title);
-                        // Get the selected launcher and runner info for installation
                         let selected_launcher = self.selected_launcher.clone();
                         let runner = self.proton_runners.iter().find(|r| r.title == runner_title).cloned();
-                        // Check if this is an update (for "Latest" builds)
                         let is_update = self.proton_runners.iter()
                             .any(|r| r.title == runner_title && r.builds.iter().any(|b| b.title == title && b.is_latest && b.is_installed));
                         iced::Command::perform(
@@ -710,7 +705,6 @@ impl TweaksTab {
                                 build.is_installed = true;
                             }
                         }
-                        // Update installation status
                         self.update_proton_installation_status();
                         self.show_progress_dialog = false;
                         self.show_completion_dialog = true;
@@ -769,7 +763,6 @@ impl TweaksTab {
                     Ok((runner_title, title)) => {
                         self.downloading_build = None;
                         self.installing_build = None;
-                        // Update installation status
                         self.update_proton_installation_status();
                         self.show_progress_dialog = false;
                         self.show_completion_dialog = true;
@@ -809,14 +802,12 @@ impl TweaksTab {
                 }
             }
             Message::OpenProtonBuildDirectory(runner_title, title) => {
-                // Open the installation directory in file manager
                 let launcher = self.selected_launcher.clone();
                 let runners = self.proton_runners.clone();
                 let launchers = self.detected_launchers.clone();
                 iced::Command::perform(open_proton_directory(runner_title, title, launcher, runners, launchers), |_| Message::LoadProtonBuilds)
             }
             Message::ShowProtonBuildInfo(runner_title, title, description, page_url) => {
-                // Launch separate changelog window as a separate process
                 let exe_path = std::env::current_exe()
                     .unwrap_or_else(|_| std::path::PathBuf::from("rustora"));
 
@@ -888,7 +879,6 @@ impl TweaksTab {
             Message::SteamGameCompatibilityToolChanged(result) => {
                 match result {
                     Ok((appid, compatibility_tool)) => {
-                        // Update the game's compatibility tool in the list
                         if let Some(game) = self.steam_games.iter_mut().find(|g| g.appid == appid) {
                             game.compatibility_tool = compatibility_tool;
                         }
@@ -920,15 +910,11 @@ impl TweaksTab {
     pub fn view(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
-        // Calculate font sizes from settings - larger for better readability
         let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
         let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
         let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
         let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
 
-        // Header section removed - sub-tabs moved up
-
-        // Output log
         let output_log: Element<Message> = if self.output_log.is_empty() {
             container(
                 text("No output yet. Click 'Gaming Meta' to start installation.")
@@ -981,7 +967,6 @@ impl TweaksTab {
         // DNF Configuration section - larger fonts
         let input_font_size = (settings.font_size_inputs * settings.scale_inputs * 1.15).round();
 
-        // Display current config state
         let current_config_display: Element<Message> = if self.is_loading_dnf_config {
             container(
                 text("Loading current configuration...")

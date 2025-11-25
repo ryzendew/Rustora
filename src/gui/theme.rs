@@ -17,10 +17,10 @@ impl Theme {
     }
 
     fn is_color_appropriate_for_theme(&self, color: &Color) -> bool {
-        let is_dark_color = color.r < 0.5;
+        let is_dark = color.r < 0.5;
         match self {
-            Theme::Light => !is_dark_color,
-            Theme::Dark => is_dark_color,
+            Theme::Light => !is_dark,
+            Theme::Dark => is_dark,
         }
     }
 

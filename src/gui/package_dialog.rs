@@ -190,7 +190,6 @@ impl PackageDialog {
             };
 
             let buttons = if self.is_complete {
-                // Show only Exit button when removal is complete
                 row![
                     Space::with_width(Length::Fill),
                     {
@@ -377,11 +376,9 @@ impl Application for PackageDialog {
                 self.is_removing = false;
                 self.is_complete = true;
                 self.removal_progress = "Removal completed successfully!".to_string();
-                // Don't close automatically, let user click Exit
                 iced::Command::none()
             }
             Message::RemovalError(_msg) => {
-                // Removal error occurred
                 self.is_removing = false;
                 iced::Command::none()
             }
@@ -403,7 +400,6 @@ impl Application for PackageDialog {
 }
 
 async fn load_package_info(package_names: Vec<String>) -> Result<PackageInfo, String> {
-    // Get info for the first package (or combine info if multiple)
     let package_name = package_names.first().ok_or("No packages specified")?;
 
     // Use rpm -qi for installed packages to get complete information

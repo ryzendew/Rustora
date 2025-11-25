@@ -199,10 +199,9 @@ async fn main() -> Result<()> {
                 ensure_fonts_async();
                 use crate::gui::rpm_dialog::RpmDialog;
                 RpmDialog::run_separate_window(rpm_path)?;
-                } else {
+            } else {
                 ensure_fonts_async();
                 let default_font = gui::fonts::get_inter_font();
-
                 gui::RustoraApp::run(iced::Settings {
                     window: iced::window::Settings {
                         size: iced::Size::new(1200.0, 800.0),
@@ -343,7 +342,10 @@ async fn main() -> Result<()> {
             let script = String::from_utf8(decoded_script)
                 .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in install script: {}", e))?;
 
-            let decode = |s: &str| String::from_utf8(general_purpose::STANDARD.decode(s).unwrap_or_default()).unwrap_or_default();
+            let decode = |s: &str| {
+                let bytes = general_purpose::STANDARD.decode(s).unwrap_or_default();
+                String::from_utf8(bytes).unwrap_or_default()
+            };
             let vendor = decode(&vendor_name);
             let device = decode(&device_name);
             let drv = decode(&driver);
@@ -386,7 +388,10 @@ async fn main() -> Result<()> {
             let script = String::from_utf8(decoded_script)
                 .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in remove script: {}", e))?;
 
-            let decode = |s: &str| String::from_utf8(general_purpose::STANDARD.decode(s).unwrap_or_default()).unwrap_or_default();
+            let decode = |s: &str| {
+                let bytes = general_purpose::STANDARD.decode(s).unwrap_or_default();
+                String::from_utf8(bytes).unwrap_or_default()
+            };
             let vendor = decode(&vendor_name);
             let device = decode(&device_name);
             let drv = decode(&driver);
@@ -417,33 +422,15 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some(cmd) => {
-            if let Err(_e) = match cmd {
+            let result = match cmd {
                 Commands::Search { query, details } => search_packages(&query, details),
                 Commands::Install { packages, yes } => install_packages(&packages, yes),
                 Commands::List { details } => list_packages(details),
                 Commands::Info { package } => show_package_info(&package),
                 Commands::Update { all } => update_packages(all),
-                Commands::Gui { .. } => unreachable!(),
-                Commands::RemoveDialog { .. } => unreachable!(),
-                Commands::InstallDialog { .. } => unreachable!(),
-                Commands::FlatpakInstallDialog { .. } => unreachable!(),
-                Commands::FlatpakRemoveDialog { .. } => unreachable!(),
-                Commands::FlatpakUpdateDialog { .. } => unreachable!(),
-                Commands::UpdateDialog { .. } => unreachable!(),
-                Commands::UpdateSettingsDialog => unreachable!(),
-                Commands::Settings => unreachable!(),
-                Commands::GamingMetaDialog => unreachable!(),
-                Commands::CachyosKernelDialog => unreachable!(),
-                Commands::HyprlandDialog => unreachable!(),
-                Commands::HyprlandDotfilesDialog => unreachable!(),
-                Commands::ProtonInstallDialog { .. } => unreachable!(),
-                Commands::ProtonChangelogDialog { .. } => unreachable!(),
-                Commands::MaintenanceDialog { .. } => unreachable!(),
-                Commands::KernelInstallDialog { .. } => unreachable!(),
-                Commands::KernelRemoveDialog { .. } => unreachable!(),
-                Commands::DeviceInstallDialog { .. } => unreachable!(),
-                Commands::DeviceRemoveDialog { .. } => unreachable!(),
-            } {
+                _ => unreachable!(),
+            };
+            if result.is_err() {
                 std::process::exit(1);
             }
             Ok(())
@@ -469,11 +456,17 @@ fn search_packages(query: &str, details: bool) -> Result<()> {
     let mut results: Vec<(String, String)> = stdout.lines()
         .filter_map(|line| {
             let line = line.trim();
-            if line.is_empty() || !line.contains(" : ") { return None; }
+            if line.is_empty() || !line.contains(" : ") {
+                return None;
+            }
             let parts: Vec<&str> = line.splitn(2, " : ").collect();
             if parts.len() == 2 {
-                Some((parts[0].trim().split('.').next().unwrap_or(parts[0].trim()).to_string(), parts[1].trim().to_string()))
-            } else { None }
+                let name = parts[0].trim().split('.').next().unwrap_or(parts[0].trim()).to_string();
+                let desc = parts[1].trim().to_string();
+                Some((name, desc))
+            } else {
+                None
+            }
         })
         .collect();
     if results.is_empty() {
@@ -556,7 +549,9 @@ fn show_package_info(package: &str) -> Result<()> {
             println!();
             continue;
         }
-        if let Some((key, value)) = line.splitn(2, ':').collect::<Vec<&str>>().split_first().and_then(|(_, rest)| if rest.len() == 1 { Some((line.splitn(2, ':').next().unwrap_or("").trim(), rest[0].trim())) } else { None }) {
+        if let Some(colon_pos) = line.find(':') {
+            let key = line[..colon_pos].trim();
+            let value = line[colon_pos + 1..].trim();
             println!("{}: {}", key.bright_cyan().bold(), value.bright_white());
         } else {
             println!("{}", line.bright_white());

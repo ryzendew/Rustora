@@ -491,50 +491,55 @@ async fn load_rpm_info(rpm_path: PathBuf) -> Result<RpmInfo, String> {
         size: String::new(),
     };
 
-    let mut found_fields = 0u8;
-    const ALL_FIELDS: u8 = 0b01111111;
+    let mut found_name = false;
+    let mut found_version = false;
+    let mut found_release = false;
+    let mut found_arch = false;
+    let mut found_summary = false;
+    let mut found_size = false;
+    let mut found_description = false;
     let mut in_description = false;
     let mut description_lines = Vec::new();
 
     for line in stdout.lines() {
         let line = line.trim();
-        if found_fields == ALL_FIELDS && !in_description {
+        if found_name && found_version && found_release && found_arch && found_summary && found_size && found_description && !in_description {
             break;
         }
 
-        if line.starts_with("Name        :") && (found_fields & 0b00000001) == 0 {
+        if line.starts_with("Name        :") && !found_name {
             info.name = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
-            found_fields |= 0b00000001;
+            found_name = true;
             in_description = false;
-        } else if line.starts_with("Version     :") && (found_fields & 0b00000010) == 0 {
+        } else if line.starts_with("Version     :") && !found_version {
             info.version = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
-            found_fields |= 0b00000010;
+            found_version = true;
             in_description = false;
-        } else if line.starts_with("Release     :") && (found_fields & 0b00000100) == 0 {
+        } else if line.starts_with("Release     :") && !found_release {
             info.release = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
-            found_fields |= 0b00000100;
+            found_release = true;
             in_description = false;
-        } else if line.starts_with("Architecture:") && (found_fields & 0b00001000) == 0 {
+        } else if line.starts_with("Architecture:") && !found_arch {
             info.arch = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
-            found_fields |= 0b00001000;
+            found_arch = true;
             in_description = false;
-        } else if line.starts_with("Summary     :") && (found_fields & 0b00010000) == 0 {
+        } else if line.starts_with("Summary     :") && !found_summary {
             info.summary = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
-            found_fields |= 0b00010000;
+            found_summary = true;
             in_description = false;
-        } else if line.starts_with("Size        :") && (found_fields & 0b00100000) == 0 {
+        } else if line.starts_with("Size        :") && !found_size {
             let size_str = line.splitn(2, ':').nth(1).unwrap_or("").trim();
             if let Ok(size_bytes) = size_str.parse::<u64>() {
                 info.size = format_size(size_bytes);
             }
-            found_fields |= 0b00100000;
+            found_size = true;
             in_description = false;
-        } else if line.starts_with("Description :") && (found_fields & 0b01000000) == 0 {
+        } else if line.starts_with("Description :") && !found_description {
             let desc_start = line.splitn(2, ':').nth(1).unwrap_or("").trim();
             if !desc_start.is_empty() {
                 description_lines.push(desc_start.to_string());
             }
-            found_fields |= 0b01000000;
+            found_description = true;
             in_description = true;
         } else if in_description {
             if line.is_empty() || (line.contains(':') && !line.starts_with(' ')) {
@@ -577,7 +582,6 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
         &path_str
     ]);
 
-    // Ensure DISPLAY is set for GUI password dialog
     if let Ok(display) = std::env::var("DISPLAY") {
         cmd.env("DISPLAY", display);
     }
@@ -595,11 +599,7 @@ async fn install_rpm(rpm_path: PathBuf) -> Result<String, String> {
                              stderr.contains("libwebkit") || stderr.contains("libxdo") ||
                              stdout.contains("libc6") || stdout.contains("libgtk-3-0") ||
                              stdout.contains("libwebkit") || stdout.contains("libxdo");
-
-        // Check if the error is due to file conflicts
         let has_file_conflicts = stderr.contains("conflicts with file") || stdout.contains("conflicts with file");
-
-        // Check for "nothing provides" errors (dependency resolution failures)
         let has_missing_deps = stderr.contains("nothing provides") || stdout.contains("nothing provides");
 
         let error_msg = if has_debian_deps || has_missing_deps {

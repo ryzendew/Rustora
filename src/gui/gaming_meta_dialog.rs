@@ -101,47 +101,26 @@ impl Application for GamingMetaDialog {
                 self.terminal_output = output.clone();
                 self.progress = progress;
 
-                let step_progress = if output.contains("Step 1 completed") {
-                    self.progress = 1.0 / 7.0;
+                let step = if output.contains("Step 1 completed") || output.contains("Step 1:") {
+                    self.progress = if output.contains("completed") { 1.0 / 7.0 } else { 0.1 / 7.0 };
                     "Step 1/7: Installing core gaming tools..."
-                } else if output.contains("Step 2 completed") {
-                    self.progress = 2.0 / 7.0;
+                } else if output.contains("Step 2 completed") || output.contains("Step 2:") {
+                    self.progress = if output.contains("completed") { 2.0 / 7.0 } else { 1.1 / 7.0 };
                     "Step 2/7: Checking Flatpak availability..."
-                } else if output.contains("Step 3 completed") {
-                    self.progress = 3.0 / 7.0;
+                } else if output.contains("Step 3 completed") || output.contains("Step 3:") {
+                    self.progress = if output.contains("completed") { 3.0 / 7.0 } else { 2.1 / 7.0 };
                     "Step 3/7: Installing MangoJuice..."
-                } else if output.contains("Step 4 completed") {
-                    self.progress = 4.0 / 7.0;
+                } else if output.contains("Step 4 completed") || output.contains("Step 4:") {
+                    self.progress = if output.contains("completed") { 4.0 / 7.0 } else { 3.1 / 7.0 };
                     "Step 4/7: Installing ProtonPlus..."
-                } else if output.contains("Step 5 completed") {
-                    self.progress = 5.0 / 7.0;
+                } else if output.contains("Step 5 completed") || output.contains("Step 5:") {
+                    self.progress = if output.contains("completed") { 5.0 / 7.0 } else { 4.1 / 7.0 };
                     "Step 5/7: Fetching Heroic release info..."
-                } else if output.contains("Step 6 completed") {
-                    self.progress = 6.0 / 7.0;
+                } else if output.contains("Step 6 completed") || output.contains("Step 6:") {
+                    self.progress = if output.contains("completed") { 6.0 / 7.0 } else { 5.1 / 7.0 };
                     "Step 6/7: Downloading Heroic Games Launcher..."
-                } else if output.contains("Step 7 completed") {
-                    self.progress = 7.0 / 7.0;
-                    "Step 7/7: Installing Heroic Games Launcher..."
-                } else if output.contains("Step 1:") && !output.contains("Step 1 completed") {
-                    self.progress = 0.1 / 7.0;
-                    "Step 1/7: Installing core gaming tools..."
-                } else if output.contains("Step 2:") && !output.contains("Step 2 completed") {
-                    self.progress = 1.1 / 7.0;
-                    "Step 2/7: Checking Flatpak availability..."
-                } else if output.contains("Step 3:") && !output.contains("Step 3 completed") {
-                    self.progress = 2.1 / 7.0;
-                    "Step 3/7: Installing MangoJuice..."
-                } else if output.contains("Step 4:") && !output.contains("Step 4 completed") {
-                    self.progress = 3.1 / 7.0;
-                    "Step 4/7: Installing ProtonPlus..."
-                } else if output.contains("Step 5:") && !output.contains("Step 5 completed") {
-                    self.progress = 4.1 / 7.0;
-                    "Step 5/7: Fetching Heroic release info..."
-                } else if output.contains("Step 6:") && !output.contains("Step 6 completed") {
-                    self.progress = 5.1 / 7.0;
-                    "Step 6/7: Downloading Heroic Games Launcher..."
-                } else if output.contains("Step 7:") && !output.contains("Step 7 completed") {
-                    self.progress = 6.1 / 7.0;
+                } else if output.contains("Step 7 completed") || output.contains("Step 7:") {
+                    self.progress = if output.contains("completed") { 7.0 / 7.0 } else { 6.1 / 7.0 };
                     "Step 7/7: Installing Heroic Games Launcher..."
                 } else {
                     if progress > 0.0 {
@@ -149,8 +128,7 @@ impl Application for GamingMetaDialog {
                     }
                     "Installing Gaming Meta..."
                 };
-
-                self.progress_text = step_progress.to_string();
+                self.progress_text = step.to_string();
 
                 if output.contains("[OK] ALL STEPS COMPLETED SUCCESSFULLY!") {
                     self.is_running = false;

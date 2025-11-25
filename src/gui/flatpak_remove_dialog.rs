@@ -77,7 +77,6 @@ impl FlatpakRemoveDialog {
             return Space::with_width(Length::Shrink).into();
         }
 
-        // Load settings and calculate font sizes like tabs do
         let settings = crate::gui::settings::AppSettings::load();
         let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
         let _body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();

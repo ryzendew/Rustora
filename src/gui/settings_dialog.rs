@@ -413,7 +413,6 @@ impl SettingsDialog {
 
     fn view_fonts(&self) -> Element<'_, Message> {
         column![
-            // Universal font size slider at top
             container(
                 column![
                     text("Universal Font Size")
@@ -441,7 +440,6 @@ impl SettingsDialog {
             .style(iced::theme::Container::Custom(Box::new(SectionContainerStyle {
                 radius: self.settings.border_radius,
             }))),
-            // Individual font size sliders
             container(
                 column![
                     text("Individual Font Sizes")
@@ -470,7 +468,6 @@ impl SettingsDialog {
 
     fn view_ui_scale(&self) -> Element<'_, Message> {
         column![
-            // Universal UI scale slider at top
             container(
                 column![
                     text("Universal UI Scale")
@@ -499,7 +496,6 @@ impl SettingsDialog {
             .style(iced::theme::Container::Custom(Box::new(SectionContainerStyle {
                 radius: self.settings.border_radius,
             }))),
-            // Individual UI scale sliders
             container(
                 column![
                     text("Individual UI Scales")

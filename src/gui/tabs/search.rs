@@ -259,14 +259,12 @@ impl SearchTab {
                                 let pkg_name_for_toggle = pkg.name.clone();
                                 let is_selected = self.selected_packages.contains(&pkg.name);
 
-                                // Professional card layout
                                 let checkbox_widget = checkbox("", is_selected)
                                     .on_toggle(move |_| Message::TogglePackage(pkg_name_for_toggle.clone()))
                                     .style(iced::theme::Checkbox::Custom(Box::new(RoundedCheckboxStyle {
                                         radius: settings.border_radius,
                                     })));
 
-                                // Package header with name and version
                                 let version_info: Element<Message> = if !pkg.version.is_empty() || !pkg.release.is_empty() {
                                     let version_text = if !pkg.version.is_empty() && !pkg.release.is_empty() {
                                         format!("{} {}", pkg.version, pkg.release)
@@ -308,14 +306,12 @@ impl SearchTab {
                                 .align_items(Alignment::Start)
                                 .width(Length::Fill);
 
-                                // Package details section
                                 let details = if !pkg.summary.is_empty() || !pkg.description.is_empty() {
                                     let summary_text = if !pkg.summary.is_empty() {
                                         &pkg.summary
                                     } else {
                                         &pkg.description
                                     };
-                                    // Truncate long descriptions
                                     let display_text = if summary_text.len() > 120 {
                                         format!("{}...", &summary_text[..120])
                                     } else {
@@ -334,7 +330,6 @@ impl SearchTab {
                                     column![].spacing(0).width(Length::Fill)
                                 };
 
-                                // Package metadata (arch, size)
                                 let arch_info: Element<Message> = if !pkg.arch.is_empty() {
                                     row![
                                         text("Arch:")
@@ -408,24 +403,20 @@ impl SearchTab {
 }
 
 async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
-    // Use repoquery which is much faster than dnf search
-    // Get all info in one query using --qf (queryformat) to avoid multiple dnf info calls
-    // Note: %{installsize} gives size in bytes, and we add \n to separate packages
     let queryformat = "%{name}|%{version}|%{release}|%{arch}|%{summary}|%{description}|%{installsize}\n";
 
     let output = tokio::process::Command::new("dnf")
         .args([
             "repoquery",
             "--quiet",
-            "--cacheonly", // Use cached metadata only - much faster
+            "--cacheonly",
             "--qf", queryformat,
-            &format!("*{}*", query.trim()), // Search pattern
+            &format!("*{}*", query.trim()),
         ])
         .output()
         .await
         .map_err(|e| format!("Failed to execute dnf: {}", e))?;
 
-    // If cacheonly fails, try without it (metadata might not be cached)
     let output = if !output.status.success() {
         tokio::process::Command::new("dnf")
             .args([
@@ -449,63 +440,47 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
     let mut packages = Vec::new();
     let mut seen_names = std::collections::HashSet::new();
 
-    // Split by newlines, but handle multi-line descriptions
-    // Each package should be on one line with our format, but descriptions might have been
-    // truncated or formatted. We'll parse each line as a complete package record.
     for line in stdout.lines() {
         let line = line.trim();
         if line.is_empty() {
             continue;
         }
 
-        // Parse pipe-separated values: name|version|release|arch|summary|description|size
-        // We expect exactly 7 fields. If we get more, descriptions might contain | characters
-        // If we get fewer, the line might be malformed
         let parts: Vec<&str> = line.split('|').collect();
 
-        // We need at least 4 fields (name, version, release, arch) to be valid
         if parts.len() < 4 {
             continue;
         }
 
-        // If we have more than 7 parts, the description likely contains | characters
-        // In that case, we need to be smarter about parsing
         let name = parts[0].trim();
         let version = parts.get(1).unwrap_or(&"").trim();
         let release = parts.get(2).unwrap_or(&"").trim();
         let arch = parts.get(3).unwrap_or(&"").trim();
         let summary = parts.get(4).unwrap_or(&"").trim();
         let (description, size_str) = if parts.len() == 7 {
-            // Perfect case: exactly 7 fields
             (
                 parts.get(5).unwrap_or(&"").trim().to_string(),
                 parts.get(6).unwrap_or(&"").trim(),
             )
         } else if parts.len() > 7 {
-            // Description contains | characters - join middle parts as description
             let desc_joined = parts[5..parts.len()-1].join("|");
             (
                 desc_joined.trim().to_string(),
                 parts.last().unwrap_or(&"").trim(),
             )
         } else {
-            // Not enough fields - skip this line
             continue;
         };
 
-        // Skip duplicates (same package from different repos)
         if seen_names.contains(name) {
             continue;
         }
         seen_names.insert(name.to_string());
 
-        // Parse size - %{installsize} gives size in bytes as a number
         let size = if !size_str.is_empty() {
-            // Try to parse as bytes (number only)
             if let Ok(size_bytes) = size_str.parse::<u64>() {
                 format_size(size_bytes)
             } else if let Ok(size_bytes) = parse_size(size_str) {
-                // Fallback: try parsing as formatted size string (e.g., "123 KB")
                 format_size(size_bytes)
             } else {
                 size_str.to_string()
@@ -527,7 +502,6 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
             summary: if !summary.is_empty() {
                 summary.to_string()
             } else if !description.is_empty() {
-                // Use first part of description as summary
                 let summary_len = description.len().min(100);
                 description[..summary_len].to_string()
             } else {
@@ -536,7 +510,6 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
             size,
         });
 
-        // Limit to first 50 packages for performance
         if packages.len() >= 50 {
             break;
         }
@@ -548,7 +521,6 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
 
 #[allow(dead_code)]
 async fn load_package_details(package_name: String) -> Result<PackageInfo, String> {
-    // Use dnf info to get detailed package information
     let output = tokio::process::Command::new("dnf")
         .args(["info", &package_name])
         .output()
@@ -637,7 +609,6 @@ async fn load_package_details(package_name: String) -> Result<PackageInfo, Strin
         info.description = info.summary.clone();
     }
     if info.summary.is_empty() && !info.description.is_empty() {
-        // Use first part of description as summary if summary is empty
         let summary_len = info.description.len().min(100);
         info.summary = info.description[..summary_len].to_string();
     }

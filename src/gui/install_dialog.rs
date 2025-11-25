@@ -79,7 +79,6 @@ impl InstallDialog {
             return Space::with_width(Length::Shrink).into();
         }
 
-        // Load settings and calculate font sizes like tabs do
         let settings = crate::gui::settings::AppSettings::load();
         let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
         let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
@@ -114,9 +113,7 @@ impl InstallDialog {
             .width(Length::Fill)
             .padding(Padding::new(20.0));
 
-            // Show list of all packages with their info
             let packages_list = if self.package_info.len() == 1 {
-                // Single package - show detailed info
                 let info = &self.package_info[0];
                 container(
                     column![
@@ -173,7 +170,6 @@ impl InstallDialog {
                 )
                 .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
             } else {
-                // Multiple packages - show list with summary info
                 container(
                     column![
                         text(format!("Packages to Install ({})", self.package_info.len()))
