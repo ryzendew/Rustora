@@ -72,6 +72,7 @@ pub enum Message {
     RpmFileSelected(Option<PathBuf>),
     OpenSettings,
     SettingsCheck,
+    SettingsLoaded(AppSettings),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -152,7 +153,13 @@ impl Application for RustoraApp {
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::SettingsCheck => {
-                let new_settings = AppSettings::load();
+                Command::perform(async {
+                    tokio::task::spawn_blocking(|| AppSettings::load()).await.unwrap_or_else(|_| AppSettings::load())
+                }, |new_settings| {
+                    Message::SettingsLoaded(new_settings)
+                })
+            }
+            Message::SettingsLoaded(new_settings) => {
                 let old = &self.settings;
                 let new = &new_settings;
                 

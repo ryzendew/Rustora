@@ -117,47 +117,45 @@ impl RepoTab {
     }
 
     fn filter_repositories(&mut self) {
-        let mut filtered = if self.search_query.trim().is_empty() {
-            self.repositories.clone()
+        self.filtered_repositories.clear();
+        
+        let query_lower = if self.search_query.trim().is_empty() {
+            String::new()
         } else {
-            let query_lower = self.search_query.to_lowercase();
-            self.repositories
-                .iter()
-                .filter(|repo| {
-                    repo.id.to_lowercase().contains(&query_lower) ||
-                    repo.name.to_lowercase().contains(&query_lower) ||
-                    repo.file_path.to_lowercase().contains(&query_lower) ||
-                    repo.baseurl.as_ref().map(|u| u.to_lowercase().contains(&query_lower)).unwrap_or(false) ||
-                    repo.metalink.as_ref().map(|u| u.to_lowercase().contains(&query_lower)).unwrap_or(false)
-                })
-                .cloned()
-                .collect()
+            self.search_query.to_lowercase()
         };
-
-        if self.current_view == RepoView::Nvidia {
-            filtered = filtered
-                .into_iter()
-                .filter(|repo| {
-                    repo.id.to_lowercase().contains("nvidia") ||
-                    repo.name.to_lowercase().contains("nvidia") ||
-                    repo.baseurl.as_ref().map(|u| u.to_lowercase().contains("nvidia")).unwrap_or(false) ||
-                    repo.metalink.as_ref().map(|u| u.to_lowercase().contains("nvidia")).unwrap_or(false)
-                })
-                .collect();
-        } else if self.current_view == RepoView::RpmFusion {
-            filtered = filtered
-                .into_iter()
-                .filter(|repo| {
-                    repo.id.to_lowercase().contains("rpmfusion") ||
-                    repo.name.to_lowercase().contains("rpmfusion") ||
-                    repo.name.to_lowercase().contains("rpm fusion") ||
-                    repo.baseurl.as_ref().map(|u| u.to_lowercase().contains("rpmfusion")).unwrap_or(false) ||
-                    repo.metalink.as_ref().map(|u| u.to_lowercase().contains("rpmfusion")).unwrap_or(false)
-                })
-                .collect();
+        
+        let view_filter = match self.current_view {
+            RepoView::Nvidia => Some("nvidia"),
+            RepoView::RpmFusion => Some("rpmfusion"),
+            RepoView::All => None,
+        };
+        
+        self.filtered_repositories.reserve(self.repositories.len().min(200));
+        
+        for repo in &self.repositories {
+            let matches_query = query_lower.is_empty() || 
+                repo.id.to_lowercase().contains(&query_lower) ||
+                repo.name.to_lowercase().contains(&query_lower) ||
+                repo.file_path.to_lowercase().contains(&query_lower) ||
+                repo.baseurl.as_ref().map(|u| u.to_lowercase().contains(&query_lower)).unwrap_or(false) ||
+                repo.metalink.as_ref().map(|u| u.to_lowercase().contains(&query_lower)).unwrap_or(false);
+            
+            let matches_view = view_filter.map(|filter| {
+                repo.id.to_lowercase().contains(filter) ||
+                repo.name.to_lowercase().contains(filter) ||
+                (filter == "rpmfusion" && repo.name.to_lowercase().contains("rpm fusion")) ||
+                repo.baseurl.as_ref().map(|u| u.to_lowercase().contains(filter)).unwrap_or(false) ||
+                repo.metalink.as_ref().map(|u| u.to_lowercase().contains(filter)).unwrap_or(false)
+            }).unwrap_or(true);
+            
+            if matches_query && matches_view {
+                self.filtered_repositories.push(repo.clone());
+                if self.filtered_repositories.len() >= 200 {
+                    break;
+                }
+            }
         }
-
-        self.filtered_repositories = filtered;
     }
 
     pub fn update(&mut self, message: Message) -> iced::Command<Message> {

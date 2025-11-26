@@ -378,11 +378,11 @@ async fn enable_copr_repos() -> Result<String, String> {
     cmd.arg("copr");
     cmd.arg("enable");
     cmd.arg("-y");
-    cmd.arg("solopasha/hyprland");
+    cmd.arg("lionheartp/Hyprland");
     cmd.arg("errornointernet/quickshell");
 
     let mut output = String::new();
-    output.push_str("$ pkexec dnf copr enable -y solopasha/hyprland errornointernet/quickshell\n");
+    output.push_str("$ pkexec dnf copr enable -y lionheartp/Hyprland errornointernet/quickshell\n");
     output.push_str("-------------------------------------------------------------\n");
 
     let cmd_output = execute_command_with_output(&mut cmd, "COPR repositories").await?;

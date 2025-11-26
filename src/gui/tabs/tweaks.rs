@@ -1990,7 +1990,7 @@ impl TweaksTab {
                             row![
                                             create_status_item("errornointernet/quickshell", status.repo_quickshell),
                                             Space::with_width(Length::Fixed(12.0)),
-                                            create_status_item("solopasha/hyprland", status.repo_hyprland),
+                                            create_status_item("lionheartp/Hyprland", status.repo_hyprland),
                                         ]
                                         .spacing(0)
                                         .width(Length::Fill),
@@ -2104,7 +2104,7 @@ impl TweaksTab {
                                         row![
                                             text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
-                                            text("Enables COPR repositories (solopasha/hyprland, errornointernet/quickshell)")
+                                            text("Enables COPR repositories (lionheartp/Hyprland, errornointernet/quickshell)")
                                 .size(body_font_size * 0.95)
                                 .style(iced::theme::Text::Color(theme.text())),
                                         ]
@@ -3251,7 +3251,7 @@ async fn check_hyprland_status() -> Result<HyprlandStatus, String> {
     let swappy = check_dnf_package("swappy").await;
     // Hyprland needs quickshell and hyprland COPR repos
     let repo_quickshell = check_copr_repo_enabled("errornointernet/quickshell").await;
-    let repo_hyprland = check_copr_repo_enabled("solopasha/hyprland").await;
+    let repo_hyprland = check_copr_repo_enabled("lionheartp/Hyprland").await;
 
     Ok(HyprlandStatus {
         hyprland,

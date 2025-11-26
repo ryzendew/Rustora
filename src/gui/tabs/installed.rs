@@ -73,18 +73,23 @@ impl InstalledTab {
 
     fn filter_packages(&mut self) {
         if self.search_query.trim().is_empty() {
-            self.filtered_packages = self.packages.clone();
+            if self.filtered_packages.len() != self.packages.len() {
+                self.filtered_packages = self.packages.clone();
+            }
         } else {
             let query_lower = self.search_query.to_lowercase();
-            self.filtered_packages = self.packages
-                .iter()
-                .filter(|pkg| {
-                    pkg.name.to_lowercase().contains(&query_lower) ||
-                    pkg.version.to_lowercase().contains(&query_lower) ||
-                    pkg.repository.to_lowercase().contains(&query_lower)
-                })
-                .cloned()
-                .collect();
+            self.filtered_packages.clear();
+            self.filtered_packages.reserve(self.packages.len().min(100));
+            for pkg in &self.packages {
+                if pkg.name.to_lowercase().contains(&query_lower) ||
+                   pkg.version.to_lowercase().contains(&query_lower) ||
+                   pkg.repository.to_lowercase().contains(&query_lower) {
+                    self.filtered_packages.push(pkg.clone());
+                    if self.filtered_packages.len() >= 100 {
+                        break;
+                    }
+                }
+            }
         }
     }
 
