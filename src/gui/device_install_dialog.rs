@@ -1,5 +1,6 @@
 use iced::widget::{button, column, container, progress_bar, row, scrollable, text, Space};
-use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme};
+use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme, Color};
+use crate::gui::dialog_design::DialogDesign;
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
@@ -219,96 +220,95 @@ impl Application for DeviceInstallDialog {
 
 impl DeviceInstallDialog {
     fn view_impl(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
-        // Load settings and calculate font sizes like tabs do
         let settings = crate::gui::settings::AppSettings::load();
-        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
-        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
-        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
-        let _icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
+        let title_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_size = (settings.font_size_body * settings.scale_body).round();
+        let button_size = (settings.font_size_buttons * settings.scale_buttons).round();
 
-        // Device information section
+        let label_w = 120.0;
         let device_info_section = container(
             column![
                 text("Device Information")
-                    .size(title_font_size)
+                    .size(body_size * 1.1)
                     .style(iced::theme::Text::Color(theme.primary())),
-                Space::with_height(Length::Fixed(12.0)),
+                Space::with_height(DialogDesign::space_small()),
                 row![
-                    text("Vendor:").size(body_font_size * 0.85).width(Length::Fixed(120.0))
+                    text("Vendor:").size(body_size).width(Length::Fixed(label_w))
                         .style(iced::theme::Text::Color(theme.secondary_text())),
-                    text(&self.device_info.vendor_name).size(body_font_size * 0.85),
+                    text(&self.device_info.vendor_name).size(body_size),
                 ]
-                .spacing(10)
+                .spacing(DialogDesign::SPACE_SMALL)
                 .width(Length::Fill),
-                Space::with_height(Length::Fixed(6.0)),
+                Space::with_height(DialogDesign::space_tiny()),
                 row![
-                    text("Device:").size(body_font_size * 0.85).width(Length::Fixed(120.0))
+                    text("Device:").size(body_size).width(Length::Fixed(label_w))
                         .style(iced::theme::Text::Color(theme.secondary_text())),
-                    text(&self.device_info.device_name).size(body_font_size * 0.85),
+                    text(&self.device_info.device_name).size(body_size),
                 ]
-                .spacing(10)
+                .spacing(DialogDesign::SPACE_SMALL)
                 .width(Length::Fill),
-                Space::with_height(Length::Fixed(6.0)),
+                Space::with_height(DialogDesign::space_tiny()),
                 row![
-                    text(if self.is_removal { "Driver to Remove:" } else { "Driver to Install:" }).size(body_font_size * 0.85).width(Length::Fixed(120.0))
+                    text(if self.is_removal { "Driver to Remove:" } else { "Driver to Install:" })
+                        .size(body_size).width(Length::Fixed(label_w))
                         .style(iced::theme::Text::Color(theme.secondary_text())),
-                    text(&self.device_info.driver).size(body_font_size * 0.85)
+                    text(&self.device_info.driver).size(body_size)
                         .style(iced::theme::Text::Color(theme.primary())),
                 ]
-                .spacing(10)
+                .spacing(DialogDesign::SPACE_SMALL)
                 .width(Length::Fill),
                 if !self.device_info.driver_version.is_empty() {
                     row![
-                        text("Driver Version:").size(body_font_size * 0.85).width(Length::Fixed(120.0))
+                        text("Driver Version:").size(body_size).width(Length::Fixed(label_w))
                             .style(iced::theme::Text::Color(theme.secondary_text())),
-                        text(&self.device_info.driver_version).size(body_font_size * 0.85)
+                        text(&self.device_info.driver_version).size(body_size)
                             .style(iced::theme::Text::Color(theme.primary())),
                     ]
-                    .spacing(10)
+                    .spacing(DialogDesign::SPACE_SMALL)
                     .width(Length::Fill)
                 } else {
                     row![Space::with_width(Length::Shrink)]
                 },
-                Space::with_height(Length::Fixed(6.0)),
+                Space::with_height(DialogDesign::space_tiny()),
                 row![
-                    text("Bus ID:").size(body_font_size * 0.85).width(Length::Fixed(120.0))
+                    text("Bus ID:").size(body_size).width(Length::Fixed(label_w))
                         .style(iced::theme::Text::Color(theme.secondary_text())),
-                    text(&self.device_info.bus_id).size(body_font_size * 0.85),
+                    text(&self.device_info.bus_id).size(body_size),
                 ]
-                .spacing(10)
+                .spacing(DialogDesign::SPACE_SMALL)
                 .width(Length::Fill),
-                Space::with_height(Length::Fixed(6.0)),
+                Space::with_height(DialogDesign::space_tiny()),
                 row![
-                    text("Vendor ID:").size(body_font_size * 0.85).width(Length::Fixed(120.0))
+                    text("Vendor ID:").size(body_size).width(Length::Fixed(label_w))
                         .style(iced::theme::Text::Color(theme.secondary_text())),
-                    text(&self.device_info.vendor_id).size(body_font_size * 0.85),
+                    text(&self.device_info.vendor_id).size(body_size),
                 ]
-                .spacing(10)
+                .spacing(DialogDesign::SPACE_SMALL)
                 .width(Length::Fill),
-                Space::with_height(Length::Fixed(6.0)),
+                Space::with_height(DialogDesign::space_tiny()),
                 row![
-                    text("Device ID:").size(body_font_size * 0.85).width(Length::Fixed(120.0))
+                    text("Device ID:").size(body_size).width(Length::Fixed(label_w))
                         .style(iced::theme::Text::Color(theme.secondary_text())),
-                    text(&self.device_info.device_id).size(body_font_size * 0.85),
+                    text(&self.device_info.device_id).size(body_size),
                 ]
-                .spacing(10)
+                .spacing(DialogDesign::SPACE_SMALL)
                 .width(Length::Fill),
                 if !self.device_info.repositories.is_empty() {
                     column![
-                        Space::with_height(Length::Fixed(6.0)),
+                        Space::with_height(DialogDesign::space_tiny()),
                         row![
-                            text("Repositories:").size(body_font_size * 0.85).width(Length::Fixed(120.0))
+                            text("Repositories:").size(body_size).width(Length::Fixed(label_w))
                                 .style(iced::theme::Text::Color(theme.secondary_text())),
                             column(
                                 self.device_info.repositories.iter().map(|repo| {
-                                    text(repo).size(body_font_size * 0.8)
+                                    text(repo).size(body_size * 0.9)
                                         .style(iced::theme::Text::Color(theme.primary()))
                                         .into()
                                 }).collect::<Vec<_>>()
                             )
-                            .spacing(2),
+                            .spacing(DialogDesign::SPACE_TINY),
                         ]
-                        .spacing(10)
+                        .spacing(DialogDesign::SPACE_SMALL)
                         .width(Length::Fill)
                         .align_items(Alignment::Start),
                     ]
@@ -316,10 +316,10 @@ impl DeviceInstallDialog {
                     column![Space::with_width(Length::Shrink)]
                 },
             ]
-            .spacing(4)
-            .padding(Padding::new(16.0))
+            .spacing(0)
+            .padding(DialogDesign::pad_medium())
         )
-        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+        .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         .width(Length::Fill);
 
         let content = if self.is_running || self.is_post_install {
@@ -352,7 +352,7 @@ impl DeviceInstallDialog {
                 container(
                     text(&combined_output)
                         .font(iced::Font::MONOSPACE)
-                        .size(body_font_size * 0.8)
+                        .size(body_size * 0.85)
                         .shaping(iced::widget::text::Shaping::Advanced)
                 )
                 .padding(Padding::new(16.0))
@@ -361,38 +361,81 @@ impl DeviceInstallDialog {
             .height(Length::Fill)
             .into();
 
+            let material_font = crate::gui::fonts::get_material_symbols_font();
+            let header = container(
+                row![
+                    text(if self.is_removal { crate::gui::fonts::glyphs::DELETE_SYMBOL } else { crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL })
+                        .font(material_font)
+                        .size(title_size * 1.2)
+                        .style(iced::theme::Text::Color(if self.is_removal { theme.danger() } else { theme.primary() })),
+                    Space::with_width(DialogDesign::space_small()),
+                    text(&title_text)
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(if self.is_removal { theme.danger() } else { theme.primary() })),
+                    Space::with_width(Length::Fill),
+                ]
+                .align_items(Alignment::Center)
+            )
+            .width(Length::Fill)
+            .padding(DialogDesign::pad_medium());
+
             container(
                 column![
-                    text(title_text)
-                        .size(title_font_size * 1.1)
-                        .style(iced::theme::Text::Color(theme.primary())),
-                    Space::with_height(Length::Fixed(12.0)),
-                    text(&self.profile_name)
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
-                    Space::with_height(Length::Fixed(16.0)),
-                    device_info_section,
-                    Space::with_height(Length::Fixed(16.0)),
-                    progress_bar(0.0..=1.0, 0.5)
-                        .width(Length::Fill),
-                    Space::with_height(Length::Fixed(8.0)),
-                    text(&self.progress_text)
-                        .size(body_font_size * 0.9)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
-                    Space::with_height(Length::Fixed(16.0)),
-                    text(output_text)
-                        .size(body_font_size * 0.9)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
-                    Space::with_height(Length::Fixed(8.0)),
-                    terminal_scroll,
+                    header,
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                    scrollable(
+                        column![
+                            text(&self.profile_name)
+                                .size(body_size * 0.95)
+                                .style(iced::theme::Text::Color(theme.secondary_text())),
+                            Space::with_height(DialogDesign::space_medium()),
+                            device_info_section,
+                            Space::with_height(DialogDesign::space_medium()),
+                            container(
+                                column![
+                                    text("Progress")
+                                        .size(body_size * 1.05)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(DialogDesign::space_small()),
+                                    progress_bar(0.0..=1.0, 0.5)
+                                        .width(Length::Fill)
+                                        .height(Length::Fixed(DialogDesign::PROGRESS_HEIGHT)),
+                                    Space::with_height(DialogDesign::space_tiny()),
+                                    text(&self.progress_text)
+                                        .size(body_size * 0.95)
+                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                                ]
+                                .spacing(0)
+                                .padding(DialogDesign::pad_medium())
+                            )
+                            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle))),
+                            container(
+                                column![
+                                    text(&output_text)
+                                        .size(body_size * 1.05)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(DialogDesign::space_small()),
+                                    terminal_scroll,
+                                ]
+                                .spacing(0)
+                                .padding(DialogDesign::pad_medium())
+                            )
+                            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle))),
+                        ]
+                        .spacing(DialogDesign::SPACE_MEDIUM)
+                        .padding(DialogDesign::pad_medium())
+                    )
+                    .height(Length::Fill),
                 ]
-                .spacing(8)
-                .padding(Padding::new(20.0))
-                .width(Length::Fill)
+                .spacing(0)
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(WindowContainerStyle {
+                background: theme.background(),
+            })))
         } else if self.has_error {
             // Show error state
             let error_title = if self.is_removal {
@@ -403,24 +446,24 @@ impl DeviceInstallDialog {
             container(
                 column![
                     text(error_title)
-                        .size(title_font_size * 1.1)
+                        .size(title_size)
                         .style(iced::theme::Text::Color(theme.danger())),
                     Space::with_height(Length::Fixed(12.0)),
                     text(&self.profile_name)
-                        .size(body_font_size * 0.95)
+                        .size(body_size * 0.95)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     Space::with_height(Length::Fixed(16.0)),
                     device_info_section,
                     Space::with_height(Length::Fixed(16.0)),
                     text("Error Output:")
-                        .size(body_font_size * 0.9)
+                        .size(body_size * 0.95)
                         .style(iced::theme::Text::Color(theme.danger())),
                     Space::with_height(Length::Fixed(8.0)),
                     scrollable(
                         container(
                             text(&self.terminal_output)
                                 .font(iced::Font::MONOSPACE)
-                                .size(body_font_size * 0.8)
+                                .size(body_size * 0.85)
                                 .shaping(iced::widget::text::Shaping::Advanced)
                         )
                         .padding(Padding::new(16.0))
@@ -436,7 +479,7 @@ impl DeviceInstallDialog {
                         .align_items(Alignment::Center)
                     )
                     .on_press(Message::Close)
-                    .style(iced::theme::Button::Custom(Box::new(DialogButtonStyle)))
+                    .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
                     .padding(Padding::new(12.0)),
                 ]
                 .spacing(8)
@@ -445,7 +488,7 @@ impl DeviceInstallDialog {
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         } else {
             // Show success state
             let action = if self.is_removal { "Removal" } else { "Installation" };
@@ -469,18 +512,18 @@ impl DeviceInstallDialog {
             container(
                 column![
                     text(success_title)
-                        .size(title_font_size * 1.1)
+                        .size(title_size)
                         .style(iced::theme::Text::Color(theme.primary())),
                     Space::with_height(Length::Fixed(12.0)),
                     text(&self.profile_name)
-                        .size(body_font_size * 0.95)
+                        .size(body_size * 0.95)
                         .style(iced::theme::Text::Color(theme.secondary_text())),
                     Space::with_height(Length::Fixed(16.0)),
                     device_info_section,
                     Space::with_height(Length::Fixed(16.0)),
                     if self.post_install_complete {
                         text("All post-installation steps completed successfully!")
-                            .size(button_font_size)
+                            .size(button_size)
                             .style(iced::theme::Text::Color(theme.primary()))
                     } else {
                         let success_msg = if self.is_removal {
@@ -489,7 +532,7 @@ impl DeviceInstallDialog {
                             "Installation completed successfully."
                         };
                         text(success_msg)
-                            .size(button_font_size)
+                            .size(button_size)
                             .style(iced::theme::Text::Color(theme.primary()))
                     },
                     Space::with_height(Length::Fixed(16.0)),
@@ -501,7 +544,7 @@ impl DeviceInstallDialog {
                         container(
                             text(&combined_output)
                                 .font(iced::Font::MONOSPACE)
-                                .size(body_font_size * 0.8)
+                                .size(body_size * 0.85)
                                 .shaping(iced::widget::text::Shaping::Advanced)
                         )
                         .padding(Padding::new(16.0))
@@ -517,7 +560,7 @@ impl DeviceInstallDialog {
                         .align_items(Alignment::Center)
                     )
                     .on_press(Message::Close)
-                    .style(iced::theme::Button::Custom(Box::new(DialogButtonStyle)))
+                    .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
                     .padding(Padding::new(12.0)),
                 ]
                 .spacing(8)
@@ -526,7 +569,7 @@ impl DeviceInstallDialog {
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         };
 
         container(content)
@@ -813,75 +856,107 @@ async fn run_dracut_regenerate() -> Result<String, String> {
     }
 }
 
-// Info container style (for device information)
-struct InfoContainerStyle;
+struct CleanContainerStyle;
 
-impl iced::widget::container::StyleSheet for InfoContainerStyle {
+impl iced::widget::container::StyleSheet for CleanContainerStyle {
     type Style = iced::Theme;
 
-    fn appearance(&self, _style: &Self::Style) -> Appearance {
+    fn appearance(&self, style: &Self::Style) -> Appearance {
+        let palette = style.palette();
         Appearance {
-            text_color: None,
-            background: Some(iced::Background::Color(iced::Color::from_rgb(0.15, 0.15, 0.15))),
+            background: Some(iced::Background::Color(Color::from_rgba(
+                palette.background.r * 0.98,
+                palette.background.g * 0.98,
+                palette.background.b * 0.98,
+                1.0,
+            ))),
             border: Border {
-                color: iced::Color::from_rgb(0.3, 0.3, 0.3),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                radius: 6.0.into(),
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.2),
             },
-            shadow: Default::default(),
+            ..Default::default()
         }
     }
 }
 
-// Dialog container style
-struct DialogContainerStyle;
+struct DividerStyle;
 
-impl iced::widget::container::StyleSheet for DialogContainerStyle {
+impl iced::widget::container::StyleSheet for DividerStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
-            text_color: None,
-            background: Some(iced::Background::Color(iced::Color::from_rgb(0.1, 0.1, 0.1))),
+            background: Some(iced::Background::Color(Color::from_rgba(0.3, 0.3, 0.3, 0.2))),
             border: Border {
-                color: iced::Color::from_rgb(0.3, 0.3, 0.3),
-                width: 1.0,
-                radius: 8.0.into(),
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
             },
-            shadow: Default::default(),
+            ..Default::default()
         }
     }
 }
 
-// Dialog button style
-struct DialogButtonStyle;
+struct WindowContainerStyle {
+    background: iced::Color,
+}
 
-impl ButtonStyleSheet for DialogButtonStyle {
+impl iced::widget::container::StyleSheet for WindowContainerStyle {
     type Style = iced::Theme;
 
-    fn active(&self, _style: &Self::Style) -> ButtonAppearance {
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(self.background)),
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+struct CleanButtonStyle {
+    is_primary: bool,
+}
+
+impl ButtonStyleSheet for CleanButtonStyle {
+    type Style = iced::Theme;
+
+    fn active(&self, style: &Self::Style) -> ButtonAppearance {
+        let palette = style.palette();
         ButtonAppearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgb(0.2, 0.5, 0.9))),
+            background: Some(iced::Background::Color(if self.is_primary {
+                palette.primary
+            } else {
+                Color::from_rgba(0.4, 0.4, 0.4, 0.2)
+            })),
             border: Border {
-                color: iced::Color::from_rgb(0.3, 0.6, 1.0),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                radius: 6.0.into(),
+                color: if self.is_primary {
+                    palette.primary
+                } else {
+                    Color::from_rgba(0.5, 0.5, 0.5, 0.3)
+                },
             },
-            text_color: iced::Color::WHITE,
-            shadow: Default::default(),
-            shadow_offset: iced::Vector::default(),
+            text_color: if self.is_primary { Color::WHITE } else { palette.text },
+            ..Default::default()
         }
     }
 
     fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
-        appearance.background = Some(iced::Background::Color(iced::Color::from_rgb(0.25, 0.55, 0.95)));
-        appearance
-    }
-
-    fn pressed(&self, style: &Self::Style) -> ButtonAppearance {
-        let mut appearance = self.active(style);
-        appearance.background = Some(iced::Background::Color(iced::Color::from_rgb(0.15, 0.45, 0.85)));
+        let palette = style.palette();
+        if self.is_primary {
+            appearance.background = Some(iced::Background::Color(
+                Color::from_rgba(palette.primary.r * 0.85, palette.primary.g * 0.85, palette.primary.b * 0.85, 1.0)
+            ));
+        } else {
+            appearance.background = Some(iced::Background::Color(Color::from_rgba(0.4, 0.4, 0.4, 0.3)));
+        }
         appearance
     }
 }

@@ -1,5 +1,6 @@
 use iced::widget::{button, column, container, progress_bar, row, scrollable, text, Space};
-use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme};
+use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme, Color};
+use crate::gui::dialog_design::DialogDesign;
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
@@ -112,21 +113,30 @@ impl UpdateDialog {
             return Space::with_width(Length::Shrink).into();
         }
 
+        let settings = crate::gui::settings::AppSettings::load();
+        let title_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_size = (settings.font_size_body * settings.scale_body).round();
+        let button_size = (settings.font_size_buttons * settings.scale_buttons).round();
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
         let content = if self.is_loading_info {
             container(
                 column![
-                    text("Checking for updates...").size(18),
-                    Space::with_height(Length::Fixed(20.0)),
-                    progress_bar(0.0..=1.0, 0.5).width(Length::Fill),
+                    text("Checking for updates...")
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_height(DialogDesign::space_medium()),
+                    progress_bar(0.0..=1.0, 0.5)
+                        .width(Length::Fill)
+                        .height(Length::Fixed(DialogDesign::PROGRESS_HEIGHT)),
                 ]
-                .spacing(15)
+                .spacing(DialogDesign::SPACE_SMALL)
                 .align_items(Alignment::Center)
-                .padding(Padding::new(30.0))
+                .padding(DialogDesign::pad_large())
             )
             .width(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .height(Length::Fill)
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         } else if self.is_installing {
             let progress_text = if self.installation_progress.is_empty() {
                 "Installing updates...".to_string()
@@ -190,35 +200,96 @@ impl UpdateDialog {
             .height(Length::Fill)
             .into();
 
+            let header = container(
+                row![
+                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL)
+                        .font(material_font)
+                        .size(title_size * 1.2)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_width(DialogDesign::space_small()),
+                    text("Installing Updates")
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_width(Length::Fill),
+                ]
+                .align_items(Alignment::Center)
+            )
+            .width(Length::Fill)
+            .padding(DialogDesign::pad_medium());
+
             container(
                 column![
-                    text("Installing Updates").size(20).style(iced::theme::Text::Color(theme.primary())),
-                    Space::with_height(Length::Fixed(8.0)),
-                    progress_bar(0.0..=1.0, 0.5).width(Length::Fill),
-                    Space::with_height(Length::Fixed(8.0)),
-                    text(&progress_text).size(13),
-                    Space::with_height(Length::Fixed(8.0)),
-                    if !self.packages_with_info.is_empty() {
-                        let packages_column: Element<Message> = column![
-                            text("Packages:").size(14).style(iced::theme::Text::Color(theme.primary())),
-                            packages_list,
-                        ]
-                        .spacing(8)
-                        .into();
-                        packages_column
-                    } else {
-                        Space::with_height(Length::Fixed(0.0)).into()
-                    },
-                    Space::with_height(Length::Fixed(8.0)),
-                    text("Output:").size(14).style(iced::theme::Text::Color(theme.primary())),
-                    terminal_scroll,
+                    header,
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                    scrollable({
+                        let mut items: Vec<Element<Message>> = vec![
+                            container(
+                                column![
+                                    text("Progress")
+                                        .size(body_size * 1.05)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(DialogDesign::space_small()),
+                                    progress_bar(0.0..=1.0, 0.5)
+                                        .width(Length::Fill)
+                                        .height(Length::Fixed(DialogDesign::PROGRESS_HEIGHT)),
+                                    Space::with_height(DialogDesign::space_tiny()),
+                                    text(&progress_text)
+                                        .size(body_size * 0.95),
+                                ]
+                                .spacing(0)
+                                .padding(DialogDesign::pad_medium())
+                            )
+                            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
+                            .into(),
+                        ];
+                        
+                        if !self.packages_with_info.is_empty() {
+                            items.push(
+                                container(
+                                    column![
+                                        text("Packages")
+                                            .size(body_size * 1.05)
+                                            .style(iced::theme::Text::Color(theme.primary())),
+                                        Space::with_height(DialogDesign::space_small()),
+                                        packages_list,
+                                    ]
+                                    .spacing(0)
+                                    .padding(DialogDesign::pad_medium())
+                                )
+                                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
+                                .into()
+                            );
+                        }
+                        
+                        items.push(
+                            container(
+                                column![
+                                    text("Output")
+                                        .size(body_size * 1.05)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(DialogDesign::space_small()),
+                                    terminal_scroll,
+                                ]
+                                .spacing(0)
+                                .padding(DialogDesign::pad_medium())
+                            )
+                            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
+                            .into()
+                        );
+                        
+                        column(items).spacing(DialogDesign::SPACE_MEDIUM).padding(DialogDesign::pad_medium())
+                    })
+                    .height(Length::Fill),
                 ]
-                .spacing(8)
-                .padding(Padding::new(16.0))
+                .spacing(0)
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(WindowContainerStyle {
+                background: theme.background(),
+            })))
         } else if self.is_complete {
             let packages_list: Element<Message> = if !self.packages_with_info.is_empty() {
                 scrollable(
@@ -259,7 +330,7 @@ impl UpdateDialog {
                 .height(Length::Fixed(250.0))
                 .into()
             } else {
-                Space::with_height(Length::Fixed(0.0)).into()
+                        Space::with_height(Length::Fixed(0.0)).into()
             };
 
             let has_failed = self.package_status.values().any(|s| *s == InstallStatus::Failed);
@@ -319,7 +390,7 @@ impl UpdateDialog {
                         .align_items(Alignment::Center)
                     )
                     .on_press(Message::Cancel)
-                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                    .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle {
                         is_primary: true,
                     })))
                     .padding(Padding::new(12.0))
@@ -330,7 +401,7 @@ impl UpdateDialog {
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         } else if self.updates.is_empty() {
             container(
                 column![
@@ -347,7 +418,7 @@ impl UpdateDialog {
                         .align_items(Alignment::Center)
                     )
                     .on_press(Message::Cancel)
-                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                    .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle {
                         is_primary: true,
                     })))
                     .padding(Padding::new(12.0))
@@ -357,7 +428,7 @@ impl UpdateDialog {
                 .padding(Padding::new(30.0))
             )
             .width(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         } else {
             let packages_to_show = if !self.packages_with_info.is_empty() {
                 &self.packages_with_info
@@ -413,7 +484,7 @@ impl UpdateDialog {
                 .align_items(Alignment::Center)
             )
             .on_press(Message::InstallUpdates)
-            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+            .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle {
                 is_primary: true,
             })))
             .padding(Padding::new(14.0));
@@ -427,9 +498,9 @@ impl UpdateDialog {
                 .align_items(Alignment::Center)
             )
             .on_press(Message::Cancel)
-            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                is_primary: false,
-            })))
+                    .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle {
+                        is_primary: false,
+                    })))
             .padding(Padding::new(14.0));
 
             container(
@@ -449,7 +520,7 @@ impl UpdateDialog {
                 .spacing(10)
             )
             .width(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         };
 
         container(content)
@@ -983,19 +1054,42 @@ async fn install_updates_streaming(
     }
 }
 
-struct DialogContainerStyle;
+struct CleanContainerStyle;
 
-impl iced::widget::container::StyleSheet for DialogContainerStyle {
+impl iced::widget::container::StyleSheet for CleanContainerStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, style: &Self::Style) -> Appearance {
         let palette = style.palette();
         Appearance {
-            background: Some(iced::Background::Color(palette.background)),
+            background: Some(iced::Background::Color(Color::from_rgba(
+                palette.background.r * 0.98,
+                palette.background.g * 0.98,
+                palette.background.b * 0.98,
+                1.0,
+            ))),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.2),
+            },
+            ..Default::default()
+        }
+    }
+}
+
+struct DividerStyle;
+
+impl iced::widget::container::StyleSheet for DividerStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(Color::from_rgba(0.3, 0.3, 0.3, 0.2))),
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
             },
             ..Default::default()
         }
@@ -1041,11 +1135,11 @@ impl iced::widget::container::StyleSheet for UpdateItemStyle {
     }
 }
 
-struct RoundedButtonStyle {
+struct CleanButtonStyle {
     is_primary: bool,
 }
 
-impl ButtonStyleSheet for RoundedButtonStyle {
+impl ButtonStyleSheet for CleanButtonStyle {
     type Style = iced::Theme;
 
     fn active(&self, style: &Self::Style) -> ButtonAppearance {
@@ -1054,18 +1148,18 @@ impl ButtonStyleSheet for RoundedButtonStyle {
             background: Some(iced::Background::Color(if self.is_primary {
                 palette.primary
             } else {
-                iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
+                Color::from_rgba(0.4, 0.4, 0.4, 0.2)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
                 } else {
-                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3)
+                    Color::from_rgba(0.5, 0.5, 0.5, 0.3)
                 },
             },
-            text_color: palette.text,
+            text_color: if self.is_primary { Color::WHITE } else { palette.text },
             ..Default::default()
         }
     }
@@ -1073,11 +1167,13 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
         let palette = style.palette();
-        appearance.background = Some(iced::Background::Color(if self.is_primary {
-            iced::Color::from_rgba(palette.primary.r * 0.9, palette.primary.g * 0.9, palette.primary.b * 0.9, 1.0)
+        if self.is_primary {
+            appearance.background = Some(iced::Background::Color(
+                Color::from_rgba(palette.primary.r * 0.85, palette.primary.g * 0.85, palette.primary.b * 0.85, 1.0)
+            ));
         } else {
-            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
-        }));
+            appearance.background = Some(iced::Background::Color(Color::from_rgba(0.4, 0.4, 0.4, 0.3)));
+        }
         appearance
     }
 }

@@ -1,5 +1,6 @@
 use iced::widget::{button, column, container, progress_bar, row, scrollable, text, Space};
-use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme};
+use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme, Color};
+use crate::gui::dialog_design::DialogDesign;
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
@@ -164,67 +165,103 @@ impl Application for MaintenanceDialog {
 
 impl MaintenanceDialog {
     pub fn view_impl(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+        let settings = crate::gui::settings::AppSettings::load();
+        let title_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_size = (settings.font_size_body * settings.scale_body).round();
+        let button_size = (settings.font_size_buttons * settings.scale_buttons).round();
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
         let content = if self.is_running {
-            // Show running state with terminal output
             let terminal_scroll: Element<Message> = scrollable(
                 container(
                     text(&self.terminal_output)
                         .font(iced::Font::MONOSPACE)
-                        .size(12)
+                        .size(body_size * 0.85)
                         .shaping(iced::widget::text::Shaping::Advanced)
                 )
-                .padding(Padding::new(16.0))
+                .padding(DialogDesign::pad_small())
                 .width(Length::Fill)
             )
             .height(Length::Fill)
             .into();
 
+            let header = container(
+                row![
+                    text(crate::gui::fonts::glyphs::SETTINGS_SYMBOL)
+                        .font(material_font)
+                        .size(title_size * 1.2)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_width(DialogDesign::space_small()),
+                    text(self.get_task_title())
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_width(Length::Fill),
+                ]
+                .align_items(Alignment::Center)
+            )
+            .width(Length::Fill)
+            .padding(DialogDesign::pad_medium());
+
             container(
                 column![
-                    text(self.get_task_title())
-                        .size(22)
-                        .style(iced::theme::Text::Color(theme.primary())),
-                    Space::with_height(Length::Fixed(12.0)),
-                    progress_bar(0.0..=1.0, 0.5)
-                        .width(Length::Fill),
-                    Space::with_height(Length::Fixed(8.0)),
-                    text(&self.progress_text)
-                        .size(14),
-                    Space::with_height(Length::Fixed(16.0)),
-                    container(
+                    header,
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                    scrollable(
                         column![
-                            text("Output:")
-                                .size(13)
-                                .style(iced::theme::Text::Color(theme.primary())),
-                            Space::with_height(Length::Fixed(8.0)),
-                            terminal_scroll,
+                            container(
+                                column![
+                                    text("Progress")
+                                        .size(body_size * 1.05)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(DialogDesign::space_small()),
+                                    progress_bar(0.0..=1.0, 0.5)
+                                        .width(Length::Fill)
+                                        .height(Length::Fixed(DialogDesign::PROGRESS_HEIGHT)),
+                                    Space::with_height(DialogDesign::space_tiny()),
+                                    text(&self.progress_text)
+                                        .size(body_size * 0.95),
+                                ]
+                                .spacing(0)
+                                .padding(DialogDesign::pad_medium())
+                            )
+                            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle))),
+                            container(
+                                column![
+                                    text("Output")
+                                        .size(body_size * 1.05)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(DialogDesign::space_small()),
+                                    terminal_scroll,
+                                ]
+                                .spacing(0)
+                                .padding(DialogDesign::pad_medium())
+                            )
+                            .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle))),
                         ]
-                        .spacing(0)
+                        .spacing(DialogDesign::SPACE_MEDIUM)
+                        .padding(DialogDesign::pad_medium())
                     )
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .padding(Padding::new(12.0))
-                    .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle))),
+                    .height(Length::Fill),
                 ]
                 .spacing(0)
-                .padding(Padding::new(24.0))
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(WindowContainerStyle {
+                background: theme.background(),
+            })))
         } else if self.has_error {
-            // Show error state
             let terminal_scroll: Element<Message> = if !self.terminal_output.is_empty() {
                 scrollable(
                     container(
                         text(&self.terminal_output)
                             .font(iced::Font::MONOSPACE)
-                            .size(12)
+                            .size(body_size * 0.85)
                             .shaping(iced::widget::text::Shaping::Advanced)
                     )
-                    .padding(Padding::new(16.0))
+                    .padding(DialogDesign::pad_small())
                     .width(Length::Fill)
                 )
                 .height(Length::Fill)
@@ -236,50 +273,82 @@ impl MaintenanceDialog {
                     .into()
             };
 
+            let header = container(
+                row![
+                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL)
+                        .font(material_font)
+                        .size(title_size * 1.2)
+                        .style(iced::theme::Text::Color(theme.danger())),
+                    Space::with_width(DialogDesign::space_small()),
+                    text("Task Failed")
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.danger())),
+                    Space::with_width(Length::Fill),
+                ]
+                .align_items(Alignment::Center)
+            )
+            .width(Length::Fill)
+            .padding(DialogDesign::pad_medium());
+
             container(
                 column![
-                    text("Task Failed")
-                        .size(22)
-                        .style(iced::theme::Text::Color(iced::Color::from_rgb(0.9, 0.2, 0.2))),
-                    Space::with_height(Length::Fixed(12.0)),
-                    text("The maintenance task encountered an error.")
-                        .size(14),
-                    Space::with_height(Length::Fixed(16.0)),
-                    container(
+                    header,
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                    scrollable(
                         column![
-                            text("Error Output:")
-                                .size(13)
-                                .style(iced::theme::Text::Color(iced::Color::from_rgb(0.9, 0.2, 0.2))),
-                            Space::with_height(Length::Fixed(8.0)),
-                            terminal_scroll,
+                            text("The maintenance task encountered an error.")
+                                .size(body_size)
+                                .style(iced::theme::Text::Color(theme.danger())),
+                            Space::with_height(DialogDesign::space_medium()),
+                            container(
+                                column![
+                                    text("Error Output")
+                                        .size(body_size * 1.05)
+                                        .style(iced::theme::Text::Color(theme.danger())),
+                                    Space::with_height(DialogDesign::space_small()),
+                                    terminal_scroll,
+                                ]
+                                .spacing(0)
+                                .padding(DialogDesign::pad_medium())
+                            )
+                            .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle))),
                         ]
                         .spacing(0)
+                        .padding(DialogDesign::pad_medium())
+                    )
+                    .height(Length::Fill),
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                    container(
+                        row![
+                            Space::with_width(Length::Fill),
+                            button(
+                                row![
+                                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(button_size * 1.1),
+                                    text(" Close").size(button_size)
+                                ]
+                                .spacing(DialogDesign::SPACE_TINY)
+                                .align_items(Alignment::Center)
+                            )
+                            .on_press(Message::Close)
+                            .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                            .padding(DialogDesign::pad_small()),
+                        ]
+                        .spacing(DialogDesign::SPACE_SMALL)
                     )
                     .width(Length::Fill)
-                    .height(Length::Fill)
-                    .padding(Padding::new(12.0))
-                    .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle))),
-                    Space::with_height(Length::Fixed(16.0)),
-                    button(
-                        row![
-                            text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(18),
-                            text(" Close")
-                        ]
-                        .spacing(8)
-                        .align_items(Alignment::Center)
-                    )
-                    .on_press(Message::Close)
-                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                        is_primary: true,
-                    })))
-                    .padding(Padding::new(12.0)),
+                    .padding(DialogDesign::pad_medium()),
                 ]
                 .spacing(0)
-                .padding(Padding::new(24.0))
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(WindowContainerStyle {
+                background: theme.background(),
+            })))
         } else {
             // Show success state
             let terminal_scroll: Element<Message> = if !self.terminal_output.is_empty() {
@@ -302,50 +371,82 @@ impl MaintenanceDialog {
                     .into()
             };
 
+            let header = container(
+                row![
+                    text(crate::gui::fonts::glyphs::CHECK_SYMBOL)
+                        .font(material_font)
+                        .size(title_size * 1.2)
+                        .style(iced::theme::Text::Color(Color::from_rgb(0.0, 0.8, 0.0))),
+                    Space::with_width(DialogDesign::space_small()),
+                    text("Task Completed")
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(Color::from_rgb(0.0, 0.8, 0.0))),
+                    Space::with_width(Length::Fill),
+                ]
+                .align_items(Alignment::Center)
+            )
+            .width(Length::Fill)
+            .padding(DialogDesign::pad_medium());
+
             container(
                 column![
-                    text("Task Completed Successfully")
-                        .size(22)
-                        .style(iced::theme::Text::Color(iced::Color::from_rgb(0.0, 0.8, 0.0))),
-                    Space::with_height(Length::Fixed(12.0)),
-                    text(format!("{} completed successfully.", self.get_task_title()))
-                        .size(14),
-                    Space::with_height(Length::Fixed(16.0)),
-                    container(
+                    header,
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                    scrollable(
                         column![
-                            text("Output:")
-                                .size(13)
-                                .style(iced::theme::Text::Color(theme.primary())),
-                            Space::with_height(Length::Fixed(8.0)),
-                            terminal_scroll,
+                            text(format!("{} completed successfully.", self.get_task_title()))
+                                .size(body_size)
+                                .style(iced::theme::Text::Color(Color::from_rgb(0.0, 0.8, 0.0))),
+                            Space::with_height(DialogDesign::space_medium()),
+                            container(
+                                column![
+                                    text("Output")
+                                        .size(body_size * 1.05)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(DialogDesign::space_small()),
+                                    terminal_scroll,
+                                ]
+                                .spacing(0)
+                                .padding(DialogDesign::pad_medium())
+                            )
+                            .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle))),
                         ]
                         .spacing(0)
+                        .padding(DialogDesign::pad_medium())
+                    )
+                    .height(Length::Fill),
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                    container(
+                        row![
+                            Space::with_width(Length::Fill),
+                            button(
+                                row![
+                                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(button_size * 1.1),
+                                    text(" Close").size(button_size)
+                                ]
+                                .spacing(DialogDesign::SPACE_TINY)
+                                .align_items(Alignment::Center)
+                            )
+                            .on_press(Message::Close)
+                            .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                            .padding(DialogDesign::pad_small()),
+                        ]
+                        .spacing(DialogDesign::SPACE_SMALL)
                     )
                     .width(Length::Fill)
-                    .height(Length::Fill)
-                    .padding(Padding::new(12.0))
-                    .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle))),
-                    Space::with_height(Length::Fixed(16.0)),
-                    button(
-                        row![
-                            text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(18),
-                            text(" Close")
-                        ]
-                        .spacing(8)
-                        .align_items(Alignment::Center)
-                    )
-                    .on_press(Message::Close)
-                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                        is_primary: true,
-                    })))
-                    .padding(Padding::new(12.0)),
+                    .padding(DialogDesign::pad_medium()),
                 ]
                 .spacing(0)
-                .padding(Padding::new(24.0))
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(WindowContainerStyle {
+                background: theme.background(),
+            })))
         };
 
         content.into()
@@ -422,19 +523,62 @@ async fn run_maintenance_task_streaming(cmd_name: String, args: Vec<String>) -> 
     Ok(combined_output)
 }
 
-struct DialogContainerStyle;
+struct CleanContainerStyle;
 
-impl iced::widget::container::StyleSheet for DialogContainerStyle {
+impl iced::widget::container::StyleSheet for CleanContainerStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, style: &Self::Style) -> Appearance {
         let palette = style.palette();
         Appearance {
-            background: Some(iced::Background::Color(palette.background)),
+            background: Some(iced::Background::Color(Color::from_rgba(
+                palette.background.r * 0.98,
+                palette.background.g * 0.98,
+                palette.background.b * 0.98,
+                1.0,
+            ))),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
+                width: 1.0,
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.2),
+            },
+            ..Default::default()
+        }
+    }
+}
+
+struct DividerStyle;
+
+impl iced::widget::container::StyleSheet for DividerStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(Color::from_rgba(0.3, 0.3, 0.3, 0.2))),
+            border: Border {
+                radius: 0.0.into(),
                 width: 0.0,
-                color: iced::Color::TRANSPARENT,
+                color: Color::TRANSPARENT,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+struct WindowContainerStyle {
+    background: iced::Color,
+}
+
+impl iced::widget::container::StyleSheet for WindowContainerStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(self.background)),
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
             },
             ..Default::default()
         }
@@ -446,30 +590,24 @@ struct TerminalContainerStyle;
 impl iced::widget::container::StyleSheet for TerminalContainerStyle {
     type Style = iced::Theme;
 
-    fn appearance(&self, style: &Self::Style) -> Appearance {
-        let palette = style.palette();
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(
-                palette.background.r * 0.95,
-                palette.background.g * 0.95,
-                palette.background.b * 0.95,
-                1.0,
-            ))),
+            background: Some(iced::Background::Color(Color::from_rgb(0.1, 0.1, 0.1))),
             border: Border {
-                radius: 8.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.5),
             },
             ..Default::default()
         }
     }
 }
 
-struct RoundedButtonStyle {
+struct CleanButtonStyle {
     is_primary: bool,
 }
 
-impl ButtonStyleSheet for RoundedButtonStyle {
+impl ButtonStyleSheet for CleanButtonStyle {
     type Style = iced::Theme;
 
     fn active(&self, style: &Self::Style) -> ButtonAppearance {
@@ -478,18 +616,18 @@ impl ButtonStyleSheet for RoundedButtonStyle {
             background: Some(iced::Background::Color(if self.is_primary {
                 palette.primary
             } else {
-                iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
+                Color::from_rgba(0.4, 0.4, 0.4, 0.2)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
                 } else {
-                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3)
+                    Color::from_rgba(0.5, 0.5, 0.5, 0.3)
                 },
             },
-            text_color: palette.text,
+            text_color: if self.is_primary { Color::WHITE } else { palette.text },
             ..Default::default()
         }
     }
@@ -497,11 +635,13 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
         let palette = style.palette();
-        appearance.background = Some(iced::Background::Color(if self.is_primary {
-            iced::Color::from_rgba(palette.primary.r * 0.9, palette.primary.g * 0.9, palette.primary.b * 0.9, 1.0)
+        if self.is_primary {
+            appearance.background = Some(iced::Background::Color(
+                Color::from_rgba(palette.primary.r * 0.85, palette.primary.g * 0.85, palette.primary.b * 0.85, 1.0)
+            ));
         } else {
-            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
-        }));
+            appearance.background = Some(iced::Background::Color(Color::from_rgba(0.4, 0.4, 0.4, 0.3)));
+        }
         appearance
     }
 }

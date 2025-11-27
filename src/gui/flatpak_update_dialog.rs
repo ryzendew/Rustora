@@ -1,5 +1,6 @@
 use iced::widget::{button, column, container, progress_bar, row, scrollable, text, Space};
-use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme};
+use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme, Color};
+use crate::gui::dialog_design::DialogDesign;
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
@@ -75,42 +76,40 @@ impl FlatpakUpdateDialog {
 
     fn view_impl(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
         let settings = crate::gui::settings::AppSettings::load();
-        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
-        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
-        let _button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
-        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
-
+        let title_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_size = (settings.font_size_body * settings.scale_body).round();
+        let button_size = (settings.font_size_buttons * settings.scale_buttons).round();
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
-        let title = container(
+        let header = container(
             row![
+                text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL)
+                    .font(material_font)
+                    .size(title_size * 1.2)
+                    .style(iced::theme::Text::Color(theme.primary())),
+                Space::with_width(DialogDesign::space_small()),
                 column![
                     text("Update Flatpak Applications")
-                        .size(title_font_size)
+                        .size(title_size)
                         .style(iced::theme::Text::Color(theme.primary())),
                     text(format!("{} package(s) to update", self.packages.len()))
-                        .size(body_font_size * 0.7)
-                        .style(iced::theme::Text::Color(iced::Color::from_rgba(0.6, 0.6, 0.6, 1.0))),
+                        .size(body_size * 0.8)
+                        .style(iced::theme::Text::Color(theme.secondary_text())),
                 ]
-                .spacing(2),
+                .spacing(DialogDesign::SPACE_TINY),
                 Space::with_width(Length::Fill),
-                button(
-                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(icon_size)
-                )
-                .on_press(Message::Cancel)
-                .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)))
-                .padding(Padding::new(6.0)),
             ]
             .align_items(Alignment::Center)
-            .width(Length::Fill)
         )
-            .width(Length::Fill)
-            .padding(Padding::new(16.0));
+        .width(Length::Fill)
+        .padding(DialogDesign::pad_medium());
 
         let packages_section = container(
             column![
-                text("Packages to Update").size(15).style(iced::theme::Text::Color(theme.primary())),
-                Space::with_height(Length::Fixed(10.0)),
+                text("Packages to Update")
+                    .size(body_size * 1.1)
+                    .style(iced::theme::Text::Color(theme.primary())),
+                Space::with_height(DialogDesign::space_small()),
                 scrollable(
                     column(
                         self.packages
@@ -118,13 +117,16 @@ impl FlatpakUpdateDialog {
                             .map(|pkg| {
                                 container(
                                     row![
-                                        text(&pkg.name).size(14).width(Length::FillPortion(3)),
-                                        text(&pkg.version).size(12).width(Length::FillPortion(2)),
-                                        text(pkg.remote.as_deref().unwrap_or("local")).size(12).width(Length::FillPortion(2)),
+                                        text(&pkg.name).size(body_size).width(Length::FillPortion(3)),
+                                        text(&pkg.version).size(body_size * 0.9).width(Length::FillPortion(2)),
+                                        text(pkg.remote.as_deref().unwrap_or("local"))
+                                            .size(body_size * 0.9)
+                                            .width(Length::FillPortion(2))
+                                            .style(iced::theme::Text::Color(theme.secondary_text())),
                                     ]
-                                    .spacing(12)
+                                    .spacing(DialogDesign::SPACE_SMALL)
                                     .align_items(Alignment::Center)
-                                    .padding(12)
+                                    .padding(DialogDesign::pad_small())
                                 )
                                 .style(iced::theme::Container::Custom(Box::new(PackageItemStyle {
                                     is_updating: self.current_package.as_ref().map(|cp| cp == &pkg.application_id).unwrap_or(false),
@@ -133,17 +135,17 @@ impl FlatpakUpdateDialog {
                             })
                             .collect::<Vec<_>>(),
                     )
-                    .spacing(6)
+                    .spacing(DialogDesign::SPACE_SMALL)
                 )
                 .height(Length::Fixed(200.0)),
             ]
-            .spacing(8)
-            .padding(Padding::new(16.0))
+            .spacing(0)
+            .padding(DialogDesign::pad_medium())
         )
-        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)));
+        .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)));
 
         let progress_section = if self.is_updating || self.is_complete || self.has_error {
-            let progress_value = if self.is_complete { 1.0 } else if self.has_error { 0.0 } else { 0.7 };
+            let value = if self.is_complete { 1.0 } else if self.has_error { 0.0 } else { 0.7 };
             let progress_text = if self.is_complete {
                 "Update completed successfully!".to_string()
             } else if self.has_error {
@@ -154,20 +156,26 @@ impl FlatpakUpdateDialog {
 
             container(
                 column![
-                    text("Update Progress").size(15).style(iced::theme::Text::Color(theme.primary())),
-                    Space::with_height(Length::Fixed(8.0)),
-                    progress_bar(0.0..=1.0, progress_value).width(Length::Fill),
-                    Space::with_height(Length::Fixed(5.0)),
-                    text(&progress_text).size(12)
+                    text("Progress")
+                        .size(body_size * 1.05)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_height(DialogDesign::space_small()),
+                    progress_bar(0.0..=1.0, value)
+                        .width(Length::Fill)
+                        .height(Length::Fixed(DialogDesign::PROGRESS_HEIGHT)),
+                    Space::with_height(DialogDesign::space_tiny()),
+                    text(&progress_text)
+                        .size(body_size * 0.95)
                         .style(iced::theme::Text::Color(if self.is_complete {
-                            iced::Color::from_rgb(0.0, 0.8, 0.0)
+                            Color::from_rgb(0.0, 0.8, 0.0)
                         } else if self.has_error {
-                            iced::Color::from_rgb(1.0, 0.3, 0.3)
+                            theme.danger()
                         } else {
                             theme.text()
                         })),
                     if let Some(ref current) = self.current_package {
-                        text(format!("Updating: {}", current)).size(11)
+                        text(format!("Updating: {}", current))
+                            .size(body_size * 0.9)
                             .style(iced::theme::Text::Color(theme.primary()))
                     } else {
                         text("").size(0)
@@ -175,21 +183,23 @@ impl FlatpakUpdateDialog {
                     {
                         if !self.terminal_output.is_empty() {
                             column![
-                                Space::with_height(Length::Fixed(10.0)),
-                                text("Terminal Output").size(13).style(iced::theme::Text::Color(theme.primary())),
-                                Space::with_height(Length::Fixed(6.0)),
+                                Space::with_height(DialogDesign::space_medium()),
+                                text("Terminal Output")
+                                    .size(body_size * 1.0)
+                                    .style(iced::theme::Text::Color(theme.primary())),
+                                Space::with_height(DialogDesign::space_small()),
                                 container(
                                     scrollable(
                                         text(&self.terminal_output)
-                                            .size(11)
+                                            .size(body_size * 0.85)
                                             .font(iced::Font::MONOSPACE)
                                             .width(Length::Fill)
                                     )
-                                    .height(Length::Fixed(200.0))
+                                    .height(Length::Fixed(180.0))
                                 )
                                 .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle)))
                                 .width(Length::Fill)
-                                .padding(Padding::new(10.0))
+                                .padding(DialogDesign::pad_small())
                             ]
                             .spacing(0)
                         } else {
@@ -197,119 +207,113 @@ impl FlatpakUpdateDialog {
                         }
                     },
                 ]
-                .spacing(6)
-                .padding(Padding::new(16.0))
+                .spacing(0)
+                .padding(DialogDesign::pad_medium())
             )
-            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         } else {
             container(Space::with_height(Length::Shrink))
         };
 
-        let buttons = if self.is_complete {
-            row![
-                Space::with_width(Length::Fill),
-                button(
-                    row![
-                        text(crate::gui::fonts::glyphs::EXIT_SYMBOL).font(material_font),
-                        text(" Close")
-                    ]
-                    .spacing(4)
-                    .align_items(Alignment::Center)
-                )
-                .on_press(Message::Cancel)
-                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                    is_primary: true,
-                })))
-                .padding(Padding::new(12.0)),
-            ]
-            .spacing(10)
-            .align_items(Alignment::Center)
-        } else if self.has_error {
-            row![
-                button(
-                    row![
-                        text(crate::gui::fonts::glyphs::CANCEL_SYMBOL).font(material_font),
-                        text(" Close")
-                    ]
-                    .spacing(4)
-                    .align_items(Alignment::Center)
-                )
-                .on_press(Message::Cancel)
-                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                    is_primary: false,
-                })))
-                .padding(Padding::new(12.0)),
-                Space::with_width(Length::Fill),
-            ]
-            .spacing(10)
-            .align_items(Alignment::Center)
-        } else {
-            row![
-                button(
-                    row![
-                        text(crate::gui::fonts::glyphs::CANCEL_SYMBOL).font(material_font),
-                        text(" Cancel")
-                    ]
-                    .spacing(4)
-                    .align_items(Alignment::Center)
-                )
-                .on_press(Message::Cancel)
-                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                    is_primary: false,
-                })))
-                .padding(Padding::new(12.0)),
-                Space::with_width(Length::Fill),
-                {
-                    if self.is_updating {
-                        button(
-                            row![
-                                text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                                text(" Updating...")
-                            ]
-                            .spacing(4)
-                            .align_items(Alignment::Center)
-                        )
-                        .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                            is_primary: true,
-                        })))
-                        .padding(Padding::new(12.0))
-                    } else {
-                        button(
-                            row![
-                                text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                                text(" Start Update")
-                            ]
-                            .spacing(4)
-                            .align_items(Alignment::Center)
-                        )
-                        .on_press(Message::StartUpdate)
-                        .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                            is_primary: true,
-                        })))
-                        .padding(Padding::new(12.0))
-                    }
-                },
-            ]
-            .spacing(10)
-            .align_items(Alignment::Center)
+        let buttons = {
+            if self.is_complete {
+                row![
+                    Space::with_width(Length::Fill),
+                    button(
+                        row![
+                            text(crate::gui::fonts::glyphs::EXIT_SYMBOL).font(material_font).size(button_size * 1.1),
+                            text(" Close").size(button_size)
+                        ]
+                        .spacing(DialogDesign::SPACE_TINY)
+                        .align_items(Alignment::Center)
+                    )
+                    .on_press(Message::Cancel)
+                    .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                    .padding(DialogDesign::pad_small()),
+                ]
+                .spacing(DialogDesign::SPACE_SMALL)
+            } else if self.has_error {
+                row![
+                    button(
+                        row![
+                            text(crate::gui::fonts::glyphs::CANCEL_SYMBOL).font(material_font).size(button_size * 1.1),
+                            text(" Close").size(button_size)
+                        ]
+                        .spacing(DialogDesign::SPACE_TINY)
+                        .align_items(Alignment::Center)
+                    )
+                    .on_press(Message::Cancel)
+                    .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: false })))
+                    .padding(DialogDesign::pad_small()),
+                    Space::with_width(Length::Fill),
+                ]
+                .spacing(DialogDesign::SPACE_SMALL)
+            } else {
+                row![
+                    button(
+                        row![
+                            text(crate::gui::fonts::glyphs::CANCEL_SYMBOL).font(material_font).size(button_size * 1.1),
+                            text(" Cancel").size(button_size)
+                        ]
+                        .spacing(DialogDesign::SPACE_TINY)
+                        .align_items(Alignment::Center)
+                    )
+                    .on_press(Message::Cancel)
+                    .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: false })))
+                    .padding(DialogDesign::pad_small()),
+                    Space::with_width(Length::Fill),
+                    {
+                        if self.is_updating {
+                            button(
+                                row![
+                                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(button_size * 1.1),
+                                    text(" Updating...").size(button_size)
+                                ]
+                                .spacing(DialogDesign::SPACE_TINY)
+                                .align_items(Alignment::Center)
+                            )
+                            .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                            .padding(DialogDesign::pad_small())
+                        } else {
+                            button(
+                                row![
+                                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(button_size * 1.1),
+                                    text(" Start Update").size(button_size)
+                                ]
+                                .spacing(DialogDesign::SPACE_TINY)
+                                .align_items(Alignment::Center)
+                            )
+                            .on_press(Message::StartUpdate)
+                            .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                            .padding(DialogDesign::pad_small())
+                        }
+                    },
+                ]
+                .spacing(DialogDesign::SPACE_SMALL)
+            }
         };
 
         container(
             column![
+                header,
+                container(Space::with_height(Length::Fixed(1.0)))
+                    .width(Length::Fill)
+                    .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
                 scrollable(
                     column![
-                        title,
                         packages_section,
                         progress_section,
                     ]
-                    .spacing(12)
-                    .padding(Padding::new(0.0))
+                    .spacing(DialogDesign::SPACE_MEDIUM)
+                    .padding(DialogDesign::pad_medium())
                 )
                 .height(Length::Fill),
+                container(Space::with_height(Length::Fixed(1.0)))
+                    .width(Length::Fill)
+                    .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
                 container(buttons)
                     .width(Length::Fill)
-                    .padding(Padding::new(16.0))
-                    .style(iced::theme::Container::Custom(Box::new(ButtonBarStyle))),
+                    .padding(DialogDesign::pad_medium()),
             ]
             .spacing(0)
         )
@@ -548,11 +552,11 @@ async fn write_flatpak_log(operation: &str, app_id: &str, remote: Option<&String
     }
 }
 
-struct RoundedButtonStyle {
+struct CleanButtonStyle {
     is_primary: bool,
 }
 
-impl ButtonStyleSheet for RoundedButtonStyle {
+impl ButtonStyleSheet for CleanButtonStyle {
     type Style = iced::Theme;
 
     fn active(&self, style: &Self::Style) -> ButtonAppearance {
@@ -561,18 +565,18 @@ impl ButtonStyleSheet for RoundedButtonStyle {
             background: Some(iced::Background::Color(if self.is_primary {
                 palette.primary
             } else {
-                iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
+                Color::from_rgba(0.4, 0.4, 0.4, 0.2)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
                 } else {
-                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3)
+                    Color::from_rgba(0.5, 0.5, 0.5, 0.3)
                 },
             },
-            text_color: palette.text,
+            text_color: if self.is_primary { Color::WHITE } else { palette.text },
             ..Default::default()
         }
     }
@@ -580,11 +584,13 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
         let palette = style.palette();
-        appearance.background = Some(iced::Background::Color(if self.is_primary {
-            iced::Color::from_rgba(palette.primary.r * 0.9, palette.primary.g * 0.9, palette.primary.b * 0.9, 1.0)
+        if self.is_primary {
+            appearance.background = Some(iced::Background::Color(
+                Color::from_rgba(palette.primary.r * 0.85, palette.primary.g * 0.85, palette.primary.b * 0.85, 1.0)
+            ));
         } else {
-            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
-        }));
+            appearance.background = Some(iced::Background::Color(Color::from_rgba(0.4, 0.4, 0.4, 0.3)));
+        }
         appearance
     }
 }
@@ -660,24 +666,42 @@ impl iced::widget::container::StyleSheet for WindowContainerStyle {
     }
 }
 
-struct InfoContainerStyle;
+struct CleanContainerStyle;
 
-impl iced::widget::container::StyleSheet for InfoContainerStyle {
+impl iced::widget::container::StyleSheet for CleanContainerStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, style: &Self::Style) -> Appearance {
         let palette = style.palette();
         Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(
-                palette.background.r * 0.97,
-                palette.background.g * 0.97,
-                palette.background.b * 0.97,
+            background: Some(iced::Background::Color(Color::from_rgba(
+                palette.background.r * 0.98,
+                palette.background.g * 0.98,
+                palette.background.b * 0.98,
                 1.0,
             ))),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15),
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.2),
+            },
+            ..Default::default()
+        }
+    }
+}
+
+struct DividerStyle;
+
+impl iced::widget::container::StyleSheet for DividerStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(Color::from_rgba(0.3, 0.3, 0.3, 0.2))),
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
             },
             ..Default::default()
         }
@@ -695,17 +719,17 @@ impl iced::widget::container::StyleSheet for PackageItemStyle {
         let palette = style.palette();
         Appearance {
             background: Some(iced::Background::Color(if self.is_updating {
-                iced::Color::from_rgba(palette.primary.r, palette.primary.g, palette.primary.b, 0.15)
+                Color::from_rgba(palette.primary.r, palette.primary.g, palette.primary.b, 0.15)
             } else {
-                palette.background
+                Color::from_rgba(palette.background.r * 0.96, palette.background.g * 0.96, palette.background.b * 0.96, 1.0)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
                 color: if self.is_updating {
                     palette.primary
                 } else {
-                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2)
+                    Color::from_rgba(0.3, 0.3, 0.3, 0.15)
                 },
             },
             ..Default::default()
@@ -720,11 +744,11 @@ impl iced::widget::container::StyleSheet for TerminalContainerStyle {
 
     fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgb(0.1, 0.1, 0.1))),
+            background: Some(iced::Background::Color(Color::from_rgb(0.1, 0.1, 0.1))),
             border: Border {
-                radius: 8.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                color: iced::Color::from_rgba(0.3, 0.3, 0.3, 0.5),
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.5),
             },
             ..Default::default()
         }

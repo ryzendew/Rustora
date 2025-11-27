@@ -1,5 +1,6 @@
 use iced::widget::{button, column, container, row, scrollable, text, Space};
-use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme};
+use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme, Color};
+use crate::gui::dialog_design::DialogDesign;
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
@@ -122,50 +123,91 @@ impl Application for ProtonChangelogDialog {
 
 impl ProtonChangelogDialog {
     pub fn view_impl(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
-        let close_button = button(
-            text("Close")
-                .size(16.0)
-                .style(iced::theme::Text::Color(iced::Color::WHITE))
-        )
-        .on_press(Message::Close)
-        .padding(Padding::from([12.0, 24.0, 12.0, 24.0]))
-        .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)));
+        let settings = crate::gui::settings::AppSettings::load();
+        let title_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_size = (settings.font_size_body * settings.scale_body).round();
+        let button_size = (settings.font_size_buttons * settings.scale_buttons).round();
+        let material_font = crate::gui::fonts::get_material_symbols_font();
 
         let content = if self.is_loading {
             container(
                 column![
                     text("Loading changelog...")
-                        .size(16.0)
+                        .size(body_size)
                         .style(iced::theme::Text::Color(theme.text()))
                         .horizontal_alignment(iced::alignment::Horizontal::Center),
                 ]
-                .spacing(16)
+                .spacing(DialogDesign::SPACE_MEDIUM)
                 .align_items(Alignment::Center)
-                .padding(24)
+                .padding(DialogDesign::pad_large())
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .center_x()
-            .center_y()
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         } else if let Some(ref error) = self.error {
+            let header = container(
+                row![
+                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL)
+                        .font(material_font)
+                        .size(title_size * 1.2)
+                        .style(iced::theme::Text::Color(theme.danger())),
+                    Space::with_width(DialogDesign::space_small()),
+                    text("Error")
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.danger())),
+                    Space::with_width(Length::Fill),
+                ]
+                .align_items(Alignment::Center)
+            )
+            .width(Length::Fill)
+            .padding(DialogDesign::pad_medium());
+
             container(
                 column![
-                    text("Error")
-                        .size(20.0)
-                        .style(iced::theme::Text::Color(theme.danger())),
-                    Space::with_height(Length::Fixed(16.0)),
-                    text(error)
-                        .size(14.0)
-                        .style(iced::theme::Text::Color(theme.text())),
-                    Space::with_height(Length::Fixed(24.0)),
-                    close_button,
+                    header,
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                    scrollable(
+                        column![
+                            text(error)
+                                .size(body_size)
+                                .style(iced::theme::Text::Color(theme.danger())),
+                        ]
+                        .spacing(0)
+                        .padding(DialogDesign::pad_medium())
+                    )
+                    .height(Length::Fill),
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                    container(
+                        row![
+                            Space::with_width(Length::Fill),
+                            button(
+                                row![
+                                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(button_size * 1.1),
+                                    text(" Close").size(button_size)
+                                ]
+                                .spacing(DialogDesign::SPACE_TINY)
+                                .align_items(Alignment::Center)
+                            )
+                            .on_press(Message::Close)
+                            .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                            .padding(DialogDesign::pad_small()),
+                        ]
+                        .spacing(DialogDesign::SPACE_SMALL)
+                    )
+                    .width(Length::Fill)
+                    .padding(DialogDesign::pad_medium()),
                 ]
                 .spacing(0)
-                .align_items(Alignment::Center)
-                .padding(24)
             )
             .width(Length::Fill)
             .height(Length::Fill)
+            .style(iced::theme::Container::Custom(Box::new(WindowContainerStyle {
+                background: theme.background(),
+            })))
         } else {
             let changelog_text = self.changelog.as_ref()
                 .map(|c| c.as_str())
@@ -179,80 +221,121 @@ impl ProtonChangelogDialog {
 
             let full_text = format!("{}{}", description_text, changelog_text);
 
+            let header = container(
+                row![
+                    text(crate::gui::fonts::glyphs::INFO_SYMBOL)
+                        .font(material_font)
+                        .size(title_size * 1.2)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_width(DialogDesign::space_small()),
+                    text(format!("{} {}", self.runner_title, self.build_title))
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_width(Length::Fill),
+                ]
+                .align_items(Alignment::Center)
+            )
+            .width(Length::Fill)
+            .padding(DialogDesign::pad_medium());
+
             container(
                 column![
-                    // Header
-                    row![
-                        text(format!("{} {}", self.runner_title, self.build_title))
-                            .size(20.0)
-                            .style(iced::theme::Text::Color(theme.primary())),
-                        Space::with_width(Length::Fill),
-                        close_button,
-                    ]
-                    .spacing(12)
-                    .align_items(Alignment::Center)
-                    .width(Length::Fill),
-                    Space::with_height(Length::Fixed(16.0)),
-                    // Description
-                    if !self.description.is_empty() {
-                        let desc_container: Element<Message> = container(
-                            text(&self.description)
-                                .size(14.0)
-                                .style(iced::theme::Text::Color(theme.text()))
-                        )
-                        .padding(16)
-                        .style(iced::theme::Container::Custom(Box::new(DescriptionContainerStyle {
-                            _theme: *theme,
-                        })))
+                    header,
+                    container(Space::with_height(Length::Fixed(1.0)))
                         .width(Length::Fill)
-                        .into();
-                        desc_container
-                    } else {
-                        Space::with_height(Length::Fixed(0.0)).into()
-                    },
-                    Space::with_height(Length::Fixed(16.0)),
-                    // Changelog title
-                    text("Changelog")
-                        .size(18.0)
-                        .style(iced::theme::Text::Color(theme.primary())),
-                    Space::with_height(Length::Fixed(8.0)),
-                    // Changelog content
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
                     scrollable(
-                        text(&full_text)
-                            .size(13.0)
-                            .style(iced::theme::Text::Color(theme.text()))
-                            .line_height(1.6)
+                        column![
+                            if !self.description.is_empty() {
+                                container(
+                                    column![
+                                        text("Description")
+                                            .size(body_size * 1.05)
+                                            .style(iced::theme::Text::Color(theme.primary())),
+                                        Space::with_height(DialogDesign::space_small()),
+                                        text(&self.description)
+                                            .size(body_size)
+                                            .style(iced::theme::Text::Color(theme.text()))
+                                            .line_height(1.6),
+                                    ]
+                                    .spacing(0)
+                                    .padding(DialogDesign::pad_medium())
+                                )
+                                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
+                            } else {
+                                container(Space::with_height(Length::Fixed(0.0)))
+                                    .width(Length::Fill)
+                                    .into()
+                            },
+                            Space::with_height(DialogDesign::space_medium()),
+                            container(
+                                column![
+                                    text("Changelog")
+                                        .size(body_size * 1.1)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                    Space::with_height(DialogDesign::space_small()),
+                                    text(&full_text)
+                                        .size(body_size * 0.95)
+                                        .style(iced::theme::Text::Color(theme.text()))
+                                        .line_height(1.6),
+                                ]
+                                .spacing(0)
+                                .padding(DialogDesign::pad_medium())
+                            )
+                            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle))),
+                            Space::with_height(DialogDesign::space_medium()),
+                            container(
+                                row![
+                                    text("View on GitHub:")
+                                        .size(body_size * 0.9)
+                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                                    Space::with_width(DialogDesign::space_small()),
+                                    text(&self.page_url)
+                                        .size(body_size * 0.9)
+                                        .style(iced::theme::Text::Color(theme.primary())),
+                                ]
+                                .spacing(0)
+                                .padding(DialogDesign::pad_small())
+                            )
+                            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle))),
+                        ]
+                        .spacing(0)
+                        .padding(DialogDesign::pad_medium())
                     )
-                    .style(iced::theme::Scrollable::Custom(Box::new(ChangelogScrollableStyle)))
-                    .width(Length::Fill)
                     .height(Length::Fill),
-                    Space::with_height(Length::Fixed(16.0)),
-                    // GitHub link
-                    row![
-                        text("View on GitHub:")
-                            .size(12.0)
-                            .style(iced::theme::Text::Color(theme.secondary_text())),
-                        Space::with_width(Length::Fixed(8.0)),
-                        text(&self.page_url)
-                            .size(12.0)
-                            .style(iced::theme::Text::Color(theme.primary()))
-                    ]
-                    .spacing(4),
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                    container(
+                        row![
+                            Space::with_width(Length::Fill),
+                            button(
+                                row![
+                                    text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(button_size * 1.1),
+                                    text(" Close").size(button_size)
+                                ]
+                                .spacing(DialogDesign::SPACE_TINY)
+                                .align_items(Alignment::Center)
+                            )
+                            .on_press(Message::Close)
+                            .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                            .padding(DialogDesign::pad_small()),
+                        ]
+                        .spacing(DialogDesign::SPACE_SMALL)
+                    )
+                    .width(Length::Fill)
+                    .padding(DialogDesign::pad_medium()),
                 ]
                 .spacing(0)
-                .padding(24)
             )
             .width(Length::Fill)
             .height(Length::Fill)
+            .style(iced::theme::Container::Custom(Box::new(WindowContainerStyle {
+                background: theme.background(),
+            })))
         };
 
-        container(content)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle {
-                theme: *theme,
-            })))
-            .into()
+        content.into()
     }
 }
 
@@ -298,97 +381,107 @@ fn convert_to_github_api_url(release_url: &str) -> Option<String> {
     None
 }
 
-struct DialogContainerStyle {
-    theme: crate::gui::Theme,
-}
+struct CleanContainerStyle;
 
-impl iced::widget::container::StyleSheet for DialogContainerStyle {
+impl iced::widget::container::StyleSheet for CleanContainerStyle {
     type Style = iced::Theme;
 
-    fn appearance(&self, _style: &Self::Style) -> Appearance {
+    fn appearance(&self, style: &Self::Style) -> Appearance {
+        let palette = style.palette();
         Appearance {
-            text_color: None,
-            background: Some(self.theme.background().into()),
-            border: Border::default(),
-            shadow: Default::default(),
-        }
-    }
-}
-
-struct DescriptionContainerStyle {
-    _theme: crate::gui::Theme,
-}
-
-impl iced::widget::container::StyleSheet for DescriptionContainerStyle {
-    type Style = iced::Theme;
-
-    fn appearance(&self, _style: &Self::Style) -> Appearance {
-        Appearance {
-            text_color: None,
-            background: Some(iced::Color::from_rgb(0.15, 0.15, 0.15).into()),
+            background: Some(iced::Background::Color(Color::from_rgba(
+                palette.background.r * 0.98,
+                palette.background.g * 0.98,
+                palette.background.b * 0.98,
+                1.0,
+            ))),
             border: Border {
-                radius: 8.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.2),
             },
-            shadow: Default::default(),
+            ..Default::default()
         }
     }
 }
 
-struct ChangelogScrollableStyle;
+struct DividerStyle;
 
-impl iced::widget::scrollable::StyleSheet for ChangelogScrollableStyle {
+impl iced::widget::container::StyleSheet for DividerStyle {
     type Style = iced::Theme;
 
-    fn active(&self, _style: &Self::Style) -> iced::widget::scrollable::Appearance {
-        iced::widget::scrollable::Appearance {
-            container: iced::widget::container::Appearance::default(),
-            scrollbar: iced::widget::scrollable::Scrollbar {
-                background: None,
-                border: iced::Border::default(),
-                scroller: iced::widget::scrollable::Scroller {
-                    color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.5),
-                    border: iced::Border::default(),
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(Color::from_rgba(0.3, 0.3, 0.3, 0.2))),
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+struct WindowContainerStyle {
+    background: iced::Color,
+}
+
+impl iced::widget::container::StyleSheet for WindowContainerStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(self.background)),
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+struct CleanButtonStyle {
+    is_primary: bool,
+}
+
+impl ButtonStyleSheet for CleanButtonStyle {
+    type Style = iced::Theme;
+
+    fn active(&self, style: &Self::Style) -> ButtonAppearance {
+        let palette = style.palette();
+        ButtonAppearance {
+            background: Some(iced::Background::Color(if self.is_primary {
+                palette.primary
+            } else {
+                Color::from_rgba(0.4, 0.4, 0.4, 0.2)
+            })),
+            border: Border {
+                radius: DialogDesign::RADIUS.into(),
+                width: 1.0,
+                color: if self.is_primary {
+                    palette.primary
+                } else {
+                    Color::from_rgba(0.5, 0.5, 0.5, 0.3)
                 },
             },
-            gap: None,
-        }
-    }
-
-    fn hovered(&self, _style: &Self::Style, _is_mouse_over: bool) -> iced::widget::scrollable::Appearance {
-        self.active(_style)
-    }
-}
-
-struct CloseButtonStyle;
-
-impl ButtonStyleSheet for CloseButtonStyle {
-    type Style = iced::Theme;
-
-    fn active(&self, _style: &Self::Style) -> ButtonAppearance {
-        ButtonAppearance {
-            background: Some(iced::Color::from_rgb(0.2, 0.5, 0.8).into()),
-            border: Border {
-                radius: 8.0.into(),
-                width: 0.0,
-                color: iced::Color::TRANSPARENT,
-            },
-            text_color: iced::Color::WHITE,
-            shadow: Default::default(),
-            shadow_offset: iced::Vector::default(),
+            text_color: if self.is_primary { Color::WHITE } else { palette.text },
+            ..Default::default()
         }
     }
 
     fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
-        appearance.background = Some(iced::Color::from_rgb(0.25, 0.6, 0.9).into());
-        appearance
-    }
-
-    fn pressed(&self, style: &Self::Style) -> ButtonAppearance {
-        let mut appearance = self.active(style);
-        appearance.background = Some(iced::Color::from_rgb(0.15, 0.4, 0.7).into());
+        let palette = style.palette();
+        if self.is_primary {
+            appearance.background = Some(iced::Background::Color(
+                Color::from_rgba(palette.primary.r * 0.85, palette.primary.g * 0.85, palette.primary.b * 0.85, 1.0)
+            ));
+        } else {
+            appearance.background = Some(iced::Background::Color(Color::from_rgba(0.4, 0.4, 0.4, 0.3)));
+        }
         appearance
     }
 }

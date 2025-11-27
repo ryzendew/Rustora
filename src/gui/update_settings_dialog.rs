@@ -1,5 +1,6 @@
-use iced::widget::{button, checkbox, column, container, row, text, Space};
-use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme};
+use iced::widget::{button, checkbox, column, container, row, scrollable, text, Space};
+use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme, Color};
+use crate::gui::dialog_design::DialogDesign;
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
@@ -123,107 +124,166 @@ impl UpdateSettingsDialog {
     }
 
     pub fn view_impl(&self, theme: &crate::gui::Theme) -> Element<'_, Message> {
+        let settings = crate::gui::settings::AppSettings::load();
+        let title_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_size = (settings.font_size_body * settings.scale_body).round();
+        let button_size = (settings.font_size_buttons * settings.scale_buttons).round();
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
-        let title = container(
-            text("Update Settings").size(20).style(iced::theme::Text::Color(theme.primary()))
+        let header = container(
+            row![
+                text(crate::gui::fonts::glyphs::SETTINGS_SYMBOL)
+                    .font(material_font)
+                    .size(title_size * 1.2)
+                    .style(iced::theme::Text::Color(theme.primary())),
+                Space::with_width(DialogDesign::space_small()),
+                text("Update Settings")
+                    .size(title_size)
+                    .style(iced::theme::Text::Color(theme.primary())),
+                Space::with_width(Length::Fill),
+            ]
+            .align_items(Alignment::Center)
         )
         .width(Length::Fill)
-        .padding(Padding::new(20.0));
+        .padding(DialogDesign::pad_medium());
 
-        let options = column![
-            checkbox("Allow erasing installed packages", self.settings.allowerasing)
-                .on_toggle(|_| Message::ToggleAllowerasing)
-                .text_size(14),
-            Space::with_height(Length::Fixed(8.0)),
-            text("Allow removing installed packages to resolve conflicts")
-                .size(12)
-                .style(iced::theme::Text::Color(iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0))),
-            Space::with_height(Length::Fixed(16.0)),
-            checkbox("Skip unavailable packages", self.settings.skip_unavailable)
-                .on_toggle(|_| Message::ToggleSkipUnavailable)
-                .text_size(14),
-            Space::with_height(Length::Fixed(8.0)),
-            text("Allow skipping packages that are not available")
-                .size(12)
-                .style(iced::theme::Text::Color(iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0))),
-            Space::with_height(Length::Fixed(16.0)),
-            checkbox("Allow downgrade", self.settings.allow_downgrade)
-                .on_toggle(|_| Message::ToggleAllowDowngrade)
-                .text_size(14),
-            Space::with_height(Length::Fixed(8.0)),
-            text("Allow downgrade of dependencies to resolve conflicts")
-                .size(12)
-                .style(iced::theme::Text::Color(iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0))),
-            Space::with_height(Length::Fixed(16.0)),
-            checkbox("Security updates only", self.settings.security_only)
-                .on_toggle(|_| Message::ToggleSecurityOnly)
-                .text_size(14),
-            Space::with_height(Length::Fixed(8.0)),
-            text("Only install updates from security advisories")
-                .size(12)
-                .style(iced::theme::Text::Color(iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0))),
-            Space::with_height(Length::Fixed(16.0)),
-            checkbox("Bugfix updates only", self.settings.bugfix_only)
-                .on_toggle(|_| Message::ToggleBugfixOnly)
-                .text_size(14),
-            Space::with_height(Length::Fixed(8.0)),
-            text("Only install updates from bugfix advisories")
-                .size(12)
-                .style(iced::theme::Text::Color(iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0))),
-        ]
-        .spacing(4)
-        .padding(Padding::new(20.0));
-
-        let save_button = button(
-            row![
-                text("[OK]"),
-                text(" Save")
+        let options = container(
+            column![
+                container(
+                    column![
+                        checkbox("Allow erasing installed packages", self.settings.allowerasing)
+                            .on_toggle(|_| Message::ToggleAllowerasing)
+                            .text_size(body_size),
+                        Space::with_height(DialogDesign::space_tiny()),
+                        text("Allow removing installed packages to resolve conflicts")
+                            .size(body_size * 0.9)
+                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                    ]
+                    .spacing(0)
+                    .padding(DialogDesign::pad_small())
+                )
+                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle))),
+                Space::with_height(DialogDesign::space_small()),
+                container(
+                    column![
+                        checkbox("Skip unavailable packages", self.settings.skip_unavailable)
+                            .on_toggle(|_| Message::ToggleSkipUnavailable)
+                            .text_size(body_size),
+                        Space::with_height(DialogDesign::space_tiny()),
+                        text("Allow skipping packages that are not available")
+                            .size(body_size * 0.9)
+                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                    ]
+                    .spacing(0)
+                    .padding(DialogDesign::pad_small())
+                )
+                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle))),
+                Space::with_height(DialogDesign::space_small()),
+                container(
+                    column![
+                        checkbox("Allow downgrade", self.settings.allow_downgrade)
+                            .on_toggle(|_| Message::ToggleAllowDowngrade)
+                            .text_size(body_size),
+                        Space::with_height(DialogDesign::space_tiny()),
+                        text("Allow downgrade of dependencies to resolve conflicts")
+                            .size(body_size * 0.9)
+                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                    ]
+                    .spacing(0)
+                    .padding(DialogDesign::pad_small())
+                )
+                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle))),
+                Space::with_height(DialogDesign::space_small()),
+                container(
+                    column![
+                        checkbox("Security updates only", self.settings.security_only)
+                            .on_toggle(|_| Message::ToggleSecurityOnly)
+                            .text_size(body_size),
+                        Space::with_height(DialogDesign::space_tiny()),
+                        text("Only install updates from security advisories")
+                            .size(body_size * 0.9)
+                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                    ]
+                    .spacing(0)
+                    .padding(DialogDesign::pad_small())
+                )
+                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle))),
+                Space::with_height(DialogDesign::space_small()),
+                container(
+                    column![
+                        checkbox("Bugfix updates only", self.settings.bugfix_only)
+                            .on_toggle(|_| Message::ToggleBugfixOnly)
+                            .text_size(body_size),
+                        Space::with_height(DialogDesign::space_tiny()),
+                        text("Only install updates from bugfix advisories")
+                            .size(body_size * 0.9)
+                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                    ]
+                    .spacing(0)
+                    .padding(DialogDesign::pad_small())
+                )
+                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle))),
             ]
-            .spacing(4)
-            .align_items(Alignment::Center)
+            .spacing(0)
+            .padding(DialogDesign::pad_medium())
         )
-        .on_press(Message::Save)
-        .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-            is_primary: true,
-        })))
-        .padding(Padding::new(12.0));
-
-        let cancel_button = button(
-            row![
-                text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font),
-                text(" Cancel")
-            ]
-            .spacing(4)
-            .align_items(Alignment::Center)
-        )
-        .on_press(Message::Cancel)
-        .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-            is_primary: false,
-        })))
-        .padding(Padding::new(12.0));
+        .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)));
 
         let buttons = row![
+            button(
+                row![
+                    text(crate::gui::fonts::glyphs::CANCEL_SYMBOL).font(material_font).size(button_size * 1.1),
+                    text(" Cancel").size(button_size)
+                ]
+                .spacing(DialogDesign::SPACE_TINY)
+                .align_items(Alignment::Center)
+            )
+            .on_press(Message::Cancel)
+            .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: false })))
+            .padding(DialogDesign::pad_small()),
             Space::with_width(Length::Fill),
-            cancel_button,
-            Space::with_width(Length::Fixed(10.0)),
-            save_button,
+            button(
+                row![
+                    text(crate::gui::fonts::glyphs::CHECK_SYMBOL).font(material_font).size(button_size * 1.1),
+                    text(" Save").size(button_size)
+                ]
+                .spacing(DialogDesign::SPACE_TINY)
+                .align_items(Alignment::Center)
+            )
+            .on_press(Message::Save)
+            .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+            .padding(DialogDesign::pad_small()),
         ]
-        .spacing(10)
-        .align_items(Alignment::Center)
-        .padding(Padding::new(20.0));
+        .spacing(DialogDesign::SPACE_SMALL);
 
         container(
             column![
-                title,
-                options,
-                buttons,
+                header,
+                container(Space::with_height(Length::Fixed(1.0)))
+                    .width(Length::Fill)
+                    .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                scrollable(
+                    column![
+                        options,
+                    ]
+                    .spacing(0)
+                    .padding(DialogDesign::pad_medium())
+                )
+                .height(Length::Fill),
+                container(Space::with_height(Length::Fixed(1.0)))
+                    .width(Length::Fill)
+                    .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                container(buttons)
+                    .width(Length::Fill)
+                    .padding(DialogDesign::pad_medium()),
             ]
-            .spacing(10)
+            .spacing(0)
         )
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+        .style(iced::theme::Container::Custom(Box::new(WindowContainerStyle {
+            background: theme.background(),
+        })))
         .into()
     }
 }
@@ -291,30 +351,53 @@ impl Application for UpdateSettingsDialog {
     }
 }
 
-struct DialogContainerStyle;
+struct CleanContainerStyle;
 
-impl iced::widget::container::StyleSheet for DialogContainerStyle {
+impl iced::widget::container::StyleSheet for CleanContainerStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, style: &Self::Style) -> Appearance {
         let palette = style.palette();
         Appearance {
-            background: Some(iced::Background::Color(palette.background)),
+            background: Some(iced::Background::Color(Color::from_rgba(
+                palette.background.r * 0.98,
+                palette.background.g * 0.98,
+                palette.background.b * 0.98,
+                1.0,
+            ))),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.2),
             },
             ..Default::default()
         }
     }
 }
 
-struct RoundedButtonStyle {
+struct DividerStyle;
+
+impl iced::widget::container::StyleSheet for DividerStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(Color::from_rgba(0.3, 0.3, 0.3, 0.2))),
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+struct CleanButtonStyle {
     is_primary: bool,
 }
 
-impl ButtonStyleSheet for RoundedButtonStyle {
+impl ButtonStyleSheet for CleanButtonStyle {
     type Style = iced::Theme;
 
     fn active(&self, style: &Self::Style) -> ButtonAppearance {
@@ -323,18 +406,18 @@ impl ButtonStyleSheet for RoundedButtonStyle {
             background: Some(iced::Background::Color(if self.is_primary {
                 palette.primary
             } else {
-                iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
+                Color::from_rgba(0.4, 0.4, 0.4, 0.2)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
                 } else {
-                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3)
+                    Color::from_rgba(0.5, 0.5, 0.5, 0.3)
                 },
             },
-            text_color: palette.text,
+            text_color: if self.is_primary { Color::WHITE } else { palette.text },
             ..Default::default()
         }
     }
@@ -342,11 +425,33 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
         let palette = style.palette();
-        appearance.background = Some(iced::Background::Color(if self.is_primary {
-            iced::Color::from_rgba(palette.primary.r * 0.9, palette.primary.g * 0.9, palette.primary.b * 0.9, 1.0)
+        if self.is_primary {
+            appearance.background = Some(iced::Background::Color(
+                Color::from_rgba(palette.primary.r * 0.85, palette.primary.g * 0.85, palette.primary.b * 0.85, 1.0)
+            ));
         } else {
-            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
-        }));
+            appearance.background = Some(iced::Background::Color(Color::from_rgba(0.4, 0.4, 0.4, 0.3)));
+        }
         appearance
+    }
+}
+
+struct WindowContainerStyle {
+    background: iced::Color,
+}
+
+impl iced::widget::container::StyleSheet for WindowContainerStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(self.background)),
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            ..Default::default()
+        }
     }
 }
