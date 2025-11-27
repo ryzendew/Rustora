@@ -13,6 +13,7 @@ pub enum Message {
     StartInstallation,
     StepProgress(String, f32),
     InstallationComplete(Result<(), String>),
+    CopyToClipboard,
     Close,
 }
 
@@ -127,11 +128,11 @@ impl Application for HyprlandDialog {
 
                     self.current_step_num += 1;
 
-                    if self.current_step_num < 10 {
+                    if self.current_step_num < 11 {
                         Command::perform(run_installation_step(self.current_step_num), |result| {
                             match result {
                                 Ok((output, step_num, progress)) => {
-                                    if step_num >= 10 {
+                                    if step_num >= 11 {
                                         Message::InstallationComplete(Ok(()))
                                     } else {
                                         Message::StepProgress(output, progress)
@@ -168,6 +169,39 @@ impl Application for HyprlandDialog {
                     }
                 }
                 Command::none()
+            }
+            Message::CopyToClipboard => {
+                let output = self.terminal_output.clone();
+                Command::perform(
+                    async move {
+                        tokio::task::spawn_blocking(move || {
+                            use std::process::Command;
+                            if let Ok(mut child) = Command::new("wl-copy")
+                                .stdin(std::process::Stdio::piped())
+                                .spawn()
+                            {
+                                if let Some(mut stdin) = child.stdin.take() {
+                                    use std::io::Write;
+                                    let _ = stdin.write_all(output.as_bytes());
+                                    let _ = stdin.flush();
+                                }
+                                let _ = child.wait();
+                            } else if let Ok(mut child) = Command::new("xclip")
+                                .args(["-selection", "clipboard"])
+                                .stdin(std::process::Stdio::piped())
+                                .spawn()
+                            {
+                                if let Some(mut stdin) = child.stdin.take() {
+                                    use std::io::Write;
+                                    let _ = stdin.write_all(output.as_bytes());
+                                    let _ = stdin.flush();
+                                }
+                                let _ = child.wait();
+                            }
+                        }).await.ok();
+                    },
+                    |_| Message::Close
+                )
             }
             Message::Close => {
                 window::close(window::Id::MAIN)
@@ -264,13 +298,49 @@ impl HyprlandDialog {
                 Space::with_height(Length::Fixed(8.0)),
                 progress_display.style(iced::theme::Text::Color(theme.text())),
                 Space::with_height(Length::Fixed(16.0)),
-                container(terminal_output)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .padding(12)
-                    .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle {
-                        radius: settings.border_radius,
-                    }))),
+                column![
+                    row![
+                        text("Terminal Output").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.secondary_text())),
+                        Space::with_width(Length::Fill),
+                        {
+                            if !self.terminal_output.is_empty() {
+                                let copy_btn: Element<Message> = button(
+                                    row![
+                                        text(crate::gui::fonts::glyphs::COPY_SYMBOL).font(material_font).size(icon_font_size),
+                                        text(" Copy").size(body_font_size * 0.9)
+                                    ]
+                                    .spacing(8)
+                                    .align_items(Alignment::Center)
+                                )
+                                .on_press(Message::CopyToClipboard)
+                                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                                    is_primary: false,
+                                    radius: settings.border_radius,
+                                    theme: *theme,
+                                })))
+                                .padding(Padding::new(8.0))
+                                .into();
+                                copy_btn
+                            } else {
+                                Space::with_width(Length::Fixed(0.0)).into()
+                            }
+                        },
+                    ]
+                    .spacing(8)
+                    .align_items(Alignment::Center)
+                    .width(Length::Fill),
+                    Space::with_height(Length::Fixed(8.0)),
+                    container(terminal_output)
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .padding(12)
+                        .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle {
+                            radius: settings.border_radius,
+                        }))),
+                ]
+                .spacing(0)
+                .width(Length::Fill)
+                .height(Length::Fill),
             ]
             .spacing(0)
             .padding(24)
@@ -286,23 +356,69 @@ impl HyprlandDialog {
 
 fn get_step_progress_text(step: usize) -> String {
     match step {
-        0 => "Step 1/2: Enabling COPR repositories...".to_string(),
-        1 => "Step 2/2: Updating cache and installing Hyprland dependencies...".to_string(),
+        0 => "Step 1/11: Updating system...".to_string(),
+        1 => "Step 2/11: Enabling COPR repositories...".to_string(),
+        2 => "Step 3/11: Updating package cache...".to_string(),
+        3 => "Step 4/11: Installing development tools...".to_string(),
+        4 => "Step 5/11: Installing desktop environment components...".to_string(),
+        5 => "Step 6/11: Installing system utilities...".to_string(),
+        6 => "Step 7/11: Installing applications...".to_string(),
+        7 => "Step 8/11: Installing GUI tools...".to_string(),
+        8 => "Step 9/11: Building and installing Mission Center...".to_string(),
+        9 => "Step 10/11: Building and installing dgop...".to_string(),
+        10 => "Step 11/11: Installing matugen...".to_string(),
         _ => "Installation complete!".to_string(),
     }
 }
 
 async fn run_installation_step(step: usize) -> Result<(String, usize, f32), String> {
-    let progress = (step as f32 + 1.0) / 2.0;
+    let total_steps = 11.0;
+    let progress = (step as f32 + 1.0) / total_steps;
 
     match step {
         0 => {
-            let output = enable_copr_repos().await?;
-            Ok((format!("{}\n[OK] Step 1 completed: COPR repositories enabled\n", output), 1, progress))
+            let output = update_system().await?;
+            Ok((format!("{}\n[OK] Step 1 completed: System updated\n", output), 1, progress))
         }
         1 => {
-            let output = update_cache_and_install().await?;
-            Ok((format!("{}\n[OK] Step 2 completed: Cache updated and Hyprland dependencies installed\n\n[OK] ALL STEPS COMPLETED SUCCESSFULLY!\n", output), 2, progress))
+            let output = enable_copr_repos().await?;
+            Ok((format!("{}\n[OK] Step 2 completed: COPR repositories enabled\n", output), 2, progress))
+        }
+        2 => {
+            let output = update_cache().await?;
+            Ok((format!("{}\n[OK] Step 3 completed: Package cache updated\n", output), 3, progress))
+        }
+        3 => {
+            let output = install_dev_tools().await?;
+            Ok((format!("{}\n[OK] Step 4 completed: Development tools installed\n", output), 4, progress))
+        }
+        4 => {
+            let output = install_desktop_components().await?;
+            Ok((format!("{}\n[OK] Step 5 completed: Desktop environment components installed\n", output), 5, progress))
+        }
+        5 => {
+            let output = install_system_utils().await?;
+            Ok((format!("{}\n[OK] Step 6 completed: System utilities installed\n", output), 6, progress))
+        }
+        6 => {
+            let output = install_applications().await?;
+            Ok((format!("{}\n[OK] Step 7 completed: Applications installed\n", output), 7, progress))
+        }
+        7 => {
+            let output = install_gui_tools().await?;
+            Ok((format!("{}\n[OK] Step 8 completed: GUI tools installed\n", output), 8, progress))
+        }
+        8 => {
+            let output = build_and_install_mission_center().await?;
+            Ok((format!("{}\n[OK] Step 9 completed: Mission Center built and installed\n", output), 9, progress))
+        }
+        9 => {
+            let output = build_and_install_dgop().await?;
+            Ok((format!("{}\n[OK] Step 10 completed: dgop built and installed\n", output), 10, progress))
+        }
+        10 => {
+            let output = install_matugen().await?;
+            Ok((format!("{}\n[OK] Step 11 completed: matugen installed\n\n[OK] ALL STEPS COMPLETED SUCCESSFULLY!\n", output), 11, progress))
         }
         _ => Err("Invalid step number".to_string()),
     }
@@ -372,53 +488,558 @@ async fn execute_command_with_output(cmd: &mut TokioCommand, description: &str) 
     Ok(output)
 }
 
-async fn enable_copr_repos() -> Result<String, String> {
+async fn update_system() -> Result<String, String> {
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("dnf");
-    cmd.arg("copr");
-    cmd.arg("enable");
+    cmd.arg("update");
     cmd.arg("-y");
-    cmd.arg("lionheartp/Hyprland");
-    cmd.arg("errornointernet/quickshell");
 
     let mut output = String::new();
-    output.push_str("$ pkexec dnf copr enable -y lionheartp/Hyprland errornointernet/quickshell\n");
+    output.push_str("$ pkexec dnf update -y\n");
     output.push_str("-------------------------------------------------------------\n");
 
-    let cmd_output = execute_command_with_output(&mut cmd, "COPR repositories").await?;
+    let cmd_output = execute_command_with_output(&mut cmd, "system update").await?;
     output.push_str(&cmd_output);
 
     Ok(output)
 }
 
-async fn update_cache_and_install() -> Result<String, String> {
+async fn check_copr_repo_enabled(repo: &str) -> bool {
+    let mut cmd = TokioCommand::new("dnf");
+    cmd.arg("copr");
+    cmd.arg("list");
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+    
+    if let Ok(o) = cmd.output().await {
+        if o.status.success() {
+            let stdout = String::from_utf8_lossy(&o.stdout).to_lowercase();
+            let repo_lower = repo.to_lowercase();
+            let full_url = format!("copr.fedorainfracloud.org/{}", repo_lower);
+            
+            if stdout.contains(&repo_lower) || stdout.contains(&full_url) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+async fn enable_copr_repos() -> Result<String, String> {
+    let mut output = String::new();
+    
+    let repo = "lions/hyprland";
+    if check_copr_repo_enabled(repo).await {
+        output.push_str(&format!("$ Repository {} is already enabled\n", repo));
+        output.push_str("-------------------------------------------------------------\n");
+        output.push_str("[INFO] Skipping - repository already enabled\n");
+    } else {
+        output.push_str(&format!("$ pkexec dnf copr enable -y {}\n", repo));
+        output.push_str("-------------------------------------------------------------\n");
+
+        let mut cmd = TokioCommand::new("pkexec");
+        cmd.arg("dnf");
+        cmd.arg("copr");
+        cmd.arg("enable");
+        cmd.arg("-y");
+        cmd.arg(repo);
+
+        match execute_command_with_output(&mut cmd, "COPR repository lions/hyprland").await {
+            Ok(cmd_output) => {
+                output.push_str(&cmd_output);
+            }
+            Err(e) => {
+                let error_lower = e.to_lowercase();
+                if error_lower.contains("chroot not found") || error_lower.contains("404") {
+                    output.push_str("[WARN] Repository lions/hyprland not available for this Fedora version\n");
+                    output.push_str("[INFO] This may mean the repository doesn't have a chroot for your Fedora release\n");
+                    output.push_str("[INFO] Continuing anyway - quickshell-git may need to be installed manually if needed\n");
+                } else {
+                    output.push_str(&format!("[WARN] Failed to enable {}: {}\n", repo, e));
+                    output.push_str("[INFO] Continuing anyway - packages may be available from other sources\n");
+                }
+            }
+        }
+    }
+
+    Ok(output)
+}
+
+async fn filter_installed_packages(packages: &[&str]) -> Vec<String> {
+    let mut to_install = Vec::new();
+    
+    for pkg in packages {
+        let is_installed = tokio::task::spawn_blocking({
+            let pkg = pkg.to_string();
+            move || {
+                std::process::Command::new("rpm")
+                    .arg("-q")
+                    .arg(&pkg)
+                    .output()
+                    .map(|o| o.status.success())
+                    .unwrap_or(false)
+            }
+        })
+        .await
+        .unwrap_or(false);
+        
+        if !is_installed {
+            to_install.push(pkg.to_string());
+        }
+    }
+    
+    to_install
+}
+
+async fn update_cache() -> Result<String, String> {
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("dnf");
+    cmd.arg("makecache");
+
+    let mut output = String::new();
+    output.push_str("$ pkexec dnf makecache\n");
+    output.push_str("-------------------------------------------------------------\n");
+
+    let cmd_output = execute_command_with_output(&mut cmd, "package cache update").await?;
+    output.push_str(&cmd_output);
+
+    Ok(output)
+}
+
+async fn install_dev_tools() -> Result<String, String> {
+    let packages = vec![
+        "rust", "cargo",
+        "gcc", "gcc-c++", "pkg-config",
+        "openssl-devel",
+        "libX11-devel", "libXcursor-devel", "libXrandr-devel", "libXi-devel",
+        "mesa-libGL-devel",
+        "fontconfig-devel", "freetype-devel", "expat-devel",
+        "dnf", "rpm", "polkit", "zenity", "curl", "unzip", "fontconfig",
+        "cairo-gobject", "cairo-gobject-devel",
+        "rust-gdk4-sys+default-devel",
+        "gtk4-layer-shell-devel",
+        "qt5-qtgraphicaleffects",
+        "qt6-qt5compat",
+        "python3-pyqt6",
+        "python3.11", "python3.11-libs",
+        "libxcrypt-compat", "libcurl", "libcurl-devel", "apr", "fuse-libs",
+        "golang", "git", "make",
+        "meson", "ninja-build",
+        "gtk4-devel", "libadwaita-devel",
+    ];
+
+    let to_install = filter_installed_packages(&packages).await;
+    
+    if to_install.is_empty() {
+        let mut output = String::new();
+        output.push_str("$ All development tools are already installed\n");
+        output.push_str("(Checking for updates...)\n");
+        output.push_str("-------------------------------------------------------------\n");
+        
+        let mut cmd = TokioCommand::new("pkexec");
+        cmd.arg("dnf");
+        cmd.arg("upgrade");
+        cmd.arg("-y");
+        for pkg in &packages {
+            cmd.arg(pkg);
+        }
+        
+        let cmd_output = execute_command_with_output(&mut cmd, "development tools updates").await?;
+        output.push_str(&cmd_output);
+        return Ok(output);
+    }
+
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("dnf");
+    cmd.arg("install");
+    cmd.arg("-y");
+    for pkg in &to_install {
+        cmd.arg(pkg);
+    }
+
+    let mut output = String::new();
+    output.push_str("$ pkexec dnf install -y ");
+    output.push_str(&to_install.join(" "));
+    output.push_str("\n");
+    output.push_str("(Note: Already installed packages will be checked for updates, not reinstalled)\n");
+    output.push_str("-------------------------------------------------------------\n");
+
+    let cmd_output = execute_command_with_output(&mut cmd, "development tools").await?;
+    output.push_str(&cmd_output);
+
+    Ok(output)
+}
+
+async fn install_desktop_components() -> Result<String, String> {
     let packages = vec![
         "hyprland",
         "hyprpicker",
         "awww",
-        "quickshell-git",
-        "fuzzel",
-        "wlogout",
-        "cliphist",
+        "xdg-desktop-portal-hyprland",
+        "xdg-desktop-portal-wlr",
+        "xdg-desktop-portal-gnome",
+        "gnome-keyring",
+    ];
+
+    let to_install = filter_installed_packages(&packages).await;
+    
+    if to_install.is_empty() {
+        let mut output = String::new();
+        output.push_str("$ All desktop components are already installed\n");
+        output.push_str("(Checking for updates...)\n");
+        output.push_str("-------------------------------------------------------------\n");
+        
+        let mut cmd = TokioCommand::new("pkexec");
+        cmd.arg("dnf");
+        cmd.arg("upgrade");
+        cmd.arg("-y");
+        for pkg in &packages {
+            cmd.arg(pkg);
+        }
+        
+        let cmd_output = execute_command_with_output(&mut cmd, "desktop components updates").await?;
+        output.push_str(&cmd_output);
+        return Ok(output);
+    }
+
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("dnf");
+    cmd.arg("install");
+    cmd.arg("-y");
+    for pkg in &to_install {
+        cmd.arg(pkg);
+    }
+
+    let mut output = String::new();
+    output.push_str("$ pkexec dnf install -y ");
+    output.push_str(&to_install.join(" "));
+    output.push_str("\n");
+    output.push_str("(Note: Already installed packages will be checked for updates, not reinstalled)\n");
+    output.push_str("-------------------------------------------------------------\n");
+
+    let cmd_output = execute_command_with_output(&mut cmd, "desktop environment components").await?;
+    output.push_str(&cmd_output);
+
+    Ok(output)
+}
+
+async fn install_system_utils() -> Result<String, String> {
+    let packages = vec![
         "brightnessctl",
+        "cliphist",
+        "fuzzel",
+        "gnome-text-editor",
         "grim",
+        "nautilus",
+        "pavucontrol",
+        "ptyxis",
         "slurp",
         "swappy",
+        "tesseract",
+        "wl-clipboard",
+        "wlogout",
+        "yad",
+        "btop",
+        "lm_sensors",
+        "fuse", "fuse-libs",
+        "gedit",
     ];
+
+    let to_install = filter_installed_packages(&packages).await;
+    
+    if to_install.is_empty() {
+        let mut output = String::new();
+        output.push_str("$ All system utilities are already installed\n");
+        output.push_str("(Checking for updates...)\n");
+        output.push_str("-------------------------------------------------------------\n");
+        
+        let mut cmd = TokioCommand::new("pkexec");
+        cmd.arg("dnf");
+        cmd.arg("upgrade");
+        cmd.arg("-y");
+        for pkg in &packages {
+            cmd.arg(pkg);
+        }
+        
+        let cmd_output = execute_command_with_output(&mut cmd, "system utilities updates").await?;
+        output.push_str(&cmd_output);
+        return Ok(output);
+    }
+
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("dnf");
+    cmd.arg("install");
+    cmd.arg("-y");
+    for pkg in &to_install {
+        cmd.arg(pkg);
+    }
+
+    let mut output = String::new();
+    output.push_str("$ pkexec dnf install -y ");
+    output.push_str(&to_install.join(" "));
+    output.push_str("\n");
+    output.push_str("(Note: Already installed packages will be checked for updates, not reinstalled)\n");
+    output.push_str("-------------------------------------------------------------\n");
+
+    let cmd_output = execute_command_with_output(&mut cmd, "system utilities").await?;
+    output.push_str(&cmd_output);
+
+    Ok(output)
+}
+
+async fn install_applications() -> Result<String, String> {
+    let packages = vec![
+        "firefox",
+        "obs-studio",
+        "steam", "lutris", "mangohud", "gamescope",
+    ];
+
+    let to_install = filter_installed_packages(&packages).await;
+    
+    if to_install.is_empty() {
+        let mut output = String::new();
+        output.push_str("$ All applications are already installed\n");
+        output.push_str("(Checking for updates...)\n");
+        output.push_str("-------------------------------------------------------------\n");
+        
+        let mut cmd = TokioCommand::new("pkexec");
+        cmd.arg("dnf");
+        cmd.arg("upgrade");
+        cmd.arg("-y");
+        for pkg in &packages {
+            cmd.arg(pkg);
+        }
+        
+        let cmd_output = execute_command_with_output(&mut cmd, "applications updates").await?;
+        output.push_str(&cmd_output);
+        return Ok(output);
+    }
+
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("dnf");
+    cmd.arg("install");
+    cmd.arg("-y");
+    for pkg in &to_install {
+        cmd.arg(pkg);
+    }
+
+    let mut output = String::new();
+    output.push_str("$ pkexec dnf install -y ");
+    output.push_str(&to_install.join(" "));
+    output.push_str("\n");
+    output.push_str("(Note: Already installed packages will be checked for updates, not reinstalled)\n");
+    output.push_str("-------------------------------------------------------------\n");
+
+    let cmd_output = execute_command_with_output(&mut cmd, "applications").await?;
+    output.push_str(&cmd_output);
+
+    Ok(output)
+}
+
+async fn install_gui_tools() -> Result<String, String> {
+    let packages = vec![
+        "qt6ct",
+        "nwg-look",
+        "quickshell-git",
+    ];
+
+    let to_install = filter_installed_packages(&packages).await;
+    
+    if to_install.is_empty() {
+        let mut output = String::new();
+        output.push_str("$ All GUI tools are already installed\n");
+        output.push_str("(Checking for updates...)\n");
+        output.push_str("-------------------------------------------------------------\n");
+        
+        let mut cmd = TokioCommand::new("pkexec");
+        cmd.arg("dnf");
+        cmd.arg("upgrade");
+        cmd.arg("-y");
+        for pkg in &packages {
+            cmd.arg(pkg);
+        }
+        
+        let cmd_output = execute_command_with_output(&mut cmd, "GUI tools updates").await?;
+        output.push_str(&cmd_output);
+        return Ok(output);
+    }
+
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("dnf");
+    cmd.arg("install");
+    cmd.arg("-y");
+    for pkg in &to_install {
+        cmd.arg(pkg);
+    }
+
+    let mut output = String::new();
+    output.push_str("$ pkexec dnf install -y ");
+    output.push_str(&to_install.join(" "));
+    output.push_str("\n");
+    output.push_str("(Note: Already installed packages will be checked for updates, not reinstalled)\n");
+    output.push_str("-------------------------------------------------------------\n");
+
+    let cmd_output = execute_command_with_output(&mut cmd, "GUI tools").await?;
+    output.push_str(&cmd_output);
+
+    Ok(output)
+}
+
+async fn build_and_install_mission_center() -> Result<String, String> {
+    let mut output = String::new();
+    output.push_str("$ Building and installing Mission Center from source\n");
+    output.push_str("-------------------------------------------------------------\n");
+
+    let build_script = r#"
+        cd /tmp
+        if [ -d mission-center ]; then
+            rm -rf mission-center
+        fi
+        git clone https://gitlab.com/mission-center-devs/mission-center.git mission-center
+        cd mission-center
+        
+        if [ -f meson.build ]; then
+            meson setup build --prefix=/usr
+            meson compile -C build
+            meson install -C build
+        elif [ -f CMakeLists.txt ]; then
+            mkdir -p build
+            cd build
+            cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+            make
+            make install
+        elif [ -f Makefile ]; then
+            make
+            make install
+        else
+            echo "Unknown build system"
+            exit 1
+        fi
+        
+        cd /tmp
+        rm -rf mission-center
+    "#;
 
     let mut cmd = TokioCommand::new("pkexec");
     cmd.arg("sh");
     cmd.arg("-c");
-    cmd.arg(&format!("dnf makecache && dnf install -y {}", packages.join(" ")));
+    cmd.arg(build_script);
 
+    let cmd_output = execute_command_with_output(&mut cmd, "Mission Center build and install").await?;
+    output.push_str(&cmd_output);
+    output.push_str("\n[INFO] Mission Center installed successfully!\n");
+
+    Ok(output)
+}
+
+async fn build_and_install_dgop() -> Result<String, String> {
     let mut output = String::new();
-    output.push_str("$ pkexec dnf makecache && dnf install -y ");
-    output.push_str(&packages.join(" "));
-    output.push_str("\n");
+    output.push_str("$ Building and installing dgop from source\n");
     output.push_str("-------------------------------------------------------------\n");
 
-    let cmd_output = execute_command_with_output(&mut cmd, "cache update and package installation").await?;
+    let build_script = r#"
+        cd /tmp
+        if [ -d dgop ]; then
+            rm -rf dgop
+        fi
+        git clone https://github.com/AvengeMedia/dgop.git
+        cd dgop
+        make
+        make install
+        cd ..
+        rm -rf dgop
+    "#;
+
+    let mut cmd = TokioCommand::new("pkexec");
+    cmd.arg("sh");
+    cmd.arg("-c");
+    cmd.arg(build_script);
+
+    let cmd_output = execute_command_with_output(&mut cmd, "dgop build and install").await?;
     output.push_str(&cmd_output);
+    output.push_str("\n[INFO] dgop installed successfully!\n");
+    output.push_str("[INFO] Note: For NVIDIA GPU temperature monitoring, install nvidia-utils (optional)\n");
+
+    Ok(output)
+}
+
+async fn install_matugen() -> Result<String, String> {
+    let mut output = String::new();
+    output.push_str("$ Installing matugen via cargo\n");
+    output.push_str("-------------------------------------------------------------\n");
+
+    let check_script = r#"
+        if command -v matugen &> /dev/null; then
+            echo "matugen is already installed"
+            exit 0
+        fi
+    "#;
+
+    let mut check_cmd = TokioCommand::new("sh");
+    check_cmd.arg("-c");
+    check_cmd.arg(check_script);
+
+    let check_output = check_cmd.output().await.ok();
+    if let Some(o) = check_output {
+        if o.status.success() {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            if stdout.contains("already installed") {
+                output.push_str("[INFO] matugen is already installed!\n");
+                return Ok(output);
+            }
+        }
+    }
+
+    let mut cmd = TokioCommand::new("cargo");
+    cmd.arg("install");
+    cmd.arg("matugen");
+
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn()
+        .map_err(|e| format!("Failed to install matugen: {}", e))?;
+
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
+
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    let mut stdout_reader = BufReader::new(stdout).lines();
+    let mut stderr_reader = BufReader::new(stderr).lines();
+
+    loop {
+        tokio::select! {
+            result = stdout_reader.next_line() => {
+                match result {
+                    Ok(Some(line)) => {
+                        output.push_str(&line);
+                        output.push('\n');
+                    }
+                    Ok(None) => break,
+                    Err(e) => return Err(format!("Error reading stdout: {}", e)),
+                }
+            }
+            result = stderr_reader.next_line() => {
+                match result {
+                    Ok(Some(line)) => {
+                        output.push_str(&line);
+                        output.push('\n');
+                    }
+                    Ok(None) => break,
+                    Err(e) => return Err(format!("Error reading stderr: {}", e)),
+                }
+            }
+        }
+    }
+
+    let status = child.wait().await
+        .map_err(|e| format!("Failed to wait for matugen installation: {}", e))?;
+
+    if !status.success() {
+        return Err(format!("matugen installation failed with exit code: {:?}\n\nOutput:\n{}", status.code(), output));
+    }
+
+    output.push_str("\n[INFO] matugen installed successfully!\n");
 
     Ok(output)
 }

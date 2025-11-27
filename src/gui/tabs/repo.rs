@@ -135,10 +135,10 @@ impl RepoTab {
         
         for repo in &self.repositories {
             let matches_query = query_lower.is_empty() || 
-                repo.id.to_lowercase().contains(&query_lower) ||
-                repo.name.to_lowercase().contains(&query_lower) ||
-                repo.file_path.to_lowercase().contains(&query_lower) ||
-                repo.baseurl.as_ref().map(|u| u.to_lowercase().contains(&query_lower)).unwrap_or(false) ||
+                    repo.id.to_lowercase().contains(&query_lower) ||
+                    repo.name.to_lowercase().contains(&query_lower) ||
+                    repo.file_path.to_lowercase().contains(&query_lower) ||
+                    repo.baseurl.as_ref().map(|u| u.to_lowercase().contains(&query_lower)).unwrap_or(false) ||
                 repo.metalink.as_ref().map(|u| u.to_lowercase().contains(&query_lower)).unwrap_or(false);
             
             let matches_view = view_filter.map(|filter| {

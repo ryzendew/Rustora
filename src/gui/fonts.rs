@@ -263,4 +263,5 @@ pub mod glyphs {
     pub const SYNC_SYMBOL: &str = "\u{E5D5}"; // sync/refresh
     pub const FOLDER_SYMBOL: &str = "\u{E2C7}"; // folder
     pub const INFO_SYMBOL: &str = "\u{E88E}"; // info
+    pub const COPY_SYMBOL: &str = "\u{E14D}"; // content_copy
 }

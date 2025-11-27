@@ -10,6 +10,18 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Function to check if sudo works
+check_sudo() {
+    if [ "$EUID" -eq 0 ]; then
+        return 0
+    fi
+    if ! command -v sudo &> /dev/null; then
+        return 1
+    fi
+    sudo -n true 2>/dev/null || sudo -v 2>/dev/null
+    return $?
+}
+
 echo -e "${BLUE}Rustora Build & Install${NC}"
 echo "======================================"
 echo ""
@@ -22,15 +34,31 @@ echo -e "${BLUE}Step 0/4: Installing build dependencies...${NC}"
 # Check if dnf is available
 if ! command -v dnf &> /dev/null; then
     echo -e "${YELLOW}[WARN] dnf not found. Skipping dependency installation.${NC}"
-    echo "   Please manually install: pciutils-devel libusb1-devel glibc-devel gcc clang"
+    echo "   Please manually install all build dependencies"
 else
-    # Required build dependencies
-    DEPS="pciutils-devel libusb1-devel glibc-devel gcc clang"
+    # Required build dependencies for rustora
+    DEPS="rust rustc cargo \
+          gcc gcc-c++ pkg-config clang \
+          openssl-devel \
+          libX11-devel libXcursor-devel libXrandr-devel libXi-devel \
+          mesa-libGL-devel \
+          fontconfig-devel freetype-devel expat-devel \
+          pciutils-devel libusb1-devel glibc-devel \
+          dnf rpm polkit zenity curl unzip fontconfig \
+          cairo-gobject cairo-gobject-devel \
+          rust-gdk4-sys+default-devel \
+          gtk4-layer-shell-devel \
+          qt5-qtgraphicaleffects \
+          qt6-qt5compat \
+          python3-pyqt6 \
+          python3.11 python3.11-libs \
+          libxcrypt-compat libcurl libcurl-devel apr fuse-libs \
+          golang git make"
     
     # Check which packages are missing
     MISSING_DEPS=""
     for dep in $DEPS; do
-        if ! rpm -q "$dep" &> /dev/null; then
+        if ! rpm -q "$dep" &> /dev/null 2>&1; then
             MISSING_DEPS="$MISSING_DEPS $dep"
         fi
     done
@@ -38,15 +66,18 @@ else
     if [ -z "$MISSING_DEPS" ]; then
         echo -e "${GREEN}[OK] Build dependencies already installed${NC}"
     else
-        echo "[INSTALL] Installing build dependencies:$MISSING_DEPS"
+        echo "[INSTALL] Installing build dependencies..."
         if [ "$EUID" -eq 0 ]; then
             dnf install -y $MISSING_DEPS
-        elif command -v sudo &> /dev/null; then
+        elif check_sudo; then
             echo "   (Using sudo to install dependencies...)"
             sudo dnf install -y $MISSING_DEPS
         else
-            echo -e "${YELLOW}[WARN] Need sudo to install dependencies. Please run:${NC}"
-            echo "   sudo dnf install -y$MISSING_DEPS"
+            echo -e "${YELLOW}[WARN] Cannot use sudo (no new privileges flag or not available)${NC}"
+            echo -e "${YELLOW}[WARN] Please install dependencies manually:${NC}"
+            echo "   dnf install -y$MISSING_DEPS"
+            echo ""
+            echo -e "${YELLOW}[WARN] Or run this script as root, or fix sudo configuration${NC}"
             echo ""
             read -p "Press Enter to continue (build may fail if dependencies are missing)..." || true
         fi
@@ -99,12 +130,12 @@ if [ "$FPM_INSTALLED" = false ]; then
             echo "[INSTALL] Installing fpm dependencies:$MISSING_FPM_DEPS"
             if [ "$EUID" -eq 0 ]; then
                 dnf install -y $MISSING_FPM_DEPS
-            elif command -v sudo &> /dev/null; then
+            elif check_sudo; then
                 echo "   (Using sudo to install dependencies...)"
                 sudo dnf install -y $MISSING_FPM_DEPS
             else
-                echo -e "${YELLOW}[WARN] Need sudo to install fpm dependencies. Please run:${NC}"
-                echo "   sudo dnf install -y$MISSING_FPM_DEPS"
+                echo -e "${YELLOW}[WARN] Cannot use sudo. Please install fpm dependencies manually:${NC}"
+                echo "   dnf install -y$MISSING_FPM_DEPS"
                 echo ""
                 read -p "Press Enter to continue (fpm installation may fail)..." || true
             fi
@@ -115,9 +146,10 @@ if [ "$FPM_INSTALLED" = false ]; then
             echo "[INSTALL] Installing bundler..."
             if [ "$EUID" -eq 0 ]; then
                 gem install bundler
-            elif command -v sudo &> /dev/null; then
+            elif check_sudo; then
                 sudo gem install bundler
             else
+                echo "[INSTALL] Installing bundler for current user..."
                 gem install bundler --user-install
                 export PATH="$HOME/.local/share/gem/ruby/$(ruby -e 'puts RUBY_VERSION[/\d+\.\d+/]')/bin:$PATH"
             fi
@@ -127,9 +159,10 @@ if [ "$FPM_INSTALLED" = false ]; then
         echo "[INSTALL] Installing fpm gem..."
         if [ "$EUID" -eq 0 ]; then
             gem install fpm
-        elif command -v sudo &> /dev/null; then
+        elif check_sudo; then
             sudo gem install fpm
         else
+            echo "[INSTALL] Installing fpm for current user..."
             gem install fpm --user-install
             export PATH="$HOME/.local/share/gem/ruby/$(ruby -e 'puts RUBY_VERSION[/\d+\.\d+/]')/bin:$PATH"
         fi
@@ -153,18 +186,24 @@ echo ""
 echo -e "${BLUE}Step 1/4: Building...${NC}"
 
 # Check if Rust is installed
-if ! command -v cargo &> /dev/null; then
-    echo -e "${RED}[ERROR] cargo not found. Please install Rust first.${NC}"
-    echo "   Run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+if ! command -v cargo &> /dev/null || ! command -v rustc &> /dev/null; then
+    echo -e "${RED}[ERROR] Rust toolchain not found.${NC}"
+    echo "   The build dependencies installation should have installed rust, rustc, and cargo."
+    echo "   If they are still missing, please run:"
+    echo "   sudo dnf install -y rust rustc cargo"
     exit 1
 fi
 
 # Check Rust version (need 1.70+ for edition 2021)
-RUST_VERSION=$(rustc --version | cut -d' ' -f2)
-REQUIRED_VERSION="1.70.0"
-
-if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$RUST_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]; then
-    echo -e "${YELLOW}[WARN] Rust version $RUST_VERSION may be too old. Recommended: $REQUIRED_VERSION or later${NC}"
+if command -v rustc &> /dev/null; then
+    RUST_VERSION=$(rustc --version | cut -d' ' -f2)
+    REQUIRED_VERSION="1.70.0"
+    
+    if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$RUST_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]; then
+        echo -e "${YELLOW}[WARN] Rust version $RUST_VERSION may be too old. Recommended: $REQUIRED_VERSION or later${NC}"
+    else
+        echo -e "${GREEN}[OK] Rust version $RUST_VERSION is compatible${NC}"
+    fi
 fi
 
 # Always do a clean build

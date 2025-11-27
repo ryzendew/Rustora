@@ -199,7 +199,7 @@ async fn main() -> Result<()> {
                 ensure_fonts_async();
                 use crate::gui::rpm_dialog::RpmDialog;
                 RpmDialog::run_separate_window(rpm_path)?;
-            } else {
+                } else {
                 ensure_fonts_async();
                 let default_font = gui::fonts::get_inter_font();
                 gui::RustoraApp::run(iced::Settings {

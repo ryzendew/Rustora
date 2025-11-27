@@ -113,6 +113,10 @@ pub struct HyprlandStatus {
     pub hyprland: bool,
     pub hyprpicker: bool,
     pub awww: bool,
+    pub xdg_desktop_portal_hyprland: bool,
+    pub xdg_desktop_portal_wlr: bool,
+    pub xdg_desktop_portal_gnome: bool,
+    pub gnome_keyring: bool,
     pub quickshell_git: bool,
     pub fuzzel: bool,
     pub wlogout: bool,
@@ -121,7 +125,26 @@ pub struct HyprlandStatus {
     pub grim: bool,
     pub slurp: bool,
     pub swappy: bool,
-    pub repo_quickshell: bool,
+    pub mission_center: bool,
+    pub nautilus: bool,
+    pub pavucontrol: bool,
+    pub ptyxis: bool,
+    pub tesseract: bool,
+    pub wl_clipboard: bool,
+    pub yad: bool,
+    pub btop: bool,
+    pub lm_sensors: bool,
+    pub gedit: bool,
+    pub firefox: bool,
+    pub obs_studio: bool,
+    pub steam: bool,
+    pub lutris: bool,
+    pub mangohud: bool,
+    pub gamescope: bool,
+    pub qt6ct: bool,
+    pub nwg_look: bool,
+    pub dgop: bool,
+    pub matugen: bool,
     pub repo_hyprland: bool,
 }
 
@@ -403,6 +426,10 @@ impl TweaksTab {
                             hyprland: false,
                             hyprpicker: false,
                             awww: false,
+                            xdg_desktop_portal_hyprland: false,
+                            xdg_desktop_portal_wlr: false,
+                            xdg_desktop_portal_gnome: false,
+                            gnome_keyring: false,
                             quickshell_git: false,
                             fuzzel: false,
                             wlogout: false,
@@ -411,7 +438,26 @@ impl TweaksTab {
                             grim: false,
                             slurp: false,
                             swappy: false,
-                            repo_quickshell: false,
+                            mission_center: false,
+                            nautilus: false,
+                            pavucontrol: false,
+                            ptyxis: false,
+                            tesseract: false,
+                            wl_clipboard: false,
+                            yad: false,
+                            btop: false,
+                            lm_sensors: false,
+                            gedit: false,
+                            firefox: false,
+                            obs_studio: false,
+                            steam: false,
+                            lutris: false,
+                            mangohud: false,
+                            gamescope: false,
+                            qt6ct: false,
+                            nwg_look: false,
+                            dgop: false,
+                            matugen: false,
                             repo_hyprland: false,
                         });
                     }
@@ -1923,7 +1969,7 @@ impl TweaksTab {
                                             .size(body_font_size * 0.85)
                                             .style(iced::theme::Text::Color(theme.secondary_text())),
                                         Space::with_height(Length::Fixed(20.0)),
-                                        // Grid layout
+                                        // Desktop Components
                                         row![
                                             create_status_item("hyprland", status.hyprland),
                                             Space::with_width(Length::Fixed(12.0)),
@@ -1935,10 +1981,30 @@ impl TweaksTab {
                             row![
                                             create_status_item("awww", status.awww),
                                             Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("xdg-desktop-portal-hyprland", status.xdg_desktop_portal_hyprland),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                            row![
+                                            create_status_item("xdg-desktop-portal-wlr", status.xdg_desktop_portal_wlr),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("xdg-desktop-portal-gnome", status.xdg_desktop_portal_gnome),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                            row![
+                                            create_status_item("gnome-keyring", status.gnome_keyring),
+                                            Space::with_width(Length::Fixed(12.0)),
                                             create_status_item("quickshell-git", status.quickshell_git),
                                         ]
                                         .spacing(0)
                                         .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(20.0)),
+                                        text("Utilities")
+                                            .size(body_font_size * 0.85)
+                                            .style(iced::theme::Text::Color(theme.secondary_text())),
                                         Space::with_height(Length::Fixed(12.0)),
                             row![
                                             create_status_item("fuzzel", status.fuzzel),
@@ -1965,6 +2031,90 @@ impl TweaksTab {
                                         .width(Length::Fill),
                                         Space::with_height(Length::Fixed(12.0)),
                                         create_status_item("swappy", status.swappy),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("pavucontrol", status.pavucontrol),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("wl-clipboard", status.wl_clipboard),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("btop", status.btop),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("lm_sensors", status.lm_sensors),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("mission-center", status.mission_center),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("nautilus", status.nautilus),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("gedit", status.gedit),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("ptyxis", status.ptyxis),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        create_status_item("tesseract", status.tesseract),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        create_status_item("yad", status.yad),
+                                        Space::with_height(Length::Fixed(20.0)),
+                                        text("Applications")
+                                            .size(body_font_size * 0.85)
+                                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("firefox", status.firefox),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("obs-studio", status.obs_studio),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("steam", status.steam),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("lutris", status.lutris),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("mangohud", status.mangohud),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("gamescope", status.gamescope),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(20.0)),
+                                        text("GUI Tools & Build Tools")
+                                            .size(body_font_size * 0.85)
+                                            .style(iced::theme::Text::Color(theme.secondary_text())),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("qt6ct", status.qt6ct),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("nwg-look", status.nwg_look),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
+                                        Space::with_height(Length::Fixed(12.0)),
+                                        row![
+                                            create_status_item("dgop", status.dgop),
+                                            Space::with_width(Length::Fixed(12.0)),
+                                            create_status_item("matugen", status.matugen),
+                                        ]
+                                        .spacing(0)
+                                        .width(Length::Fill),
                         ]
                         .spacing(0)
                     )
@@ -1988,12 +2138,10 @@ impl TweaksTab {
                                 .style(iced::theme::Text::Color(theme.secondary_text())),
                                         Space::with_height(Length::Fixed(20.0)),
                             row![
-                                            create_status_item("errornointernet/quickshell", status.repo_quickshell),
-                                            Space::with_width(Length::Fixed(12.0)),
-                                            create_status_item("lionheartp/Hyprland", status.repo_hyprland),
-                                        ]
-                                        .spacing(0)
-                                        .width(Length::Fill),
+                                create_status_item("lions/hyprland", status.repo_hyprland),
+                            ]
+                            .spacing(0)
+                            .width(Length::Fill),
                         ]
                         .spacing(0)
                     )
@@ -2104,7 +2252,7 @@ impl TweaksTab {
                                         row![
                                             text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
-                                            text("Enables COPR repositories (lionheartp/Hyprland, errornointernet/quickshell)")
+                                            text("Enables COPR repository (lions/hyprland)")
                                 .size(body_font_size * 0.95)
                                 .style(iced::theme::Text::Color(theme.text())),
                                         ]
@@ -3196,16 +3344,11 @@ async fn check_copr_repo_enabled(repo: &str) -> bool {
     let output = cmd.output().await.ok();
     if let Some(o) = output {
         if o.status.success() {
-            let stdout = String::from_utf8_lossy(&o.stdout);
-            // COPR repos are listed as "copr.fedorainfracloud.org/owner/repo"
-            // We need to check if the repo name appears in the output
-            // The format is: copr.fedorainfracloud.org/owner/repo
-            // We check for both the full format and just owner/repo
-            if stdout.contains(repo) {
-                return true;
-            }
-            // Also check for the full URL format
-            if stdout.contains(&format!("copr.fedorainfracloud.org/{}", repo)) {
+            let stdout = String::from_utf8_lossy(&o.stdout).to_lowercase();
+            let repo_lower = repo.to_lowercase();
+            let full_url = format!("copr.fedorainfracloud.org/{}", repo_lower);
+            
+            if stdout.contains(&repo_lower) || stdout.contains(&full_url) {
                 return true;
             }
         }
@@ -3241,6 +3384,10 @@ async fn check_hyprland_status() -> Result<HyprlandStatus, String> {
     let hyprland = check_dnf_package("hyprland").await;
     let hyprpicker = check_dnf_package("hyprpicker").await;
     let awww = check_dnf_package("awww").await;
+    let xdg_desktop_portal_hyprland = check_dnf_package("xdg-desktop-portal-hyprland").await;
+    let xdg_desktop_portal_wlr = check_dnf_package("xdg-desktop-portal-wlr").await;
+    let xdg_desktop_portal_gnome = check_dnf_package("xdg-desktop-portal-gnome").await;
+    let gnome_keyring = check_dnf_package("gnome-keyring").await;
     let quickshell_git = check_dnf_package("quickshell-git").await;
     let fuzzel = check_dnf_package("fuzzel").await;
     let wlogout = check_dnf_package("wlogout").await;
@@ -3249,14 +3396,67 @@ async fn check_hyprland_status() -> Result<HyprlandStatus, String> {
     let grim = check_dnf_package("grim").await;
     let slurp = check_dnf_package("slurp").await;
     let swappy = check_dnf_package("swappy").await;
-    // Hyprland needs quickshell and hyprland COPR repos
-    let repo_quickshell = check_copr_repo_enabled("errornointernet/quickshell").await;
-    let repo_hyprland = check_copr_repo_enabled("lionheartp/Hyprland").await;
+    let mission_center = tokio::task::spawn_blocking(|| {
+        std::process::Command::new("which")
+            .arg("mission-center")
+            .output()
+    })
+    .await
+    .ok()
+    .and_then(|r| r.ok())
+    .map(|o| o.status.success())
+    .unwrap_or(false);
+    let nautilus = check_dnf_package("nautilus").await;
+    let pavucontrol = check_dnf_package("pavucontrol").await;
+    let ptyxis = check_dnf_package("ptyxis").await;
+    let tesseract = check_dnf_package("tesseract").await;
+    let wl_clipboard = check_dnf_package("wl-clipboard").await;
+    let yad = check_dnf_package("yad").await;
+    let btop = check_dnf_package("btop").await;
+    let lm_sensors = check_dnf_package("lm_sensors").await;
+    let gedit = check_dnf_package("gedit").await;
+    let firefox = check_dnf_package("firefox").await;
+    let obs_studio = check_dnf_package("obs-studio").await;
+    let steam = check_dnf_package("steam").await;
+    let lutris = check_dnf_package("lutris").await;
+    let mangohud = check_dnf_package("mangohud").await;
+    let gamescope = check_dnf_package("gamescope").await;
+    let qt6ct = check_dnf_package("qt6ct").await;
+    let nwg_look = check_dnf_package("nwg-look").await;
+    
+    let dgop = tokio::task::spawn_blocking(|| {
+        std::process::Command::new("which")
+            .arg("dgop")
+            .output()
+    })
+    .await
+    .ok()
+    .and_then(|r| r.ok())
+    .map(|o| o.status.success())
+    .unwrap_or(false);
+    
+    let matugen = tokio::task::spawn_blocking(|| {
+        std::process::Command::new("which")
+            .arg("matugen")
+            .output()
+    })
+    .await
+    .ok()
+    .and_then(|r| r.ok())
+    .map(|o| o.status.success())
+    .unwrap_or(false);
+    
+    let repo_hyprland = check_copr_repo_enabled("lions/hyprland").await 
+        || check_copr_repo_enabled("lionheartp/Hyprland").await;
 
     Ok(HyprlandStatus {
         hyprland,
         hyprpicker,
         awww,
+        xdg_desktop_portal_hyprland,
+        xdg_desktop_portal_wlr,
+        xdg_desktop_portal_gnome,
+        gnome_keyring,
         quickshell_git,
         fuzzel,
         wlogout,
@@ -3265,7 +3465,26 @@ async fn check_hyprland_status() -> Result<HyprlandStatus, String> {
         grim,
         slurp,
         swappy,
-        repo_quickshell,
+        mission_center,
+        nautilus,
+        pavucontrol,
+        ptyxis,
+        tesseract,
+        wl_clipboard,
+        yad,
+        btop,
+        lm_sensors,
+        gedit,
+        firefox,
+        obs_studio,
+        steam,
+        lutris,
+        mangohud,
+        gamescope,
+        qt6ct,
+        nwg_look,
+        dgop,
+        matugen,
         repo_hyprland,
     })
 }
