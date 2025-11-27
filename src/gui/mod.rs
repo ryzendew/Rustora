@@ -1,6 +1,8 @@
 pub mod app;
 pub mod theme;
 pub mod tabs;
+pub mod dialog_common;
+pub mod dialog_design;
 pub mod rpm_dialog;
 pub mod package_dialog;
 pub mod install_dialog;

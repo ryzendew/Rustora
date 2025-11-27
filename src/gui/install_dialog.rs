@@ -1,11 +1,12 @@
 use iced::widget::{button, column, container, progress_bar, row, scrollable, text, Space};
-use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme};
+use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme, Color};
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
 use iced::window;
 use tokio::process::Command as TokioCommand;
 use futures::future;
+use crate::gui::dialog_design::DialogDesign;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -57,7 +58,8 @@ impl InstallDialog {
         let dialog = Self::new(package_names);
 
         let mut window_settings = iced::window::Settings::default();
-        window_settings.size = iced::Size::new(750.0, 800.0);
+        window_settings.size = iced::Size::new(600.0, 600.0);
+        window_settings.min_size = Some(iced::Size::new(480.0, 400.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
 
@@ -67,7 +69,7 @@ impl InstallDialog {
             window: window_settings,
             flags: dialog,
             default_font,
-            default_text_size: iced::Pixels::from(20.0),
+            default_text_size: iced::Pixels::from(14.0),
             antialiasing: true,
             id: None,
             fonts: Vec::new(),
@@ -80,102 +82,126 @@ impl InstallDialog {
         }
 
         let settings = crate::gui::settings::AppSettings::load();
-        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
-        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
-        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
-        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
+        let title_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_size = (settings.font_size_body * settings.scale_body).round();
+        let button_size = (settings.font_size_buttons * settings.scale_buttons).round();
 
         let content = if self.is_loading {
             container(
                 column![
-                    text("Loading package information...").size(title_font_size),
-                    Space::with_height(Length::Fixed(20.0)),
-                    progress_bar(0.0..=1.0, 0.5).width(Length::Fill),
+                    text("Loading package information...")
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_height(DialogDesign::space_medium()),
+                    progress_bar(0.0..=1.0, 0.5)
+                        .width(Length::Fill)
+                        .height(Length::Fixed(DialogDesign::PROGRESS_HEIGHT)),
                 ]
-                .spacing(15)
+                .spacing(DialogDesign::SPACE_SMALL)
                 .align_items(Alignment::Center)
-                .padding(Padding::new(30.0))
+                .padding(DialogDesign::pad_large())
             )
-            .width(Length::Fixed(600.0))
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         } else if !self.package_info.is_empty() {
+            let material_font = crate::gui::fonts::get_material_symbols_font();
             let title_text = if self.package_info.len() == 1 {
                 format!("Install {}", self.package_info[0].name)
             } else {
                 format!("Install {} Packages", self.package_info.len())
             };
 
-            let title = container(
+            let header = container(
+                row![
+                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL)
+                        .font(material_font)
+                        .size(title_size * 1.2)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_width(DialogDesign::space_small()),
                     text(&title_text)
-                        .size(title_font_size)
-                        .style(iced::theme::Text::Color(theme.primary()))
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_width(Length::Fill),
+                ]
+                .align_items(Alignment::Center)
             )
             .width(Length::Fill)
-            .padding(Padding::new(20.0));
+            .padding(DialogDesign::pad_medium());
 
-            let packages_list = if self.package_info.len() == 1 {
+            let packages_content = if self.package_info.len() == 1 {
                 let info = &self.package_info[0];
+                let label_w = 100.0;
                 container(
                     column![
-                        text("Package Information").size(body_font_size * 0.95).style(iced::theme::Text::Color(theme.primary())),
-                        Space::with_height(Length::Fixed(10.0)),
+                        text("Package Details")
+                            .size(body_size * 1.1)
+                            .style(iced::theme::Text::Color(theme.primary())),
+                        Space::with_height(DialogDesign::space_small()),
                         row![
-                            text("Name:").size(body_font_size * 0.85).width(Length::Fixed(120.0)),
-                            text(&info.name).size(body_font_size * 0.85).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
+                            text("Name:").size(body_size).width(Length::Fixed(label_w)).style(iced::theme::Text::Color(theme.secondary_text())),
+                            text(&info.name).size(body_size).width(Length::Fill),
                         ]
-                        .width(Length::Fill)
-                        .spacing(10),
-                        Space::with_height(Length::Fixed(5.0)),
+                        .spacing(DialogDesign::SPACE_SMALL),
+                        Space::with_height(DialogDesign::space_tiny()),
                         row![
-                            text("Version:").size(body_font_size * 0.85).width(Length::Fixed(120.0)),
-                            text(&info.version).size(body_font_size * 0.85).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
+                            text("Version:").size(body_size).width(Length::Fixed(label_w)).style(iced::theme::Text::Color(theme.secondary_text())),
+                            text(&info.version).size(body_size).width(Length::Fill),
                         ]
-                        .width(Length::Fill)
-                        .spacing(10),
-                        Space::with_height(Length::Fixed(5.0)),
+                        .spacing(DialogDesign::SPACE_SMALL),
+                        Space::with_height(DialogDesign::space_tiny()),
                         row![
-                            text("Release:").size(body_font_size * 0.85).width(Length::Fixed(120.0)),
-                            text(&info.release).size(body_font_size * 0.85).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
+                            text("Release:").size(body_size).width(Length::Fixed(label_w)).style(iced::theme::Text::Color(theme.secondary_text())),
+                            text(&info.release).size(body_size).width(Length::Fill),
                         ]
-                        .width(Length::Fill)
-                        .spacing(10),
-                        Space::with_height(Length::Fixed(5.0)),
+                        .spacing(DialogDesign::SPACE_SMALL),
+                        Space::with_height(DialogDesign::space_tiny()),
                         row![
-                            text("Architecture:").size(body_font_size * 0.85).width(Length::Fixed(120.0)),
-                            text(&info.arch).size(body_font_size * 0.85).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
+                            text("Arch:").size(body_size).width(Length::Fixed(label_w)).style(iced::theme::Text::Color(theme.secondary_text())),
+                            text(&info.arch).size(body_size).width(Length::Fill),
                         ]
-                        .width(Length::Fill)
-                        .spacing(10),
-                        Space::with_height(Length::Fixed(5.0)),
+                        .spacing(DialogDesign::SPACE_SMALL),
+                        Space::with_height(DialogDesign::space_tiny()),
                         row![
-                            text("Size:").size(body_font_size * 0.85).width(Length::Fixed(120.0)),
-                            text(&info.size).size(body_font_size * 0.85).width(Length::Fill).shaping(iced::widget::text::Shaping::Advanced),
+                            text("Size:").size(body_size).width(Length::Fixed(label_w)).style(iced::theme::Text::Color(theme.secondary_text())),
+                            text(&info.size).size(body_size).width(Length::Fill),
                         ]
-                        .width(Length::Fill)
-                        .spacing(10),
-                        Space::with_height(Length::Fixed(15.0)),
-                        text("Summary:").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
-                        Space::with_height(Length::Fixed(5.0)),
-                        text(&info.summary).size(body_font_size * 0.8).shaping(iced::widget::text::Shaping::Advanced),
-                        Space::with_height(Length::Fixed(15.0)),
-                        text("Description:").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
-                        Space::with_height(Length::Fixed(5.0)),
+                        .spacing(DialogDesign::SPACE_SMALL),
+                        Space::with_height(DialogDesign::space_medium()),
+                        container(Space::with_height(Length::Fixed(1.0)))
+                            .width(Length::Fill)
+                            .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
+                        Space::with_height(DialogDesign::space_medium()),
+                        text("Summary")
+                            .size(body_size * 1.05)
+                            .style(iced::theme::Text::Color(theme.primary())),
+                        Space::with_height(DialogDesign::space_tiny()),
+                        text(&info.summary)
+                            .size(body_size * 0.95)
+                            .shaping(iced::widget::text::Shaping::Advanced),
+                        Space::with_height(DialogDesign::space_medium()),
+                        text("Description")
+                            .size(body_size * 1.05)
+                            .style(iced::theme::Text::Color(theme.primary())),
+                        Space::with_height(DialogDesign::space_tiny()),
                         scrollable(
-                            text(&info.description).size(body_font_size * 0.8).shaping(iced::widget::text::Shaping::Advanced)
+                            text(&info.description)
+                                .size(body_size * 0.95)
+                                .shaping(iced::widget::text::Shaping::Advanced)
                         )
-                        .height(Length::Fixed(100.0)),
+                        .height(Length::Fixed(150.0)),
                     ]
                     .spacing(0)
-                    .padding(Padding::new(20.0))
+                    .padding(DialogDesign::pad_medium())
                 )
-                .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
             } else {
                 container(
                     column![
-                        text(format!("Packages to Install ({})", self.package_info.len()))
-                            .size(body_font_size * 0.95)
+                        text(format!("{} Packages", self.package_info.len()))
+                            .size(body_size * 1.1)
                             .style(iced::theme::Text::Color(theme.primary())),
-                        Space::with_height(Length::Fixed(10.0)),
+                        Space::with_height(DialogDesign::space_small()),
                         scrollable(
                             column(
                                 self.package_info
@@ -185,28 +211,31 @@ impl InstallDialog {
                                             column![
                                                 row![
                                                     text(&info.name)
-                                                        .size(body_font_size * 0.9)
+                                                        .size(body_size)
                                                         .style(iced::theme::Text::Color(theme.primary())),
                                                     Space::with_width(Length::Fill),
                                                     text(format!("{} {}", info.version, info.release))
-                                                        .size(body_font_size * 0.8),
+                                                        .size(body_size * 0.9)
+                                                        .style(iced::theme::Text::Color(theme.secondary_text())),
                                                 ]
-                                                .width(Length::Fill)
-                                                .spacing(10),
-                                                Space::with_height(Length::Fixed(5.0)),
+                                                .spacing(DialogDesign::SPACE_SMALL),
+                                                Space::with_height(DialogDesign::space_tiny()),
                                                 text(&info.summary)
-                                                    .size(body_font_size * 0.8)
+                                                    .size(body_size * 0.9)
                                                     .shaping(iced::widget::text::Shaping::Advanced),
-                                                Space::with_height(Length::Fixed(5.0)),
+                                                Space::with_height(DialogDesign::space_tiny()),
                                                 row![
-                                                    text(format!("Arch: {}", info.arch)).size(body_font_size * 0.75),
+                                                    text(format!("Arch: {}", info.arch))
+                                                        .size(body_size * 0.85)
+                                                        .style(iced::theme::Text::Color(theme.secondary_text())),
                                                     Space::with_width(Length::Fill),
-                                                    text(format!("Size: {}", info.size)).size(body_font_size * 0.75),
-                                                ]
-                                                .width(Length::Fill),
+                                                    text(format!("Size: {}", info.size))
+                                                        .size(body_size * 0.85)
+                                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                                                ],
                                             ]
-                                            .spacing(5)
-                                            .padding(Padding::new(12.0))
+                                            .spacing(0)
+                                            .padding(DialogDesign::pad_small())
                                         )
                                         .style(iced::theme::Container::Custom(Box::new(PackageItemStyle)))
                                         .width(Length::Fill)
@@ -214,20 +243,18 @@ impl InstallDialog {
                                     })
                                     .collect::<Vec<_>>()
                             )
-                            .spacing(8)
+                            .spacing(DialogDesign::SPACE_SMALL)
                         )
-                        .height(Length::Fixed(400.0)),
+                        .height(Length::Fill),
                     ]
                     .spacing(0)
-                    .padding(Padding::new(20.0))
+                    .padding(DialogDesign::pad_medium())
                 )
-                .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
             };
 
-            let info_section = packages_list;
-
-            let progress_section = if self.is_installing || self.is_complete {
-                let progress_value = if self.is_complete { 1.0 } else { 0.7 };
+            let progress = if self.is_installing || self.is_complete {
+                let value = if self.is_complete { 1.0 } else { 0.7 };
                 let progress_text = if self.is_complete {
                     "Installation completed successfully!".to_string()
                 } else {
@@ -235,133 +262,136 @@ impl InstallDialog {
                 };
                 container(
                     column![
-                        text("Installation Progress").size(body_font_size * 0.95).style(iced::theme::Text::Color(theme.primary())),
-                        Space::with_height(Length::Fixed(10.0)),
-                        progress_bar(0.0..=1.0, progress_value).width(Length::Fill),
-                        Space::with_height(Length::Fixed(5.0)),
-                        text(&progress_text).size(body_font_size * 0.8)
+                        text("Progress")
+                            .size(body_size * 1.05)
+                            .style(iced::theme::Text::Color(theme.primary())),
+                        Space::with_height(DialogDesign::space_small()),
+                        progress_bar(0.0..=1.0, value)
+                            .width(Length::Fill)
+                            .height(Length::Fixed(DialogDesign::PROGRESS_HEIGHT)),
+                        Space::with_height(DialogDesign::space_tiny()),
+                        text(&progress_text)
+                            .size(body_size * 0.95)
                             .style(iced::theme::Text::Color(if self.is_complete {
-                                iced::Color::from_rgb(0.0, 0.8, 0.0)
+                                Color::from_rgb(0.0, 0.8, 0.0)
                             } else {
                                 theme.text()
                             })),
                     ]
-                    .spacing(8)
-                    .padding(Padding::new(20.0))
+                    .spacing(0)
+                    .padding(DialogDesign::pad_medium())
                 )
-                .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
             } else {
                 container(Space::with_height(Length::Shrink))
             };
 
-            let buttons = if self.is_complete {
-                // Show only Exit button when installation is complete
-                row![
-                    Space::with_width(Length::Fill),
-                    {
-                        let material_font = crate::gui::fonts::get_material_symbols_font();
+            let buttons = {
+                let material_font = crate::gui::fonts::get_material_symbols_font();
+                if self.is_complete {
+                    row![
+                        Space::with_width(Length::Fill),
                         button(
                             row![
-                                text(crate::gui::fonts::glyphs::EXIT_SYMBOL).font(material_font).size(icon_size * 0.9),
-                                text(" Exit").size(button_font_size)
+                                text(crate::gui::fonts::glyphs::EXIT_SYMBOL).font(material_font).size(button_size * 1.1),
+                                text(" Close").size(button_size)
                             ]
-                            .spacing(4)
+                            .spacing(DialogDesign::SPACE_TINY)
                             .align_items(Alignment::Center)
                         )
-                            .on_press(Message::Cancel)
-                            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                                is_primary: true,
-                            })))
-                            .padding(Padding::new(14.0))
-                    },
-                ]
-                .spacing(10)
-                .align_items(Alignment::Center)
-                .padding(Padding::new(20.0))
-            } else {
-                let material_font = crate::gui::fonts::get_material_symbols_font();
-                row![
-                    button(
-                        row![
-                            text(crate::gui::fonts::glyphs::CANCEL_SYMBOL).font(material_font),
-                            text(" Cancel")
-                        ]
-                        .spacing(4)
-                        .align_items(Alignment::Center)
-                    )
                         .on_press(Message::Cancel)
-                        .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                            is_primary: false,
-                        })))
-                        .padding(Padding::new(14.0)),
-                    Space::with_width(Length::Fill),
-                    {
-                        if self.is_installing {
-                            button(
-                                row![
-                                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                                    text(" Installing...")
-                                ]
-                                .spacing(4)
-                                .align_items(Alignment::Center)
-                            )
-                                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                                    is_primary: true,
-                                })))
-                                .padding(Padding::new(14.0))
-                        } else {
-                            button(
-                                row![
-                                    text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font),
-                                    text(" Install")
-                                ]
-                                .spacing(4)
-                                .align_items(Alignment::Center)
-                            )
+                        .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                        .padding(DialogDesign::pad_small()),
+                    ]
+                    .spacing(DialogDesign::SPACE_SMALL)
+                } else {
+                    row![
+                        button(
+                            row![
+                                text(crate::gui::fonts::glyphs::CANCEL_SYMBOL).font(material_font).size(button_size * 1.1),
+                                text(" Cancel").size(button_size)
+                            ]
+                            .spacing(DialogDesign::SPACE_TINY)
+                            .align_items(Alignment::Center)
+                        )
+                        .on_press(Message::Cancel)
+                        .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: false })))
+                        .padding(DialogDesign::pad_small()),
+                        Space::with_width(Length::Fill),
+                        {
+                            if self.is_installing {
+                                button(
+                                    row![
+                                        text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(button_size * 1.1),
+                                        text(" Installing...").size(button_size)
+                                    ]
+                                    .spacing(DialogDesign::SPACE_TINY)
+                                    .align_items(Alignment::Center)
+                                )
+                                .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                                .padding(DialogDesign::pad_small())
+                            } else {
+                                button(
+                                    row![
+                                        text(crate::gui::fonts::glyphs::DOWNLOAD_SYMBOL).font(material_font).size(button_size * 1.1),
+                                        text(" Install").size(button_size)
+                                    ]
+                                    .spacing(DialogDesign::SPACE_TINY)
+                                    .align_items(Alignment::Center)
+                                )
                                 .on_press(Message::InstallPackages)
-                                .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                                    is_primary: true,
-                                })))
-                                .padding(Padding::new(14.0))
-                        }
-                    },
-                ]
-                .spacing(10)
-                .align_items(Alignment::Center)
-                .padding(Padding::new(20.0))
+                                .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                                .padding(DialogDesign::pad_small())
+                            }
+                        },
+                    ]
+                    .spacing(DialogDesign::SPACE_SMALL)
+                }
             };
 
             container(
                 column![
+                    header,
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
                     scrollable(
                         column![
-                            title,
-                            info_section,
-                            progress_section,
+                            packages_content,
+                            progress,
                         ]
-                        .spacing(15)
-                        .padding(Padding::new(20.0))
+                        .spacing(DialogDesign::SPACE_MEDIUM)
+                        .padding(DialogDesign::pad_medium())
                     )
                     .height(Length::Fill),
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
                     container(buttons)
                         .width(Length::Fill)
-                        .padding(Padding::new(20.0))
-                        .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle))),
+                        .padding(DialogDesign::pad_medium()),
                 ]
                 .spacing(0)
             )
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .style(iced::theme::Container::Custom(Box::new(WindowContainerStyle {
+                background: theme.background(),
+            })))
         } else {
             container(
-                text("Failed to load package information")
-                    .size(18)
-                    .style(iced::theme::Text::Color(iced::Color::from_rgb(1.0, 0.3, 0.3)))
+                column![
+                    text("Failed to load package information")
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.danger())),
+                ]
+                .spacing(DialogDesign::SPACE_SMALL)
+                .align_items(Alignment::Center)
+                .padding(DialogDesign::pad_large())
             )
-            .width(Length::Fixed(600.0))
-            .padding(Padding::new(30.0))
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         };
 
         container(content)
@@ -442,11 +472,9 @@ impl Application for InstallDialog {
                 self.is_installing = false;
                 self.is_complete = true;
                 self.installation_progress = "Installation completed successfully!".to_string();
-                // Don't close automatically, let user click Exit
                 iced::Command::none()
             }
             Message::InstallationError(_msg) => {
-                // Installation error occurred
                 self.is_installing = false;
                 iced::Command::none()
             }
@@ -472,7 +500,6 @@ async fn load_package_info(package_names: Vec<String>) -> Result<Vec<PackageInfo
         return Err("No packages specified".to_string());
     }
 
-    // Load info for all packages in parallel
     let mut futures = Vec::new();
     for package_name in &package_names {
         let name = package_name.clone();
@@ -481,17 +508,13 @@ async fn load_package_info(package_names: Vec<String>) -> Result<Vec<PackageInfo
         });
     }
 
-    // Wait for all to complete
     let results: Vec<Result<PackageInfo, String>> = future::join_all(futures).await;
 
-    // Collect successful results, skip failures
     let mut infos = Vec::new();
     for result in results {
         match result {
             Ok(info) => infos.push(info),
-                    Err(_) => {
-                // Continue with other packages even if one fails
-            }
+            Err(_) => {}
         }
     }
 
@@ -503,7 +526,6 @@ async fn load_package_info(package_names: Vec<String>) -> Result<Vec<PackageInfo
 }
 
 async fn load_single_package_info(package_name: String) -> Result<PackageInfo, String> {
-    // Use dnf info for packages that aren't installed yet
     let output = TokioCommand::new("dnf")
         .args(["info", &package_name])
         .output()
@@ -531,7 +553,6 @@ async fn load_single_package_info(package_name: String) -> Result<PackageInfo, S
 
     for line in stdout.lines() {
         let line = line.trim();
-        // Handle fields that may have variable spacing - use contains and split on ':'
         if line.starts_with("Name") && line.contains(':') {
             info.name = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
             in_description = false;
@@ -548,10 +569,8 @@ async fn load_single_package_info(package_name: String) -> Result<PackageInfo, S
             info.summary = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
             in_description = false;
         } else if (line.starts_with("Installed size") || line.starts_with("Download size") || line.starts_with("Size")) && line.contains(':') {
-            // Prefer "Installed size" over "Download size" - only update if size is empty or we found "Installed size"
             let size_str = line.splitn(2, ':').nth(1).unwrap_or("").trim();
             if line.starts_with("Installed size") || info.size.is_empty() {
-                // DNF info shows size as "79.1 MiB" or "253.1 MiB", parse it
                 if let Ok(size_bytes) = parse_size(size_str) {
                     info.size = format_size(size_bytes);
                 } else {
@@ -566,19 +585,14 @@ async fn load_single_package_info(package_name: String) -> Result<PackageInfo, S
                 description_lines.push(desc.to_string());
             }
         } else if in_description {
-            // Continue collecting description lines until we hit another field
             if line.is_empty() {
-                // Empty line might be end of description, but continue if next line is not a field
             } else if line.starts_with("               :") {
-                // Continuation of description (dnf info format with leading spaces and colon)
                 let desc_cont = line.trim_start_matches("               :").trim();
                 if !desc_cont.is_empty() {
                     description_lines.push(desc_cont.to_string());
                 }
             } else if line.contains(':') {
-                // Check if it's a new field (not continuation of description)
                 let field_name = line.split(':').next().unwrap_or("").trim();
-                // Known field names that end description
                 let known_fields = ["URL", "License", "Vendor", "Source", "Repository", "Epoch"];
                 if known_fields.iter().any(|&f| field_name.starts_with(f)) ||
                    (field_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) &&
@@ -586,23 +600,19 @@ async fn load_single_package_info(package_name: String) -> Result<PackageInfo, S
                     !field_name.eq_ignore_ascii_case("description")) {
                     in_description = false;
                 } else {
-                    // Continuation of description (might have ":" in the text)
                     description_lines.push(line.to_string());
                 }
             } else {
-                // Regular description line
                 description_lines.push(line.to_string());
             }
         }
     }
 
-    // Combine all description lines
     info.description = description_lines.join(" ").trim().to_string();
     if info.description.is_empty() {
         info.description = info.summary.clone();
     }
 
-    // If name wasn't found, use the package name we tried to load
     if info.name.is_empty() {
         info.name = package_name;
     }
@@ -624,7 +634,6 @@ fn parse_size(size_str: &str) -> Result<u64, ()> {
         "b".to_string()
     };
 
-    // Handle MiB, KiB, GiB, TiB (binary) and MB, KB, GB, TB (decimal)
     let multiplier = match unit.as_str() {
         "k" | "kb" | "kib" => 1024.0,
         "m" | "mb" | "mib" => 1024.0 * 1024.0,
@@ -672,11 +681,11 @@ async fn install_packages(package_names: Vec<String>) -> Result<String, String> 
     Ok("Installation Complete!".to_string())
 }
 
-struct RoundedButtonStyle {
+struct CleanButtonStyle {
     is_primary: bool,
 }
 
-impl ButtonStyleSheet for RoundedButtonStyle {
+impl ButtonStyleSheet for CleanButtonStyle {
     type Style = iced::Theme;
 
     fn active(&self, style: &Self::Style) -> ButtonAppearance {
@@ -685,18 +694,18 @@ impl ButtonStyleSheet for RoundedButtonStyle {
             background: Some(iced::Background::Color(if self.is_primary {
                 palette.primary
             } else {
-                iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
+                Color::from_rgba(0.4, 0.4, 0.4, 0.2)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
                 } else {
-                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3)
+                    Color::from_rgba(0.5, 0.5, 0.5, 0.3)
                 },
             },
-            text_color: palette.text,
+            text_color: if self.is_primary { Color::WHITE } else { palette.text },
             ..Default::default()
         }
     }
@@ -704,28 +713,35 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
         let palette = style.palette();
-        appearance.background = Some(iced::Background::Color(if self.is_primary {
-            iced::Color::from_rgba(palette.primary.r * 0.9, palette.primary.g * 0.9, palette.primary.b * 0.9, 1.0)
+        if self.is_primary {
+            appearance.background = Some(iced::Background::Color(
+                Color::from_rgba(palette.primary.r * 0.85, palette.primary.g * 0.85, palette.primary.b * 0.85, 1.0)
+            ));
         } else {
-            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
-        }));
+            appearance.background = Some(iced::Background::Color(Color::from_rgba(0.4, 0.4, 0.4, 0.3)));
+        }
         appearance
     }
 }
 
-struct DialogContainerStyle;
+struct CleanContainerStyle;
 
-impl iced::widget::container::StyleSheet for DialogContainerStyle {
+impl iced::widget::container::StyleSheet for CleanContainerStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, style: &Self::Style) -> Appearance {
         let palette = style.palette();
         Appearance {
-            background: Some(iced::Background::Color(palette.background)),
+            background: Some(iced::Background::Color(Color::from_rgba(
+                palette.background.r * 0.98,
+                palette.background.g * 0.98,
+                palette.background.b * 0.98,
+                1.0,
+            ))),
             border: Border {
-                radius: 20.0.into(),
-                width: 2.0,
-                color: palette.primary,
+                radius: DialogDesign::RADIUS.into(),
+                width: 1.0,
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.2),
             },
             ..Default::default()
         }
@@ -760,40 +776,34 @@ impl iced::widget::container::StyleSheet for PackageItemStyle {
     fn appearance(&self, style: &Self::Style) -> Appearance {
         let palette = style.palette();
         Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(
-                palette.background.r * 0.98,
-                palette.background.g * 0.98,
-                palette.background.b * 0.98,
+            background: Some(iced::Background::Color(Color::from_rgba(
+                palette.background.r * 0.96,
+                palette.background.g * 0.96,
+                palette.background.b * 0.96,
                 1.0,
             ))),
             border: Border {
-                radius: 12.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.15),
             },
             ..Default::default()
         }
     }
 }
 
-struct InfoContainerStyle;
+struct DividerStyle;
 
-impl iced::widget::container::StyleSheet for InfoContainerStyle {
+impl iced::widget::container::StyleSheet for DividerStyle {
     type Style = iced::Theme;
 
-    fn appearance(&self, style: &Self::Style) -> Appearance {
-        let palette = style.palette();
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(
-                palette.background.r * 0.95,
-                palette.background.g * 0.95,
-                palette.background.b * 0.95,
-                1.0,
-            ))),
+            background: Some(iced::Background::Color(Color::from_rgba(0.3, 0.3, 0.3, 0.2))),
             border: Border {
-                radius: 12.0.into(),
-                width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
             },
             ..Default::default()
         }

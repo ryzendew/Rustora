@@ -44,8 +44,8 @@ impl GamingMetaDialog {
         let dialog = Self::new();
 
         let mut window_settings = iced::window::Settings::default();
-        window_settings.size = iced::Size::new(1000.0, 700.0);
-        window_settings.min_size = Some(iced::Size::new(800.0, 500.0));
+        window_settings.size = iced::Size::new(700.0, 550.0);
+        window_settings.min_size = Some(iced::Size::new(500.0, 400.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
 

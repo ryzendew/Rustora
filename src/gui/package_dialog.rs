@@ -56,7 +56,8 @@ impl PackageDialog {
         let dialog = Self::new(package_names);
 
         let mut window_settings = iced::window::Settings::default();
-        window_settings.size = iced::Size::new(750.0, 800.0);
+        window_settings.size = iced::Size::new(600.0, 600.0);
+        window_settings.min_size = Some(iced::Size::new(480.0, 400.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
 

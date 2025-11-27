@@ -7,6 +7,8 @@ use iced::window;
 use tokio::process::Command as TokioCommand;
 use std::path::PathBuf;
 use tokio::fs;
+use crate::gui::dialog_design::DialogDesign;
+use iced::Color;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -55,7 +57,8 @@ impl FlatpakRemoveDialog {
         let dialog = Self::new(application_ids);
 
         let mut window_settings = iced::window::Settings::default();
-        window_settings.size = iced::Size::new(750.0, 800.0);
+        window_settings.size = iced::Size::new(600.0, 600.0);
+        window_settings.min_size = Some(iced::Size::new(480.0, 400.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
 
@@ -78,24 +81,28 @@ impl FlatpakRemoveDialog {
         }
 
         let settings = crate::gui::settings::AppSettings::load();
-        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
-        let _body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
-        let _button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
-        let _icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
+        let title_size = (settings.font_size_titles * settings.scale_titles).round();
+        let body_size = (settings.font_size_body * settings.scale_body).round();
+        let button_size = (settings.font_size_buttons * settings.scale_buttons).round();
 
         let content = if self.is_loading {
             container(
                 column![
-                    text("Loading Flatpak information...").size(title_font_size),
-                    Space::with_height(Length::Fixed(20.0)),
-                    progress_bar(0.0..=1.0, 0.5).width(Length::Fill),
+                    text("Loading Flatpak information...")
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.primary())),
+                    Space::with_height(DialogDesign::space_medium()),
+                    progress_bar(0.0..=1.0, 0.5)
+                        .width(Length::Fill)
+                        .height(Length::Fixed(DialogDesign::PROGRESS_HEIGHT)),
                 ]
-                .spacing(15)
+                .spacing(DialogDesign::SPACE_SMALL)
                 .align_items(Alignment::Center)
-                .padding(Padding::new(30.0))
+                .padding(DialogDesign::pad_large())
             )
-            .width(Length::Fixed(600.0))
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         } else if let Some(ref infos) = self.flatpak_info {
             let title_text = if self.application_ids.len() == 1 {
                 if let Some(ref info) = infos.first() {
@@ -108,181 +115,218 @@ impl FlatpakRemoveDialog {
             };
 
             let material_font = crate::gui::fonts::get_material_symbols_font();
-            let title = container(
+            let header = container(
                 row![
+                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL)
+                        .font(material_font)
+                        .size(title_size * 1.2)
+                        .style(iced::theme::Text::Color(theme.danger())),
+                    Space::with_width(DialogDesign::space_small()),
                     text(&title_text)
-                        .size(18)
-                        .style(iced::theme::Text::Color(theme.primary())),
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.danger())),
                     Space::with_width(Length::Fill),
-                    button(
-                        text(crate::gui::fonts::glyphs::CLOSE_SYMBOL).font(material_font).size(18)
-                    )
-                    .on_press(Message::Cancel)
-                    .style(iced::theme::Button::Custom(Box::new(CloseButtonStyle)))
-                    .padding(Padding::new(6.0)),
                 ]
                 .align_items(Alignment::Center)
-                .width(Length::Fill)
             )
             .width(Length::Fill)
-            .padding(Padding::new(16.0));
+            .padding(DialogDesign::pad_medium());
 
-            let packages_section = container(
-                column![
-                    text("Packages to Remove").size(14).style(iced::theme::Text::Color(theme.primary())),
-                    Space::with_height(Length::Fixed(10.0)),
-                    scrollable(
-                        column(
-                            infos
-                                .iter()
-                                .map(|info| {
-                                    container(
-                                        column![
-                                            text(&info.name).size(13).style(iced::theme::Text::Color(theme.primary())),
-                                            text(&info.application_id).size(11),
-                                            row![
-                                                text("Version:").size(10).width(Length::Fixed(60.0)),
-                                                text(&info.version).size(10),
-                                                Space::with_width(Length::Fill),
-                                                text("Size:").size(10).width(Length::Fixed(50.0)),
-                                                text(&info.size).size(10),
+            let packages_section = {
+                let material_font = crate::gui::fonts::get_material_symbols_font();
+                container(
+                    column![
+                        row![
+                            text(crate::gui::fonts::glyphs::DELETE_SYMBOL)
+                                .font(material_font)
+                                .size(body_size * 1.1)
+                                .style(iced::theme::Text::Color(theme.danger())),
+                            Space::with_width(DialogDesign::space_small()),
+                            text("Packages to Remove")
+                                .size(body_size * 1.05)
+                                .style(iced::theme::Text::Color(theme.danger())),
+                        ]
+                        .spacing(DialogDesign::SPACE_TINY)
+                        .align_items(Alignment::Center),
+                        Space::with_height(DialogDesign::space_small()),
+                        scrollable(
+                            column(
+                                infos
+                                    .iter()
+                                    .map(|info| {
+                                        container(
+                                            column![
+                                                text(&info.name)
+                                                    .size(body_size)
+                                                    .style(iced::theme::Text::Color(theme.primary())),
+                                                text(&info.application_id)
+                                                    .size(body_size * 0.85)
+                                                    .style(iced::theme::Text::Color(theme.secondary_text())),
+                                                Space::with_height(DialogDesign::space_tiny()),
+                                                row![
+                                                    text("Version:")
+                                                        .size(body_size * 0.9)
+                                                        .width(Length::Fixed(65.0))
+                                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                                                    text(&info.version)
+                                                        .size(body_size * 0.9),
+                                                    Space::with_width(Length::Fill),
+                                                    text("Size:")
+                                                        .size(body_size * 0.9)
+                                                        .width(Length::Fixed(50.0))
+                                                        .style(iced::theme::Text::Color(theme.secondary_text())),
+                                                    text(&info.size)
+                                                        .size(body_size * 0.9),
+                                                ]
+                                                .spacing(DialogDesign::SPACE_SMALL),
                                             ]
-                                            .spacing(8),
-                                        ]
-                                        .spacing(4)
-                                    )
-                                    .padding(Padding::new(12.0))
-                                    .style(iced::theme::Container::Custom(Box::new(PackageItemStyle)))
-                                    .width(Length::Fill)
-                                    .into()
-                                })
-                                .collect::<Vec<_>>()
+                                            .spacing(0)
+                                        )
+                                        .padding(DialogDesign::pad_small())
+                                        .style(iced::theme::Container::Custom(Box::new(PackageItemStyle)))
+                                        .width(Length::Fill)
+                                        .into()
+                                    })
+                                    .collect::<Vec<_>>()
+                            )
+                            .spacing(DialogDesign::SPACE_SMALL)
                         )
-                        .spacing(8)
-                    )
-                    .height(Length::Fixed(300.0)),
-                ]
-                .spacing(0)
-                .padding(Padding::new(16.0))
-            )
-            .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)));
+                        .height(Length::Fill),
+                    ]
+                    .spacing(0)
+                    .padding(DialogDesign::pad_medium())
+                )
+                .style(iced::theme::Container::Custom(Box::new(RemoveWarningContainerStyle)))
+            };
 
             let progress_section = if self.is_removing || self.is_complete {
-                let progress_value = if self.is_complete { 1.0 } else { 0.7 };
+                let value = if self.is_complete { 1.0 } else { 0.7 };
                 let progress_text = if self.is_complete {
                     "Removal completed successfully!".to_string()
                 } else {
                     self.removal_progress.clone()
                 };
+                let material_font = crate::gui::fonts::get_material_symbols_font();
                 container(
                     column![
-                        text("Removal Progress").size(15).style(iced::theme::Text::Color(theme.primary())),
-                        Space::with_height(Length::Fixed(8.0)),
-                        progress_bar(0.0..=1.0, progress_value).width(Length::Fill),
-                        Space::with_height(Length::Fixed(5.0)),
-                        text(&progress_text).size(12)
+                        row![
+                            text(crate::gui::fonts::glyphs::DELETE_SYMBOL)
+                                .font(material_font)
+                                .size(body_size * 1.1)
+                                .style(iced::theme::Text::Color(theme.danger())),
+                            Space::with_width(DialogDesign::space_small()),
+                            text("Progress")
+                                .size(body_size * 1.05)
+                                .style(iced::theme::Text::Color(theme.danger())),
+                        ]
+                        .spacing(DialogDesign::SPACE_TINY)
+                        .align_items(Alignment::Center),
+                        Space::with_height(DialogDesign::space_small()),
+                        progress_bar(0.0..=1.0, value)
+                            .width(Length::Fill)
+                            .height(Length::Fixed(DialogDesign::PROGRESS_HEIGHT)),
+                        Space::with_height(DialogDesign::space_tiny()),
+                        text(&progress_text)
+                            .size(body_size * 0.95)
                             .style(iced::theme::Text::Color(if self.is_complete {
-                                iced::Color::from_rgb(0.0, 0.8, 0.0)
+                                Color::from_rgb(0.0, 0.8, 0.0)
                             } else {
                                 theme.text()
                             })),
                     ]
-                    .spacing(6)
-                    .padding(Padding::new(16.0))
+                    .spacing(0)
+                    .padding(DialogDesign::pad_medium())
                 )
-                .style(iced::theme::Container::Custom(Box::new(InfoContainerStyle)))
+                .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
             } else {
                 container(Space::with_height(Length::Shrink))
             };
 
             let material_font = crate::gui::fonts::get_material_symbols_font();
 
-            let buttons = if self.is_complete {
-                row![
-                    Space::with_width(Length::Fill),
-                    button(
-                        row![
-                            text(crate::gui::fonts::glyphs::EXIT_SYMBOL).font(material_font),
-                            text(" Exit")
-                        ]
-                        .spacing(4)
-                        .align_items(Alignment::Center)
-                    )
-                    .on_press(Message::Cancel)
-                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                        is_primary: true,
-                    })))
-                    .padding(Padding::new(12.0)),
-                ]
-                .spacing(10)
-                .align_items(Alignment::Center)
-            } else {
-                row![
-                    button(
-                        row![
-                            text(crate::gui::fonts::glyphs::CANCEL_SYMBOL).font(material_font),
-                            text(" Cancel")
-                        ]
-                        .spacing(4)
-                        .align_items(Alignment::Center)
-                    )
-                    .on_press(Message::Cancel)
-                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                        is_primary: false,
-                    })))
-                    .padding(Padding::new(12.0)),
-                    Space::with_width(Length::Fill),
-                    {
-                        if self.is_removing {
-                            button(
-                                row![
-                                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font),
-                                    text(" Removing...")
-                                ]
-                                .spacing(4)
-                                .align_items(Alignment::Center)
-                            )
-                            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                                is_primary: true,
-                            })))
-                            .padding(Padding::new(12.0))
-                        } else {
-                            button(
-                                row![
-                                    text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font),
-                                    text(" Remove")
-                                ]
-                                .spacing(4)
-                                .align_items(Alignment::Center)
-                            )
-                            .on_press(Message::RemoveFlatpaks)
-                            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                                is_primary: true,
-                            })))
-                            .padding(Padding::new(12.0))
-                        }
-                    },
-                ]
-                .spacing(10)
-                .align_items(Alignment::Center)
+            let buttons = {
+                if self.is_complete {
+                    row![
+                        Space::with_width(Length::Fill),
+                        button(
+                            row![
+                                text(crate::gui::fonts::glyphs::EXIT_SYMBOL).font(material_font).size(button_size * 1.1),
+                                text(" Close").size(button_size)
+                            ]
+                            .spacing(DialogDesign::SPACE_TINY)
+                            .align_items(Alignment::Center)
+                        )
+                        .on_press(Message::Cancel)
+                        .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                        .padding(DialogDesign::pad_small()),
+                    ]
+                    .spacing(DialogDesign::SPACE_SMALL)
+                } else {
+                    row![
+                        button(
+                            row![
+                                text(crate::gui::fonts::glyphs::CANCEL_SYMBOL).font(material_font).size(button_size * 1.1),
+                                text(" Cancel").size(button_size)
+                            ]
+                            .spacing(DialogDesign::SPACE_TINY)
+                            .align_items(Alignment::Center)
+                        )
+                        .on_press(Message::Cancel)
+                        .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: false })))
+                        .padding(DialogDesign::pad_small()),
+                        Space::with_width(Length::Fill),
+                        {
+                            if self.is_removing {
+                                button(
+                                    row![
+                                        text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font).size(button_size * 1.1),
+                                        text(" Removing...").size(button_size)
+                                    ]
+                                    .spacing(DialogDesign::SPACE_TINY)
+                                    .align_items(Alignment::Center)
+                                )
+                                .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                                .padding(DialogDesign::pad_small())
+                            } else {
+                                button(
+                                    row![
+                                        text(crate::gui::fonts::glyphs::DELETE_SYMBOL).font(material_font).size(button_size * 1.1),
+                                        text(" Remove").size(button_size)
+                                    ]
+                                    .spacing(DialogDesign::SPACE_TINY)
+                                    .align_items(Alignment::Center)
+                                )
+                                .on_press(Message::RemoveFlatpaks)
+                                .style(iced::theme::Button::Custom(Box::new(CleanButtonStyle { is_primary: true })))
+                                .padding(DialogDesign::pad_small())
+                            }
+                        },
+                    ]
+                    .spacing(DialogDesign::SPACE_SMALL)
+                }
             };
 
             container(
                 column![
+                    header,
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
                     scrollable(
                         column![
-                            title,
                             packages_section,
                             progress_section,
                         ]
-                        .spacing(12)
-                        .padding(Padding::new(0.0))
+                        .spacing(DialogDesign::SPACE_MEDIUM)
+                        .padding(DialogDesign::pad_medium())
                     )
                     .height(Length::Fill),
+                    container(Space::with_height(Length::Fixed(1.0)))
+                        .width(Length::Fill)
+                        .style(iced::theme::Container::Custom(Box::new(DividerStyle))),
                     container(buttons)
                         .width(Length::Fill)
-                        .padding(Padding::new(16.0))
-                        .style(iced::theme::Container::Custom(Box::new(ButtonBarStyle))),
+                        .padding(DialogDesign::pad_medium()),
                 ]
                 .spacing(0)
             )
@@ -293,13 +337,18 @@ impl FlatpakRemoveDialog {
             })))
         } else {
             container(
-                text("Failed to load Flatpak information")
-                    .size(18)
-                    .style(iced::theme::Text::Color(iced::Color::from_rgb(1.0, 0.3, 0.3)))
+                column![
+                    text("Failed to load Flatpak information")
+                        .size(title_size)
+                        .style(iced::theme::Text::Color(theme.danger())),
+                ]
+                .spacing(DialogDesign::SPACE_SMALL)
+                .align_items(Alignment::Center)
+                .padding(DialogDesign::pad_large())
             )
-            .width(Length::Fixed(600.0))
-            .padding(Padding::new(30.0))
-            .style(iced::theme::Container::Custom(Box::new(DialogContainerStyle)))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(iced::theme::Container::Custom(Box::new(CleanContainerStyle)))
         };
 
         container(content)
@@ -510,11 +559,11 @@ async fn remove_flatpaks(application_ids: Vec<String>) -> Result<String, String>
     Ok("Removal Complete!".to_string())
 }
 
-struct RoundedButtonStyle {
+struct CleanButtonStyle {
     is_primary: bool,
 }
 
-impl ButtonStyleSheet for RoundedButtonStyle {
+impl ButtonStyleSheet for CleanButtonStyle {
     type Style = iced::Theme;
 
     fn active(&self, style: &Self::Style) -> ButtonAppearance {
@@ -523,18 +572,18 @@ impl ButtonStyleSheet for RoundedButtonStyle {
             background: Some(iced::Background::Color(if self.is_primary {
                 palette.primary
             } else {
-                iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1)
+                Color::from_rgba(0.4, 0.4, 0.4, 0.2)
             })),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
                 color: if self.is_primary {
                     palette.primary
                 } else {
-                    iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3)
+                    Color::from_rgba(0.5, 0.5, 0.5, 0.3)
                 },
             },
-            text_color: palette.text,
+            text_color: if self.is_primary { Color::WHITE } else { palette.text },
             ..Default::default()
         }
     }
@@ -542,11 +591,13 @@ impl ButtonStyleSheet for RoundedButtonStyle {
     fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
         let mut appearance = self.active(style);
         let palette = style.palette();
-        appearance.background = Some(iced::Background::Color(if self.is_primary {
-            iced::Color::from_rgba(palette.primary.r * 0.9, palette.primary.g * 0.9, palette.primary.b * 0.9, 1.0)
+        if self.is_primary {
+            appearance.background = Some(iced::Background::Color(
+                Color::from_rgba(palette.primary.r * 0.85, palette.primary.g * 0.85, palette.primary.b * 0.85, 1.0)
+            ));
         } else {
-            iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15)
-        }));
+            appearance.background = Some(iced::Background::Color(Color::from_rgba(0.4, 0.4, 0.4, 0.3)));
+        }
         appearance
     }
 }
@@ -622,48 +673,62 @@ impl iced::widget::container::StyleSheet for WindowContainerStyle {
     }
 }
 
-struct DialogContainerStyle;
+struct CleanContainerStyle;
 
-impl iced::widget::container::StyleSheet for DialogContainerStyle {
+impl iced::widget::container::StyleSheet for CleanContainerStyle {
     type Style = iced::Theme;
 
     fn appearance(&self, style: &Self::Style) -> Appearance {
         let palette = style.palette();
         Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(
-                palette.background.r * 0.97,
-                palette.background.g * 0.97,
-                palette.background.b * 0.97,
+            background: Some(iced::Background::Color(Color::from_rgba(
+                palette.background.r * 0.98,
+                palette.background.g * 0.98,
+                palette.background.b * 0.98,
                 1.0,
             ))),
             border: Border {
-                radius: 16.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15),
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.2),
             },
             ..Default::default()
         }
     }
 }
 
-struct InfoContainerStyle;
+struct DividerStyle;
 
-impl iced::widget::container::StyleSheet for InfoContainerStyle {
+impl iced::widget::container::StyleSheet for DividerStyle {
     type Style = iced::Theme;
 
-    fn appearance(&self, style: &Self::Style) -> Appearance {
-        let palette = style.palette();
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
+        Appearance {
+            background: Some(iced::Background::Color(Color::from_rgba(0.3, 0.3, 0.3, 0.2))),
+            border: Border {
+                radius: 0.0.into(),
+                width: 0.0,
+                color: Color::TRANSPARENT,
+            },
+            ..Default::default()
+        }
+    }
+}
+
+struct RemoveWarningContainerStyle;
+
+impl iced::widget::container::StyleSheet for RemoveWarningContainerStyle {
+    type Style = iced::Theme;
+
+    fn appearance(&self, _style: &Self::Style) -> Appearance {
         Appearance {
             background: Some(iced::Background::Color(iced::Color::from_rgba(
-                palette.background.r * 0.97,
-                palette.background.g * 0.97,
-                palette.background.b * 0.97,
-                1.0,
+                1.0, 0.3, 0.3, 0.08,
             ))),
             border: Border {
                 radius: 16.0.into(),
-                width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.15),
+                width: 1.5,
+                color: iced::Color::from_rgba(1.0, 0.3, 0.3, 0.4),
             },
             ..Default::default()
         }
@@ -678,16 +743,16 @@ impl iced::widget::container::StyleSheet for PackageItemStyle {
     fn appearance(&self, style: &Self::Style) -> Appearance {
         let palette = style.palette();
         Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(
-                palette.primary.r * 0.1,
-                palette.primary.g * 0.1,
-                palette.primary.b * 0.1,
-                0.3,
+            background: Some(iced::Background::Color(Color::from_rgba(
+                palette.background.r * 0.96,
+                palette.background.g * 0.96,
+                palette.background.b * 0.96,
+                1.0,
             ))),
             border: Border {
-                radius: 8.0.into(),
+                radius: DialogDesign::RADIUS.into(),
                 width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.2),
+                color: Color::from_rgba(0.3, 0.3, 0.3, 0.15),
             },
             ..Default::default()
         }

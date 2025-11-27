@@ -105,7 +105,7 @@ impl UpdateSettingsDialog {
 
         let mut window_settings = iced::window::Settings::default();
         window_settings.size = iced::Size::new(500.0, 400.0);
-        window_settings.min_size = Some(iced::Size::new(450.0, 350.0));
+        window_settings.min_size = Some(iced::Size::new(400.0, 350.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
 

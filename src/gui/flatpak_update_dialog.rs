@@ -54,8 +54,8 @@ impl FlatpakUpdateDialog {
         let dialog = Self::new(packages);
 
         let mut window_settings = iced::window::Settings::default();
-        window_settings.size = iced::Size::new(900.0, 700.0);
-        window_settings.min_size = Some(iced::Size::new(700.0, 500.0));
+        window_settings.size = iced::Size::new(700.0, 550.0);
+        window_settings.min_size = Some(iced::Size::new(500.0, 400.0));
         window_settings.max_size = None;
         window_settings.resizable = true;
         window_settings.decorations = true;

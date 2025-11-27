@@ -101,8 +101,8 @@ impl ProtonInstallDialog {
         let dialog = Self::new(runner_title, build_title, download_url, selected_launcher, runner_info);
 
         let mut window_settings = iced::window::Settings::default();
-        window_settings.size = iced::Size::new(800.0, 600.0);
-        window_settings.min_size = Some(iced::Size::new(600.0, 400.0));
+        window_settings.size = iced::Size::new(650.0, 550.0);
+        window_settings.min_size = Some(iced::Size::new(500.0, 400.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
 

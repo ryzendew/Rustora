@@ -58,8 +58,8 @@ impl RpmDialog {
         let dialog = Self::new(rpm_path);
 
         let mut window_settings = iced::window::Settings::default();
-        window_settings.size = iced::Size::new(768.0, 612.0);
-        window_settings.min_size = Some(iced::Size::new(640.0, 480.0));
+        window_settings.size = iced::Size::new(600.0, 550.0);
+        window_settings.min_size = Some(iced::Size::new(480.0, 400.0));
         window_settings.max_size = None;
         window_settings.resizable = true;
         window_settings.decorations = true;

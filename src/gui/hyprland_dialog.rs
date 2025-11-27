@@ -45,8 +45,8 @@ impl HyprlandDialog {
         let dialog = Self::new();
 
         let mut window_settings = iced::window::Settings::default();
-        window_settings.size = iced::Size::new(1000.0, 700.0);
-        window_settings.min_size = Some(iced::Size::new(800.0, 500.0));
+        window_settings.size = iced::Size::new(700.0, 550.0);
+        window_settings.min_size = Some(iced::Size::new(500.0, 400.0));
         window_settings.resizable = true;
         window_settings.decorations = true;
 
@@ -288,10 +288,11 @@ impl HyprlandDialog {
                         Space::with_width(Length::Fixed(0.0)).into()
                     },
                 ]
-                .spacing(12)
+                .spacing(10)
                 .align_items(Alignment::Center)
-                .width(Length::Fill),
-                Space::with_height(Length::Fixed(16.0)),
+                .width(Length::Fill)
+                .padding(Padding::new(12.0)),
+                Space::with_height(Length::Fixed(12.0)),
                 progress_bar(0.0..=1.0, self.progress)
                     .width(Length::Fill)
                     .height(Length::Fixed(8.0)),
@@ -326,14 +327,14 @@ impl HyprlandDialog {
                             }
                         },
                     ]
-                    .spacing(8)
+                    .spacing(6)
                     .align_items(Alignment::Center)
                     .width(Length::Fill),
-                    Space::with_height(Length::Fixed(8.0)),
+                    Space::with_height(Length::Fixed(6.0)),
                     container(terminal_output)
                         .width(Length::Fill)
                         .height(Length::Fill)
-                        .padding(12)
+                        .padding(10)
                         .style(iced::theme::Container::Custom(Box::new(TerminalContainerStyle {
                             radius: settings.border_radius,
                         }))),
