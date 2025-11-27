@@ -3398,7 +3398,7 @@ async fn check_hyprland_status() -> Result<HyprlandStatus, String> {
     let swappy = check_dnf_package("swappy").await;
     let mission_center = tokio::task::spawn_blocking(|| {
         std::process::Command::new("which")
-            .arg("mission-center")
+            .arg("missioncenter")
             .output()
     })
     .await
