@@ -29,7 +29,7 @@ echo ""
 # ============================================================================
 # STEP 0: INSTALL BUILD DEPENDENCIES
 # ============================================================================
-echo -e "${BLUE}Step 0/4: Installing build dependencies...${NC}"
+echo -e "${BLUE}Step 0/5: Installing build dependencies...${NC}"
 
 # Check if dnf is available
 if ! command -v dnf &> /dev/null; then
@@ -89,7 +89,7 @@ echo ""
 # ============================================================================
 # STEP 0.5: INSTALL FPM (Effing Package Manager)
 # ============================================================================
-echo -e "${BLUE}Step 0.5/4: Checking fpm installation...${NC}"
+echo -e "${BLUE}Step 0.5/5: Checking fpm installation...${NC}"
 
 # Check if fpm is already installed and working
 FPM_INSTALLED=false
@@ -181,9 +181,230 @@ fi
 echo ""
 
 # ============================================================================
+# STEP 0.75: INSTALL CFHDB (Required for device management)
+# ============================================================================
+echo -e "${BLUE}Step 0.75/5: Installing cfhdb package...${NC}"
+
+# Check if cfhdb is already installed
+if rpm -q cfhdb &> /dev/null 2>&1; then
+    CFHDB_VERSION=$(rpm -q cfhdb 2>/dev/null | head -n1 || echo "unknown")
+    echo -e "${GREEN}[OK] cfhdb already installed (version: $CFHDB_VERSION)${NC}"
+    echo "   Skipping cfhdb installation."
+else
+    echo "[DOWNLOAD] Fetching latest cfhdb build from Copr..."
+    
+    # Copr repository details
+    COPR_USER="gloriouseggroll"
+    COPR_PROJECT="nobara-43"
+    COPR_PACKAGE="cfhdb"
+    ARCH="x86_64"
+    FEDORA_VERSION="43"
+    
+    # Get the latest build ID from Copr package page
+    LATEST_BUILD_ID=""
+    
+    if command -v curl &> /dev/null; then
+        echo "[INFO] Fetching latest build information from Copr..."
+        BUILD_PAGE_URL="https://copr.fedorainfracloud.org/coprs/${COPR_USER}/${COPR_PROJECT}/package/${COPR_PACKAGE}/"
+        
+        # Get the latest build ID from the HTML page (look for the first build link in the table)
+        LATEST_BUILD_ID=$(curl -s "${BUILD_PAGE_URL}" | grep -oP 'href="/coprs/[^"]+/build/\K[0-9]+' | head -n1 || echo "")
+        
+        if [ -z "$LATEST_BUILD_ID" ]; then
+            # Try alternative pattern
+            LATEST_BUILD_ID=$(curl -s "${BUILD_PAGE_URL}" | grep -oP 'build/\K[0-9]+' | head -n1 || echo "")
+        fi
+    elif command -v wget &> /dev/null; then
+        echo "[INFO] Fetching latest build information from Copr..."
+        BUILD_PAGE_URL="https://copr.fedorainfracloud.org/coprs/${COPR_USER}/${COPR_PROJECT}/package/${COPR_PACKAGE}/"
+        LATEST_BUILD_ID=$(wget -qO- "${BUILD_PAGE_URL}" | grep -oP 'href="/coprs/[^"]+/build/\K[0-9]+' | head -n1 || echo "")
+    else
+        echo -e "${YELLOW}[WARN] Neither curl nor wget found. Cannot fetch latest build ID.${NC}"
+        echo "   Please install curl or wget, or manually install cfhdb package."
+    fi
+    
+    if [ -z "$LATEST_BUILD_ID" ]; then
+        echo -e "${YELLOW}[WARN] Could not determine latest build ID from web page.${NC}"
+        echo "   Attempting to find latest build in download directory..."
+        LATEST_BUILD_ID=""
+    else
+        echo "[INFO] Found latest build ID: $LATEST_BUILD_ID"
+    fi
+    
+    # Build results base URL
+    # Pattern: https://download.copr.fedorainfracloud.org/results/{USER}/{PROJECT}/fedora-{VERSION}-{ARCH}/{BUILD_ID}-{PACKAGE}/{PACKAGE}-{VERSION}-{RELEASE}.fc{VERSION}.{ARCH}.rpm
+    # Example: https://download.copr.fedorainfracloud.org/results/gloriouseggroll/nobara-43/fedora-43-x86_64/09821493-cfhdb/cfhdb-0.1.2-1.fc43.x86_64.rpm
+    BUILD_RESULTS_BASE="https://download.copr.fedorainfracloud.org/results/${COPR_USER}/${COPR_PROJECT}/fedora-${FEDORA_VERSION}-${ARCH}/"
+    
+    echo "[DOWNLOAD] Attempting to download cfhdb RPM..."
+    
+    # Create temporary directory for download
+    TEMP_DIR=$(mktemp -d)
+    RPM_FILE="${TEMP_DIR}/cfhdb.rpm"
+    
+    DOWNLOAD_SUCCESS=false
+    
+    if command -v curl &> /dev/null; then
+        # If we have a build ID, try the correct URL pattern: {BUILD_ID}-{PACKAGE}/
+        if [ -n "$LATEST_BUILD_ID" ]; then
+            # Format build ID with leading zeros (8 digits)
+            FORMATTED_BUILD_ID=$(printf "%08d" "$LATEST_BUILD_ID")
+            BUILD_DIR_NAME="${FORMATTED_BUILD_ID}-${COPR_PACKAGE}"
+            BUILD_DIR_URL="${BUILD_RESULTS_BASE}${BUILD_DIR_NAME}/"
+            echo "[INFO] Checking build directory: $BUILD_DIR_URL"
+            
+            # Get directory listing and find the RPM file
+            DIR_LISTING=$(curl -s "${BUILD_DIR_URL}" 2>/dev/null || echo "")
+            if [ -n "$DIR_LISTING" ]; then
+                # Extract RPM filename from directory listing
+                RPM_FILENAME=$(echo "$DIR_LISTING" | grep -oP 'href="\K[^"]*\.rpm' | grep "fc${FEDORA_VERSION}" | grep "${ARCH}" | head -n1 || echo "")
+                if [ -n "$RPM_FILENAME" ]; then
+                    RPM_URL="${BUILD_DIR_URL}${RPM_FILENAME}"
+                    echo "[DOWNLOAD] Downloading: $RPM_FILENAME"
+                    if curl -f -L -o "$RPM_FILE" "$RPM_URL" 2>/dev/null && [ -f "$RPM_FILE" ] && [ -s "$RPM_FILE" ]; then
+                        DOWNLOAD_SUCCESS=true
+                        echo -e "${GREEN}[OK] Successfully downloaded cfhdb RPM${NC}"
+                    fi
+                fi
+            fi
+            
+            # If directory listing failed, try direct download with common filename pattern
+            if [ "$DOWNLOAD_SUCCESS" = false ]; then
+                # Try common RPM filename patterns (based on known version 0.1.2-1)
+                for VERSION_PATTERN in "0.1.2-1" "0.1.2" "0.1"; do
+                    RPM_FILENAME="${COPR_PACKAGE}-${VERSION_PATTERN}.fc${FEDORA_VERSION}.${ARCH}.rpm"
+                    RPM_URL="${BUILD_DIR_URL}${RPM_FILENAME}"
+                    echo "[TRY] Attempting direct download: $RPM_FILENAME"
+                    if curl -f -L -o "$RPM_FILE" "$RPM_URL" 2>/dev/null && [ -f "$RPM_FILE" ] && [ -s "$RPM_FILE" ]; then
+                        # Verify it's actually an RPM file (check file magic or use rpm command)
+                        if command -v file &> /dev/null && file "$RPM_FILE" | grep -qE "(RPM|rpm)"; then
+                            DOWNLOAD_SUCCESS=true
+                            echo -e "${GREEN}[OK] Successfully downloaded cfhdb RPM${NC}"
+                            break
+                        elif command -v rpm &> /dev/null && rpm -qp "$RPM_FILE" &> /dev/null; then
+                            DOWNLOAD_SUCCESS=true
+                            echo -e "${GREEN}[OK] Successfully downloaded cfhdb RPM${NC}"
+                            break
+                        elif [ -s "$RPM_FILE" ]; then
+                            # If file exists and has content, assume it's valid (fallback)
+                            DOWNLOAD_SUCCESS=true
+                            echo -e "${GREEN}[OK] Successfully downloaded cfhdb RPM${NC}"
+                            break
+                        fi
+                    fi
+                done
+            fi
+        fi
+        
+        # If that failed, try to find the latest build directory
+        if [ "$DOWNLOAD_SUCCESS" = false ]; then
+            echo "[INFO] Searching for latest build directory..."
+            DIR_LISTING=$(curl -s "${BUILD_RESULTS_BASE}" 2>/dev/null || echo "")
+            if [ -n "$DIR_LISTING" ]; then
+                # Find directories matching pattern: {BUILD_ID}-{PACKAGE}
+                # Sort by build ID (extract number before the dash)
+                LATEST_BUILD_DIR=$(echo "$DIR_LISTING" | grep -oP "href=\"\K[0-9]+-${COPR_PACKAGE}/" | sed 's|/$||' | sed 's/-.*//' | sort -rn | head -n1 || echo "")
+                if [ -n "$LATEST_BUILD_DIR" ]; then
+                    FORMATTED_BUILD_ID=$(printf "%08d" "$LATEST_BUILD_DIR")
+                    BUILD_DIR_NAME="${FORMATTED_BUILD_ID}-${COPR_PACKAGE}"
+                    BUILD_DIR_URL="${BUILD_RESULTS_BASE}${BUILD_DIR_NAME}/"
+                    echo "[INFO] Found build directory: $BUILD_DIR_NAME"
+                    DIR_LISTING=$(curl -s "${BUILD_DIR_URL}" 2>/dev/null || echo "")
+                    if [ -n "$DIR_LISTING" ]; then
+                        RPM_FILENAME=$(echo "$DIR_LISTING" | grep -oP 'href="\K[^"]*\.rpm' | grep "fc${FEDORA_VERSION}" | grep "${ARCH}" | head -n1 || echo "")
+                        if [ -n "$RPM_FILENAME" ]; then
+                            RPM_URL="${BUILD_DIR_URL}${RPM_FILENAME}"
+                            echo "[DOWNLOAD] Downloading: $RPM_FILENAME"
+                            if curl -f -L -o "$RPM_FILE" "$RPM_URL" 2>/dev/null && [ -f "$RPM_FILE" ] && [ -s "$RPM_FILE" ]; then
+                                DOWNLOAD_SUCCESS=true
+                                echo -e "${GREEN}[OK] Successfully downloaded cfhdb RPM${NC}"
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+        fi
+    elif command -v wget &> /dev/null; then
+        # Similar logic for wget
+        if [ -n "$LATEST_BUILD_ID" ]; then
+            FORMATTED_BUILD_ID=$(printf "%08d" "$LATEST_BUILD_ID")
+            BUILD_DIR_NAME="${FORMATTED_BUILD_ID}-${COPR_PACKAGE}"
+            BUILD_DIR_URL="${BUILD_RESULTS_BASE}${BUILD_DIR_NAME}/"
+            DIR_LISTING=$(wget -qO- "${BUILD_DIR_URL}" 2>/dev/null || echo "")
+            if [ -n "$DIR_LISTING" ]; then
+                RPM_FILENAME=$(echo "$DIR_LISTING" | grep -oP 'href="\K[^"]*\.rpm' | grep "fc${FEDORA_VERSION}" | grep "${ARCH}" | head -n1 || echo "")
+                if [ -n "$RPM_FILENAME" ]; then
+                    RPM_URL="${BUILD_DIR_URL}${RPM_FILENAME}"
+                    if wget -q -O "$RPM_FILE" "$RPM_URL" 2>/dev/null && [ -f "$RPM_FILE" ] && [ -s "$RPM_FILE" ]; then
+                        DOWNLOAD_SUCCESS=true
+                        echo -e "${GREEN}[OK] Successfully downloaded cfhdb RPM${NC}"
+                    fi
+                fi
+            fi
+            
+            # Try direct download if listing failed
+            if [ "$DOWNLOAD_SUCCESS" = false ]; then
+                for VERSION_PATTERN in "0.1.2-1" "0.1.2" "0.1"; do
+                    RPM_FILENAME="${COPR_PACKAGE}-${VERSION_PATTERN}.fc${FEDORA_VERSION}.${ARCH}.rpm"
+                    RPM_URL="${BUILD_DIR_URL}${RPM_FILENAME}"
+                    if wget -q -O "$RPM_FILE" "$RPM_URL" 2>/dev/null && [ -f "$RPM_FILE" ] && [ -s "$RPM_FILE" ]; then
+                        if file "$RPM_FILE" | grep -q "RPM"; then
+                            DOWNLOAD_SUCCESS=true
+                            echo -e "${GREEN}[OK] Successfully downloaded cfhdb RPM${NC}"
+                            break
+                        fi
+                    fi
+                done
+            fi
+        fi
+    fi
+    
+    if [ "$DOWNLOAD_SUCCESS" = true ] && [ -f "$RPM_FILE" ] && [ -s "$RPM_FILE" ]; then
+        echo "[INSTALL] Installing cfhdb RPM..."
+        if [ "$EUID" -eq 0 ]; then
+            dnf install -y "$RPM_FILE"
+        elif check_sudo; then
+            echo "   (Using sudo to install cfhdb...)"
+            sudo dnf install -y "$RPM_FILE"
+        else
+            echo -e "${YELLOW}[WARN] Cannot use sudo. Please install cfhdb manually:${NC}"
+            echo "   sudo dnf install -y $RPM_FILE"
+            echo ""
+            read -p "Press Enter to continue (device management features may not work)..." || true
+        fi
+        
+        # Clean up
+        rm -f "$RPM_FILE"
+        rmdir "$TEMP_DIR" 2>/dev/null || true
+        
+        # Verify installation
+        if rpm -q cfhdb &> /dev/null; then
+            CFHDB_VERSION=$(rpm -q cfhdb)
+            echo -e "${GREEN}[OK] cfhdb installed successfully (version: $CFHDB_VERSION)${NC}"
+        else
+            echo -e "${YELLOW}[WARN] cfhdb installation may have failed. Device management features may not work.${NC}"
+        fi
+    else
+        echo -e "${YELLOW}[WARN] Failed to download cfhdb RPM automatically.${NC}"
+        echo "   Device management features (start/stop/enable/disable) will not work."
+        echo "   To install manually, visit:"
+        echo "   https://copr.fedorainfracloud.org/coprs/${COPR_USER}/${COPR_PROJECT}/package/${COPR_PACKAGE}/"
+        echo "   Or enable the Copr repository and install:"
+        echo "   sudo dnf copr enable ${COPR_USER}/${COPR_PROJECT}"
+        echo "   sudo dnf install -y ${COPR_PACKAGE}"
+        echo ""
+        read -p "Press Enter to continue (device management features may not work)..." || true
+        rm -f "$RPM_FILE" 2>/dev/null || true
+        rmdir "$TEMP_DIR" 2>/dev/null || true
+    fi
+fi
+
+echo ""
+
+# ============================================================================
 # STEP 1: BUILD
 # ============================================================================
-echo -e "${BLUE}Step 1/4: Building...${NC}"
+echo -e "${BLUE}Step 1/5: Building...${NC}"
 
 # Check if Rust is installed
 if ! command -v cargo &> /dev/null || ! command -v rustc &> /dev/null; then
@@ -234,7 +455,7 @@ echo ""
 # ============================================================================
 # STEP 2: INSTALL
 # ============================================================================
-echo -e "${BLUE}Step 2/4: Installing...${NC}"
+echo -e "${BLUE}Step 2/5: Installing...${NC}"
 
 # Check if binary exists
 if [ ! -f "$BINARY_PATH" ]; then

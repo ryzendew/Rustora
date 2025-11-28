@@ -11,6 +11,7 @@ use std::path::Path;
 
 use libcfhdb::pci::{CfhdbPciDevice, CfhdbPciProfile};
 use libcfhdb::usb::{CfhdbUsbDevice, CfhdbUsbProfile};
+use crate::logger;
 
 #[derive(Debug, Clone)]
 pub struct PreCheckedPciDevice {
@@ -204,6 +205,7 @@ pub enum Message {
     Error(String),
     ClearError,
     UpdateStatus,
+    ToggleCfhdbProfiles,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -280,6 +282,30 @@ impl DeviceTab {
             selected_profiles: std::collections::HashSet::new(),
             error: None,
         }
+    }
+
+    // Helper function to format device operation errors with user-friendly messages
+    fn format_device_error(operation: &str, error: std::io::Error) -> String {
+        let error_msg = format!("{}", error);
+        let user_friendly_msg = if error_msg.contains("exited with code 127") {
+            if error_msg.contains("sysfs_helper.sh") {
+                "The cfhdb system package is not installed. The device control features require the cfhdb package to be installed on your system. Please install it using: sudo dnf install cfhdb"
+            } else if error_msg.contains("pkexec") {
+                "Authentication failed or polkit is not available. Please ensure polkit is installed and try again."
+            } else {
+                "Command not found. Please check that required system tools are installed."
+            }
+        } else if error_msg.contains("Permission denied") || error_msg.contains("permission") {
+            "Permission denied. Please ensure you have the necessary permissions to manage devices."
+        } else {
+            error_msg.as_str()
+        };
+        format!("Failed to {} device: {}", operation, user_friendly_msg)
+    }
+
+    // Check if cfhdb system components are available
+    fn check_cfhdb_available() -> bool {
+        std::path::Path::new("/usr/lib/cfhdb/scripts/sysfs_helper.sh").exists()
     }
 
     pub fn update(&mut self, message: Message) -> iced::Command<Message> {
@@ -461,7 +487,10 @@ impl DeviceTab {
                 };
                 match result {
                     Ok(_) => iced::Command::perform(async {}, |_| Message::DeviceControlComplete),
-                    Err(e) => iced::Command::perform(async {}, move |_| Message::Error(format!("Failed to start device: {}", e))),
+                    Err(e) => {
+                        let final_msg = Self::format_device_error("start", e);
+                        iced::Command::perform(async {}, move |_| Message::Error(final_msg))
+                    }
                 }
             }
             Message::StopDevice(dev_type, class, device_idx) => {
@@ -491,7 +520,10 @@ impl DeviceTab {
                 };
                 match result {
                     Ok(_) => iced::Command::perform(async {}, |_| Message::DeviceControlComplete),
-                    Err(e) => iced::Command::perform(async {}, move |_| Message::Error(format!("Failed to stop device: {}", e))),
+                    Err(e) => {
+                        let final_msg = Self::format_device_error("stop", e);
+                        iced::Command::perform(async {}, move |_| Message::Error(final_msg))
+                    }
                 }
             }
             Message::EnableDevice(dev_type, class, device_idx) => {
@@ -521,7 +553,10 @@ impl DeviceTab {
                 };
                 match result {
                     Ok(_) => iced::Command::perform(async {}, |_| Message::DeviceControlComplete),
-                    Err(e) => iced::Command::perform(async {}, move |_| Message::Error(format!("Failed to enable device: {}", e))),
+                    Err(e) => {
+                        let final_msg = Self::format_device_error("enable", e);
+                        iced::Command::perform(async {}, move |_| Message::Error(final_msg))
+                    }
                 }
             }
             Message::DisableDevice(dev_type, class, device_idx) => {
@@ -551,7 +586,10 @@ impl DeviceTab {
                 };
                 match result {
                     Ok(_) => iced::Command::perform(async {}, |_| Message::DeviceControlComplete),
-                    Err(e) => iced::Command::perform(async {}, move |_| Message::Error(format!("Failed to disable device: {}", e))),
+                    Err(e) => {
+                        let final_msg = Self::format_device_error("disable", e);
+                        iced::Command::perform(async {}, move |_| Message::Error(final_msg))
+                    }
                 }
             }
             Message::DeviceControlComplete => {
@@ -899,6 +937,22 @@ impl DeviceTab {
                 self.error = Some(msg);
                 iced::Command::none()
             }
+            Message::ToggleCfhdbProfiles => {
+                // Toggle the setting and reload devices
+                let mut current_settings = crate::gui::settings::AppSettings::load();
+                current_settings.show_cfhdb_profiles = !current_settings.show_cfhdb_profiles;
+                current_settings.save();
+                logger::Logger::log_debug(&format!("[Device Tab] Toggled cfhdb profiles: {}", current_settings.show_cfhdb_profiles));
+                // Reload devices to apply the change
+                self.is_loading = true;
+                self.loading_message = "Reloading devices...".into();
+                iced::Command::perform(ensure_profiles_cached(), |result| {
+                    match result {
+                        Ok(_) => Message::LoadDevicesAfterCache,
+                        Err(e) => Message::Error(format!("Failed to cache profiles: {}", e)),
+                    }
+                })
+            }
         }
     }
 
@@ -1047,6 +1101,35 @@ impl DeviceTab {
         };
 
         sidebar_items = sidebar_items.push(download_button);
+        sidebar_items = sidebar_items.push(Space::with_height(Length::Fixed(16.0)));
+        
+        // Add toggle for cfhdb profiles
+        let cfhdb_toggle_text = if settings.show_cfhdb_profiles {
+            row![
+                text(glyphs::CHECK_SYMBOL).font(*material_font).size(icon_size * 0.9),
+                text(" Show CFHDB Profiles").size(button_font_size * 0.9),
+            ]
+            .spacing(8)
+            .align_items(Alignment::Center)
+        } else {
+            row![
+                text(" ").size(icon_size * 0.9),
+                text(" Show CFHDB Profiles").size(button_font_size * 0.9),
+            ]
+            .spacing(8)
+            .align_items(Alignment::Center)
+        };
+        
+        let cfhdb_toggle = button(cfhdb_toggle_text)
+            .on_press(Message::ToggleCfhdbProfiles)
+            .width(Length::Fill)
+            .padding(Padding::from([12.0, 16.0, 12.0, 16.0]))
+            .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
+                is_primary: settings.show_cfhdb_profiles,
+                radius: settings.border_radius,
+            })));
+        
+        sidebar_items = sidebar_items.push(cfhdb_toggle);
         sidebar_items = sidebar_items.push(Space::with_height(Length::Fixed(24.0)));
         sidebar_items = sidebar_items.push(
             container(
@@ -3391,47 +3474,125 @@ async fn load_all_devices() -> Result<(
     Vec<Arc<PreCheckedPciProfile>>,
     Vec<Arc<PreCheckedUsbProfile>>,
 ), String> {
+    // Check if cfhdb profiles should be loaded
+    let settings = crate::gui::settings::AppSettings::load();
+    let show_cfhdb_profiles = settings.show_cfhdb_profiles;
+    
+    logger::Logger::log_debug(&format!("[Device Tab] Loading devices with cfhdb profiles: {}", show_cfhdb_profiles));
 
-    let mut pci_profiles = load_pci_profiles().await?;
-    pci_profiles.retain(|p| {
-
-        let is_nvidia_nobara = p.vendor_ids.contains(&"10de".to_string()) &&
-            p.install_script.as_ref().map(|s| s.contains("nobara") || s.contains("Nobara")).unwrap_or(false);
-        let is_mesa = p.codename.to_lowercase().contains("mesa") ||
-            p.i18n_desc.to_lowercase().contains("mesa") ||
-            p.install_script.as_ref().map(|s| s.to_lowercase().contains("mesa")).unwrap_or(false);
-        let is_cuda_profile = p.codename.to_lowercase().contains("cuda") ||
-            (p.i18n_desc.to_lowercase().contains("cuda") &&
-             !p.i18n_desc.to_lowercase().contains("nvidia graphics driver"));
-        !is_nvidia_nobara && !is_mesa && !is_cuda_profile
-    });
-    let (nvidia_result, mesa_result) = tokio::join!(
-        query_nvidia_driver_packages(),
-        query_mesa_driver_packages()
-    );
-
-    let mut repo_profiles_with_info: Vec<(CfhdbPciProfile, String, Vec<String>)> = Vec::new();
-    match nvidia_result {
-        Ok(repo_packages) if !repo_packages.is_empty() => {
-            let nvidia_profiles = create_nvidia_profiles_from_repos(repo_packages);
-            repo_profiles_with_info.extend(nvidia_profiles);
-        }
-        Ok(_) => {
-
-        }
-        Err(_e) => {
-        }
+    let mut pci_profiles = if show_cfhdb_profiles {
+        load_pci_profiles().await?
+    } else {
+        Vec::new()
+    };
+    
+    // Only filter out Mesa/NVIDIA/CUDA profiles if cfhdb profiles are disabled
+    // When enabled, show all cfhdb profiles including Mesa and NVIDIA
+    if show_cfhdb_profiles {
+        // When showing cfhdb profiles, only filter out Nobara-specific profiles
+        // Keep Mesa, NVIDIA, and CUDA profiles from cfhdb
+        pci_profiles.retain(|p| {
+            // Only filter out Nobara-specific NVIDIA profiles
+            let is_nvidia_nobara = p.vendor_ids.contains(&"10de".to_string()) &&
+                p.install_script.as_ref().map(|s| s.contains("nobara") || s.contains("Nobara")).unwrap_or(false);
+            !is_nvidia_nobara
+        });
+        logger::Logger::log_debug(&format!("[Device Tab] Loaded {} cfhdb PCI profiles (including Mesa/NVIDIA)", pci_profiles.len()));
+    } else {
+        // When cfhdb profiles are disabled, filter out Mesa/NVIDIA/CUDA to avoid conflicts with repo profiles
+        pci_profiles.retain(|p| {
+            let is_nvidia_nobara = p.vendor_ids.contains(&"10de".to_string()) &&
+                p.install_script.as_ref().map(|s| s.contains("nobara") || s.contains("Nobara")).unwrap_or(false);
+            let is_mesa = p.codename.to_lowercase().contains("mesa") ||
+                p.i18n_desc.to_lowercase().contains("mesa") ||
+                p.install_script.as_ref().map(|s| s.to_lowercase().contains("mesa")).unwrap_or(false);
+            let is_cuda_profile = p.codename.to_lowercase().contains("cuda") ||
+                (p.i18n_desc.to_lowercase().contains("cuda") &&
+                 !p.i18n_desc.to_lowercase().contains("nvidia graphics driver"));
+            !is_nvidia_nobara && !is_mesa && !is_cuda_profile
+        });
     }
-    match mesa_result {
-        Ok(repo_packages) if !repo_packages.is_empty() => {
-            let mesa_profiles = create_mesa_profiles_from_repos(repo_packages);
-            repo_profiles_with_info.extend(mesa_profiles);
+    // Check if we have NVIDIA driver profiles (not just CUDA) in cfhdb profiles
+    // Look for profiles that:
+    // - Have NVIDIA vendor ID (10de)
+    // - Are NOT CUDA profiles
+    // - Have codename starting with "nvidia-" followed by a version number, OR
+    // - Have description containing "NVIDIA Graphics Driver" (not CUDA)
+    let has_cfhdb_nvidia_driver = pci_profiles.iter().any(|p| {
+        if !p.vendor_ids.contains(&"10de".to_string()) {
+            return false;
         }
-        Ok(_) => {
+        // Exclude CUDA profiles
+        if p.codename.to_lowercase().contains("cuda") || 
+           p.i18n_desc.to_lowercase().contains("cuda") {
+            return false;
+        }
+        // Check if it's a driver profile (not compute/CUDA)
+        let is_driver = p.codename.starts_with("nvidia-") && 
+                       p.codename.len() > 7 && // Has something after "nvidia-"
+                       p.codename.chars().skip(7).next().map(|c| c.is_ascii_digit()).unwrap_or(false); // Version starts with digit
+        let is_driver_desc = p.i18n_desc.to_lowercase().contains("nvidia graphics driver") &&
+                            !p.i18n_desc.to_lowercase().contains("cuda");
+        is_driver || is_driver_desc
+    });
+    
+    // Log all NVIDIA profiles found for debugging
+    let nvidia_profiles_found: Vec<String> = pci_profiles.iter()
+        .filter(|p| p.vendor_ids.contains(&"10de".to_string()))
+        .map(|p| format!("{}: {}", p.codename, p.i18n_desc))
+        .collect();
+    logger::Logger::log_debug(&format!("[Device Tab] Found {} NVIDIA-related profiles: {:?}", 
+        nvidia_profiles_found.len(), nvidia_profiles_found));
+    logger::Logger::log_debug(&format!("[Device Tab] CFHDB has NVIDIA driver profiles (non-CUDA): {}", has_cfhdb_nvidia_driver));
+    
+    // Always add repo-based NVIDIA profiles when cfhdb is enabled
+    // This ensures users have NVIDIA driver options even if cfhdb only has CUDA
+    let mut repo_profiles_with_info: Vec<(CfhdbPciProfile, String, Vec<String>)> = Vec::new();
+    
+    if !show_cfhdb_profiles || !has_cfhdb_nvidia_driver {
+        // Query repo packages
+        let (nvidia_result, mesa_result) = tokio::join!(
+            query_nvidia_driver_packages(),
+            query_mesa_driver_packages()
+        );
 
+        // Add NVIDIA profiles if cfhdb is disabled OR if cfhdb doesn't have NVIDIA driver profiles
+        if !show_cfhdb_profiles || !has_cfhdb_nvidia_driver {
+            match nvidia_result {
+                Ok(repo_packages) if !repo_packages.is_empty() => {
+                    let nvidia_profiles = create_nvidia_profiles_from_repos(repo_packages);
+                    logger::Logger::log_debug(&format!("[Device Tab] Adding {} repo-based NVIDIA driver profiles", nvidia_profiles.len()));
+                    repo_profiles_with_info.extend(nvidia_profiles);
+                }
+                Ok(_) => {
+                }
+                Err(_e) => {
+                }
+            }
         }
-        Err(_e) => {
+        
+        // Add Mesa profiles only if cfhdb is disabled (cfhdb should have Mesa)
+        if !show_cfhdb_profiles {
+            match mesa_result {
+                Ok(repo_packages) if !repo_packages.is_empty() => {
+                    let mesa_profiles = create_mesa_profiles_from_repos(repo_packages);
+                    logger::Logger::log_debug(&format!("[Device Tab] Adding {} repo-based Mesa profiles", mesa_profiles.len()));
+                    repo_profiles_with_info.extend(mesa_profiles);
+                }
+                Ok(_) => {
+                }
+                Err(_e) => {
+                }
+            }
         }
+        
+        if !show_cfhdb_profiles {
+            logger::Logger::log_debug(&format!("[Device Tab] Using repo-based profiles (cfhdb disabled)"));
+        } else {
+            logger::Logger::log_debug(&format!("[Device Tab] Using cfhdb profiles + repo NVIDIA drivers (cfhdb missing NVIDIA driver profiles)"));
+        }
+    } else {
+        logger::Logger::log_debug(&format!("[Device Tab] Using cfhdb profiles only"));
     }
     let mut all_pci_profiles = pci_profiles;
     let mut repo_info_map: HashMap<String, (String, Vec<String>)> = HashMap::new();
@@ -3440,6 +3601,17 @@ async fn load_all_devices() -> Result<(
         repo_info_map.insert(codename, (repo_name, package_names));
         all_pci_profiles.push(profile);
     }
+
+    // Count NVIDIA and Mesa profiles for logging
+    let nvidia_count = all_pci_profiles.iter()
+        .filter(|p| p.vendor_ids.contains(&"10de".to_string()))
+        .count();
+    let mesa_count = all_pci_profiles.iter()
+        .filter(|p| p.codename.to_lowercase().contains("mesa") || 
+                     p.i18n_desc.to_lowercase().contains("mesa"))
+        .count();
+    logger::Logger::log_debug(&format!("[Device Tab] Total profiles: {} (NVIDIA: {}, Mesa: {})", 
+        all_pci_profiles.len(), nvidia_count, mesa_count));
 
     let pci_profiles_arc: Vec<Arc<PreCheckedPciProfile>> = all_pci_profiles
         .into_iter()
@@ -3579,7 +3751,11 @@ async fn load_all_devices() -> Result<(
             }
         });
     }
-    let usb_profiles = load_usb_profiles().await?;
+    let usb_profiles = if show_cfhdb_profiles {
+        load_usb_profiles().await?
+    } else {
+        Vec::new()
+    };
     let usb_profiles_arc: Vec<Arc<PreCheckedUsbProfile>> = usb_profiles
         .into_iter()
         .map(|p| {
@@ -4252,6 +4428,15 @@ fn get_pre_checked_pci_device(
             if device.vendor_id == "10de" {
             }
             available_profiles.push(profile_arc.clone());
+            // Log when NVIDIA or Mesa profiles are matched
+            if profile.vendor_ids.contains(&"10de".to_string()) {
+                logger::Logger::log_debug(&format!("[Device Tab] Matched NVIDIA profile '{}' to device {}", 
+                    profile.codename, device.sysfs_busid));
+            } else if profile.codename.to_lowercase().contains("mesa") || 
+                      profile.i18n_desc.to_lowercase().contains("mesa") {
+                logger::Logger::log_debug(&format!("[Device Tab] Matched Mesa profile '{}' to device {}", 
+                    profile.codename, device.sysfs_busid));
+            }
         }
     }
 

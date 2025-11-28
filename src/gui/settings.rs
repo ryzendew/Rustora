@@ -33,6 +33,13 @@ pub struct AppSettings {
     pub scale_tabs: f32,
     pub scale_icons: f32,
     pub scale_package_cards: f32,
+    
+    #[serde(default = "default_true")]
+    pub show_cfhdb_profiles: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,6 +110,7 @@ impl AppSettings {
             scale_tabs: 1.0,
             scale_icons: 1.0,
             scale_package_cards: 1.0,
+            show_cfhdb_profiles: true,
         }
     }
 
