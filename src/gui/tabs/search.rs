@@ -7,6 +7,7 @@ use iced::widget::checkbox::Appearance as CheckboxAppearance;
 use iced::widget::checkbox::StyleSheet as CheckboxStyleSheet;
 use iced::widget::text_input::Appearance as TextInputAppearance;
 use iced::widget::text_input::StyleSheet as TextInputStyleSheet;
+use crate::logger;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -82,6 +83,7 @@ impl SearchTab {
                 if self.search_query.trim().is_empty() {
                     return iced::Command::none();
                 }
+                logger::Logger::log_debug(&format!("[Search Tab] Searching for: '{}'", self.search_query));
                 self.is_searching = true;
                 let query = self.search_query.clone();
                 iced::Command::perform(search_packages(query), |result| {
@@ -93,6 +95,7 @@ impl SearchTab {
             }
             Message::SearchResult(packages) => {
                 self.is_searching = false;
+                logger::Logger::log_debug(&format!("[Search Tab] Search completed: found {} package(s)", packages.len()));
                 self.packages = packages;
                 iced::Command::none()
             }
@@ -110,6 +113,7 @@ impl SearchTab {
                 }
 
                 let packages: Vec<String> = self.selected_packages.iter().cloned().collect();
+                logger::Logger::log_debug(&format!("[Search Tab] Installing {} package(s): {:?}", packages.len(), packages));
                 iced::Command::perform(
                     async move {
                         use tokio::process::Command as TokioCommand;
@@ -125,6 +129,7 @@ impl SearchTab {
                 )
             }
             Message::InstallComplete => {
+                logger::Logger::log_debug("[Search Tab] Install completed");
                 self.is_installing = false;
                 self.selected_packages.clear();
 
@@ -141,8 +146,8 @@ impl SearchTab {
                     iced::Command::none()
                 }
             }
-            Message::Error(_msg) => {
-
+            Message::Error(msg) => {
+                logger::Logger::log_debug(&format!("[Search Tab] Error: {}", msg));
                 self.is_installing = false;
                 iced::Command::none()
             }

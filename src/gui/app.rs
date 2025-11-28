@@ -18,6 +18,7 @@ use crate::gui::tabs::device;
 use crate::gui::tabs::fpm;
 use crate::gui::tabs::tweaks;
 use crate::gui::rpm_dialog::RpmDialog;
+use crate::logger;
 use std::path::PathBuf;
 
 async fn open_file_picker() -> Option<PathBuf> {
@@ -115,6 +116,7 @@ impl Application for RustoraApp {
     type Flags = Option<PathBuf>;
 
     fn new(_flags: Option<PathBuf>) -> (Self, Command<Message>) {
+        logger::Logger::log_debug("RustoraApp initialized");
         let installed_tab = InstalledTab::new();
         let load_command = Command::perform(async {}, |_| {
             Message::InstalledTabMessage(installed::Message::LoadPackages)
@@ -192,6 +194,10 @@ impl Application for RustoraApp {
                     || old.scale_tabs != new.scale_tabs
                     || old.scale_icons != new.scale_icons;
 
+                if visual_changed {
+                    logger::Logger::log_debug("Settings updated (visual changes detected)");
+                }
+
                 let tab_visibility = new_settings.tab_visibility.clone();
                 self.settings = new_settings;
                 if !visual_changed {
@@ -200,6 +206,31 @@ impl Application for RustoraApp {
                 Command::none()
             }
             Message::TabSelected(tab) => {
+                let tab_name = match tab {
+                    Tab::Search => "Search",
+                    Tab::Installed => "Installed",
+                    Tab::Update => "Update",
+                    Tab::Flatpak => "Flatpak",
+                    Tab::Maintenance => "Maintenance",
+                    Tab::Repo => "Repo",
+                    Tab::Kernel => "Kernel",
+                    Tab::Device => "Device",
+                    Tab::Fpm => "Fpm",
+                    Tab::Tweaks => "Tweaks",
+                };
+                let from_tab = match self.current_tab {
+                    Tab::Search => "Search",
+                    Tab::Installed => "Installed",
+                    Tab::Update => "Update",
+                    Tab::Flatpak => "Flatpak",
+                    Tab::Maintenance => "Maintenance",
+                    Tab::Repo => "Repo",
+                    Tab::Kernel => "Kernel",
+                    Tab::Device => "Device",
+                    Tab::Fpm => "Fpm",
+                    Tab::Tweaks => "Tweaks",
+                };
+                logger::Logger::log_tab_change(Some(from_tab), tab_name);
                 self.current_tab = tab;
                 let cmd = match tab {
                     Tab::Installed => Command::perform(async {}, |_| {
@@ -222,47 +253,66 @@ impl Application for RustoraApp {
                 cmd
             }
             Message::SearchTabMessage(msg) => {
+                logger::Logger::log_tab_action("Search", &format!("{:?}", msg));
                 self.search_tab.update(msg).map(Message::SearchTabMessage)
             }
             Message::InstalledTabMessage(msg) => {
+                logger::Logger::log_tab_action("Installed", &format!("{:?}", msg));
                 self.installed_tab.update(msg).map(Message::InstalledTabMessage)
             }
             Message::UpdateTabMessage(msg) => {
+                logger::Logger::log_tab_action("Update", &format!("{:?}", msg));
                 self.update_tab.update(msg).map(Message::UpdateTabMessage)
             }
             Message::FlatpakTabMessage(msg) => {
+                logger::Logger::log_tab_action("Flatpak", &format!("{:?}", msg));
                 self.flatpak_tab.update(msg).map(Message::FlatpakTabMessage)
             }
             Message::MaintenanceTabMessage(msg) => {
+                logger::Logger::log_tab_action("Maintenance", &format!("{:?}", msg));
                 self.maintenance_tab.update(msg).map(Message::MaintenanceTabMessage)
             }
             Message::RepoTabMessage(msg) => {
+                logger::Logger::log_tab_action("Repo", &format!("{:?}", msg));
                 self.repo_tab.update(msg).map(Message::RepoTabMessage)
             }
             Message::KernelTabMessage(msg) => {
+                logger::Logger::log_tab_action("Kernel", &format!("{:?}", msg));
                 self.kernel_tab.update(msg).map(Message::KernelTabMessage)
             }
             Message::DeviceTabMessage(msg) => {
+                logger::Logger::log_tab_action("Device", &format!("{:?}", msg));
                 self.device_tab.update(msg).map(Message::DeviceTabMessage)
             }
             Message::FpmTabMessage(msg) => {
+                logger::Logger::log_tab_action("Fpm", &format!("{:?}", msg));
                 self.fpm_tab.update(msg).map(Message::FpmTabMessage)
             }
             Message::TweaksTabMessage(msg) => {
+                logger::Logger::log_tab_action("Tweaks", &format!("{:?}", msg));
                 self.tweaks_tab.update(msg).map(Message::TweaksTabMessage)
             }
             Message::ThemeToggled => {
-                self.theme = match self.theme {
-                    AppTheme::Light => AppTheme::Dark,
-                    AppTheme::Dark => AppTheme::Light,
+                let new_theme = match self.theme {
+                    AppTheme::Light => {
+                        logger::Logger::log_debug("Theme toggled: Light -> Dark");
+                        AppTheme::Dark
+                    },
+                    AppTheme::Dark => {
+                        logger::Logger::log_debug("Theme toggled: Dark -> Light");
+                        AppTheme::Light
+                    },
                 };
+                self.theme = new_theme;
                 Command::none()
             }
             Message::OpenRpmFilePicker => {
+                logger::Logger::log_debug("Opening RPM file picker");
                 Command::perform(open_file_picker(), Message::RpmFileSelected)
             }
             Message::RpmFileSelected(Some(rpm_path)) => {
                 let rpm_path_str = rpm_path.to_string_lossy().to_string();
+                logger::Logger::log_debug(&format!("RPM file selected: {}", rpm_path_str));
                 Command::perform(
                     async move {
                         use tokio::process::Command as TokioCommand;
@@ -277,9 +327,11 @@ impl Application for RustoraApp {
                 )
             }
             Message::RpmFileSelected(None) => {
+                logger::Logger::log_debug("RPM file selection cancelled");
                 Command::none()
             }
             Message::OpenSettings => {
+                logger::Logger::log_debug("Opening settings dialog");
                 Command::perform(
                     async {
                         use tokio::process::Command as TokioCommand;

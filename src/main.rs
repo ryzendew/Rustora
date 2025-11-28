@@ -1,4 +1,5 @@
 mod gui;
+mod logger;
 
 use clap::{Parser, Subcommand};
 use colored::*;
@@ -154,6 +155,10 @@ fn ensure_fonts_async() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize logger
+    logger::init();
+    logger::Logger::log_debug("Rustora application starting");
+
     let cli = Cli::parse();
 
     if let Some(rpm_file) = cli.rpm_file {
