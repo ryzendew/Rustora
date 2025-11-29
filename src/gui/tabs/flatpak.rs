@@ -1112,23 +1112,6 @@ async fn search_flatpaks(query: String) -> Result<Vec<FlatpakInfo>, String> {
     Ok(results)
 }
 
-#[allow(dead_code)]
-async fn install_flatpaks(packages: Vec<String>) -> Result<(), String> {
-    // Use --assumeyes (-y) for non-interactive installation
-    // Use --app flag to ensure we're installing applications
-    let status = TokioCommand::new("flatpak")
-        .args(["install", "--app", "-y", "--noninteractive"])
-        .args(&packages)
-        .status()
-        .await
-        .map_err(|e| format!("Failed to execute flatpak install: {}", e))?;
-
-    if !status.success() {
-        return Err("Flatpak installation failed".to_string());
-    }
-    Ok(())
-}
-
 async fn load_installed_flatpaks() -> Result<Vec<FlatpakInfo>, String> {
     // List all installed items (applications, runtimes, extensions)
     // Use --columns to get structured output
@@ -1171,23 +1154,6 @@ async fn load_installed_flatpaks() -> Result<Vec<FlatpakInfo>, String> {
     }
 
     Ok(packages)
-}
-
-#[allow(dead_code)]
-async fn remove_flatpaks(packages: Vec<String>) -> Result<(), String> {
-    // Use --assumeyes (-y) for non-interactive uninstallation
-    // Use --app flag to ensure we're uninstalling applications
-    let status = TokioCommand::new("flatpak")
-        .args(["uninstall", "--app", "-y", "--noninteractive"])
-        .args(&packages)
-        .status()
-        .await
-        .map_err(|e| format!("Failed to execute flatpak uninstall: {}", e))?;
-
-    if !status.success() {
-        return Err("Flatpak removal failed".to_string());
-    }
-    Ok(())
 }
 
 async fn check_flatpak_updates() -> Result<Vec<FlatpakInfo>, String> {

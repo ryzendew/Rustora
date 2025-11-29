@@ -17,7 +17,6 @@ use crate::gui::tabs::kernel;
 use crate::gui::tabs::device;
 use crate::gui::tabs::fpm;
 use crate::gui::tabs::tweaks;
-use crate::gui::rpm_dialog::RpmDialog;
 use crate::logger;
 use std::path::PathBuf;
 
@@ -104,8 +103,6 @@ pub struct RustoraApp {
     fpm_tab: FpmTab,
     tweaks_tab: TweaksTab,
     theme: AppTheme,
-    #[allow(dead_code)]
-    rpm_dialog: Option<RpmDialog>,
     settings: AppSettings,
 }
 
@@ -136,7 +133,6 @@ impl Application for RustoraApp {
                 fpm_tab: FpmTab::new(),
                 tweaks_tab: TweaksTab::new(),
                 theme: AppTheme::Dark,
-                rpm_dialog: None,
                 settings: AppSettings::load(),
             },
             load_command,

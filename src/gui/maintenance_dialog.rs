@@ -11,8 +11,6 @@ use tokio::process::Command as TokioCommand;
 pub enum Message {
     StartTask,
     TaskProgress(String),
-    #[allow(dead_code)]
-    TaskComplete,
     TaskError(String),
     Close,
 }
@@ -132,11 +130,6 @@ impl Application for MaintenanceDialog {
             Message::TaskProgress(output) => {
 
                 self.terminal_output = output;
-                self.is_running = false;
-                self.is_complete = true;
-                Command::none()
-            }
-            Message::TaskComplete => {
                 self.is_running = false;
                 self.is_complete = true;
                 Command::none()

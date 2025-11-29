@@ -338,7 +338,7 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("Step 3: Installing Cachyos kernel\n");
             step_output.push_str("═══════════════════════════════════════════════════════════════\n\n");
-            match install_packages(&["kernel-cachyos"]).await {
+            match install_packages(&["kernel-cachyos", "kernel-cachyos-devel-matched"]).await {
                 Ok(cmd_output) => {
                     step_output.push_str(&cmd_output);
                     let status_msg = if cmd_output.contains("already installed") || cmd_output.contains("Nothing to do") {
@@ -454,6 +454,7 @@ async fn run_installation_step(step: usize) -> Result<(String, usize, f32), Stri
             step_output.push_str("═══════════════════════════════════════════════════════════════\n");
             step_output.push_str("\nInstalled packages:\n");
             step_output.push_str("  • kernel-cachyos\n");
+            step_output.push_str("  • kernel-cachyos-devel-matched\n");
             step_output.push_str("  • cachyos-settings\n");
             step_output.push_str("  • ananicy-cpp\n");
             step_output.push_str("  • cachyos-ananicy-rules\n");

@@ -46,7 +46,6 @@ impl PreCheckedPciProfile {
         &self.profile
     }
 
-    #[allow(dead_code)]
     pub fn installed(&self) -> bool {
         *self.installed.read().unwrap()
     }
@@ -100,12 +99,6 @@ pub struct PreCheckedUsbProfile {
 
     installed: Arc<std::sync::RwLock<bool>>,
     driver_version: Arc<std::sync::RwLock<Option<String>>>,
-    #[allow(dead_code)]
-    repository: Arc<std::sync::RwLock<Option<String>>>,
-    #[allow(dead_code)]
-    package_size: Arc<std::sync::RwLock<Option<String>>>,
-    #[allow(dead_code)]
-    dependencies: Arc<std::sync::RwLock<Option<Vec<String>>>>,
 }
 
 impl PreCheckedUsbProfile {
@@ -114,9 +107,6 @@ impl PreCheckedUsbProfile {
             profile,
             installed: Arc::new(std::sync::RwLock::new(false)),
             driver_version: Arc::new(std::sync::RwLock::new(None)),
-            repository: Arc::new(std::sync::RwLock::new(None)),
-            package_size: Arc::new(std::sync::RwLock::new(None)),
-            dependencies: Arc::new(std::sync::RwLock::new(None)),
         }
     }
 
@@ -124,7 +114,6 @@ impl PreCheckedUsbProfile {
         &self.profile
     }
 
-    #[allow(dead_code)]
     pub fn installed(&self) -> bool {
         *self.installed.read().unwrap()
     }
@@ -139,36 +128,6 @@ impl PreCheckedUsbProfile {
 
     pub fn set_driver_version(&self, version: Option<String>) {
         *self.driver_version.write().unwrap() = version;
-    }
-
-    #[allow(dead_code)]
-    pub fn repository(&self) -> Option<String> {
-        self.repository.read().unwrap().clone()
-    }
-
-    #[allow(dead_code)]
-    pub fn set_repository(&self, repo: Option<String>) {
-        *self.repository.write().unwrap() = repo;
-    }
-
-    #[allow(dead_code)]
-    pub fn package_size(&self) -> Option<String> {
-        self.package_size.read().unwrap().clone()
-    }
-
-    #[allow(dead_code)]
-    pub fn set_package_size(&self, size: Option<String>) {
-        *self.package_size.write().unwrap() = size;
-    }
-
-    #[allow(dead_code)]
-    pub fn dependencies(&self) -> Option<Vec<String>> {
-        self.dependencies.read().unwrap().clone()
-    }
-
-    #[allow(dead_code)]
-    pub fn set_dependencies(&self, deps: Option<Vec<String>>) {
-        *self.dependencies.write().unwrap() = deps;
     }
 }
 
@@ -188,11 +147,9 @@ pub enum Message {
     SelectDevice(DeviceType, String, usize),
     LoadDevicesAfterCache,
     DownloadProfiles,
-    #[allow(dead_code)]
-    DownloadProfilesForce,
     ProfilesDownloaded(Result<(), String>),
     BackToDeviceList,
-    ToggleProfileSelection(#[allow(dead_code)] DeviceType, #[allow(dead_code)] String, #[allow(dead_code)] usize, String),
+    ToggleProfileSelection(String),
     InstallSelectedProfiles(DeviceType, String, usize),
     StartDevice(DeviceType, String, usize),
     StopDevice(DeviceType, String, usize),
@@ -223,10 +180,6 @@ pub enum DeviceType {
 #[derive(Debug, Clone)]
 enum DeviceInfo {
     Pci {
-        #[allow(dead_code)]
-        vendor_name: String,
-        #[allow(dead_code)]
-        device_name: String,
         driver: String,
         driver_version: String,
         bus_id: String,
@@ -236,10 +189,6 @@ enum DeviceInfo {
         enabled: bool,
     },
     Usb {
-        #[allow(dead_code)]
-        manufacturer: String,
-        #[allow(dead_code)]
-        product: String,
         driver: String,
         driver_version: String,
         bus_id: String,
@@ -303,10 +252,6 @@ impl DeviceTab {
         format!("Failed to {} device: {}", operation, user_friendly_msg)
     }
 
-    // Check if cfhdb system components are available
-    fn check_cfhdb_available() -> bool {
-        std::path::Path::new("/usr/lib/cfhdb/scripts/sysfs_helper.sh").exists()
-    }
 
     pub fn update(&mut self, message: Message) -> iced::Command<Message> {
         match message {
@@ -367,13 +312,6 @@ impl DeviceTab {
                     Message::ProfilesDownloaded(result)
                 })
             }
-            Message::DownloadProfilesForce => {
-                self.is_loading = true;
-                self.loading_message = "Downloading and caching profiles...".into();
-                iced::Command::perform(ensure_profiles_cached_force(), |result| {
-                    Message::ProfilesDownloaded(result)
-                })
-            }
             Message::ProfilesDownloaded(result) => {
                 self.is_loading = false;
                 match result {
@@ -427,7 +365,7 @@ impl DeviceTab {
                 self.selected_profiles.clear();
                 iced::Command::none()
             }
-            Message::ToggleProfileSelection(_, _, _, profile_codename) => {
+            Message::ToggleProfileSelection(profile_codename) => {
                 if self.selected_profiles.contains(&profile_codename) {
                     self.selected_profiles.remove(&profile_codename);
                 } else {
@@ -1447,8 +1385,6 @@ impl DeviceTab {
                         let name = format!("{} - {}", d.vendor_name, d.device_name);
                         let driver_version = get_driver_version(&d.kernel_driver);
                         let info = DeviceInfo::Pci {
-                            vendor_name: d.vendor_name.clone(),
-                            device_name: d.device_name.clone(),
                             driver: d.kernel_driver.clone(),
                             driver_version,
                             bus_id: d.sysfs_busid.clone(),
@@ -1472,8 +1408,6 @@ impl DeviceTab {
                         let name = format!("{} - {}", d.manufacturer_string_index, d.product_string_index);
                         let driver_version = get_driver_version(&d.kernel_driver);
                         let info = DeviceInfo::Usb {
-                            manufacturer: d.manufacturer_string_index.clone(),
-                            product: d.product_string_index.clone(),
                             driver: d.kernel_driver.clone(),
                             driver_version,
                             bus_id: d.sysfs_busid.clone(),
@@ -1882,12 +1816,11 @@ impl DeviceTab {
             let is_installed = profile.installed();
             let is_selected = self.selected_profiles.contains(&profile_data.codename);
             let codename_clone = profile_data.codename.clone();
-            let class_clone = class.to_string();
             let checkbox: Element<Message> = if !is_installed {
                 use iced::widget::checkbox;
                 checkbox("", is_selected)
                     .on_toggle(move |_| {
-                        Message::ToggleProfileSelection(dev_type, class_clone.clone(), device_idx, codename_clone.clone())
+                        Message::ToggleProfileSelection(codename_clone.clone())
                     })
                     .size(body_font_size)
                     .spacing(8)
@@ -2274,12 +2207,11 @@ impl DeviceTab {
             let is_installed = profile.installed();
             let is_selected = self.selected_profiles.contains(&profile_data.codename);
             let codename_clone = profile_data.codename.clone();
-            let class_clone = class.to_string();
             let checkbox: Element<Message> = if !is_installed {
                 use iced::widget::checkbox;
                 checkbox("", is_selected)
                     .on_toggle(move |_| {
-                        Message::ToggleProfileSelection(dev_type, class_clone.clone(), device_idx, codename_clone.clone())
+                        Message::ToggleProfileSelection(codename_clone.clone())
                     })
                     .size(body_font_size)
                     .spacing(8)
@@ -2641,97 +2573,6 @@ fn extract_driver_version_from_install_script_fast(install_script: &Option<Strin
     }
     String::new()
 }
-#[allow(dead_code)]
-fn get_package_version(package_name: &str) -> Result<String, ()> {
-    let pkg = package_name.to_string();
-
-    let handle = std::thread::spawn(move || {
-        if let Ok(output) = std::process::Command::new("dnf")
-            .args(["repoquery", "--qf", "%{VERSION}", "--whatprovides", &pkg])
-            .output()
-        {
-            if output.status.success() {
-                if let Ok(versions) = String::from_utf8(output.stdout) {
-
-                    if let Some(first_line) = versions.lines().next() {
-                        let version = first_line.trim();
-                        if !version.is_empty() && version.contains('.') {
-
-                            let version = version.split('-').next().unwrap_or(version);
-                            if version.chars().any(|c| c.is_ascii_digit()) {
-                                return Ok(version.to_string());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if let Ok(output) = std::process::Command::new("dnf")
-            .args(["list", "--available", "--quiet", &pkg])
-            .output()
-        {
-            if output.status.success() {
-                if let Ok(info) = String::from_utf8(output.stdout) {
-                    for line in info.lines() {
-
-                        if line.contains("Available Packages") || line.contains("Installed Packages") || line.contains("Last metadata") {
-                            continue;
-                        }
-
-                        let parts: Vec<&str> = line.split_whitespace().collect();
-                        if parts.len() >= 2 {
-
-                            let version_release = parts[1];
-
-                            if let Some(version) = version_release.split('-').next() {
-                                if version.contains('.') && version.chars().any(|c| c.is_ascii_digit()) {
-                                    return Ok(version.to_string());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if let Ok(output) = std::process::Command::new("dnf")
-            .args(["info", "--available", "--quiet", &pkg])
-            .output()
-        {
-            if output.status.success() {
-                if let Ok(info) = String::from_utf8(output.stdout) {
-                    for line in info.lines() {
-                        if line.starts_with("Version") {
-                            if let Some(version) = line.split_whitespace().nth(1) {
-                                let version = version.split('-').next().unwrap_or(version);
-
-                                if version.contains('.') && version.chars().any(|c| c.is_ascii_digit()) {
-                                    return Ok(version.to_string());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if let Ok(output) = std::process::Command::new("rpm")
-            .args(["-q", "--qf", "%{VERSION}", &pkg])
-            .output()
-        {
-            if output.status.success() {
-                if let Ok(version) = String::from_utf8(output.stdout) {
-                    let version = version.trim();
-                    if !version.is_empty() && version != pkg {
-                        return Ok(version.to_string());
-                    }
-                }
-            }
-        }
-
-        Err(())
-    });
-
-    handle.join().unwrap_or(Err(()))
-}
 fn query_package_info(profile: &PreCheckedPciProfile, package_names: &[String]) {
     use std::process::Command;
     use std::collections::HashSet;
@@ -3070,7 +2911,6 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
 
                     packages.push(NvidiaDriverPackage {
                         name,
-                        version,
                         repo,
                         driver_version,
                     });
@@ -3089,8 +2929,6 @@ async fn query_nvidia_driver_packages() -> Result<Vec<NvidiaDriverPackage>, Stri
 #[derive(Debug, Clone)]
 struct NvidiaDriverPackage {
     name: String,
-    #[allow(dead_code)]
-    version: String,
     repo: String,
     driver_version: String,
 }
@@ -3098,8 +2936,6 @@ struct NvidiaDriverPackage {
 #[derive(Debug, Clone)]
 struct MesaDriverPackage {
     name: String,
-    #[allow(dead_code)]
-    version: String,
     repo: String,
     driver_version: String,
 }
@@ -3228,7 +3064,6 @@ async fn query_mesa_driver_packages() -> Result<Vec<MesaDriverPackage>, String> 
 
                     Some(MesaDriverPackage {
                         name,
-                        version,
                         repo,
                         driver_version,
                     })

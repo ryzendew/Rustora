@@ -5,19 +5,16 @@ use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
 use iced::widget::text_input::Appearance as TextInputAppearance;
 use iced::widget::text_input::StyleSheet as TextInputStyleSheet;
-use iced::widget::pick_list;
 use crate::gui::app::CustomScrollableStyle;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub enum TweaksView {
     GamingMeta,
     DnfConfig,
     CachyosKernel,
     Hyprland,
     Proton,
-    SteamGames,
 }
 
 #[derive(Debug, Clone)]
@@ -41,41 +38,25 @@ pub enum Message {
     InstallHyprland,
     LoadProtonBuilds,
     ProtonBuildsLoaded(Result<Vec<ProtonRunner>, String>),
-    #[allow(dead_code)]
-    DetectLaunchers,
     LaunchersDetected(Result<Vec<DetectedLauncher>, String>),
     SelectProtonRunner(String),
     SelectLauncher(String),
     ToggleFilterInstalled,
     ToggleFilterUsed,
     ToggleFilterUnused,
-    #[allow(dead_code)]
-    CheckProtonUsage,
     ProtonUsageChecked(Result<Vec<ProtonRunner>, String>),
     DownloadProtonBuild(String, String, String),
-    #[allow(dead_code)]
-    DownloadProgress(String, f32, String),
     ProtonBuildDownloaded(Result<(String, String, String), String>),
-    #[allow(dead_code)]
-    InstallProgress(String, f32, String),
     ProtonBuildInstalled(Result<(String, String), String>),
-    #[allow(dead_code)]
-    CloseProgressDialog,
     CloseCompletionDialog,
     RemoveProtonBuild(String, String),
     ProtonBuildRemoved(Result<(String, String), String>),
     UpdateProtonBuild(String, String),
     ProtonBuildUpdated(Result<(String, String), String>),
-    #[allow(dead_code)]
-    UpdateAllProtonBuilds,
     OpenProtonBuildDirectory(String, String),
     ShowProtonBuildInfo(String, String, String, String),
     LoadMoreProtonBuilds(String),
     MoreProtonBuildsLoaded(Result<(String, Vec<ProtonBuild>), String>),
-    LoadSteamGames,
-    SteamGamesLoaded(Result<Vec<SteamGame>, String>),
-    ChangeSteamGameCompatibilityTool(u32, String),
-    SteamGameCompatibilityToolChanged(Result<(u32, String), String>),
 }
 
 #[derive(Debug, Clone)]
@@ -188,15 +169,6 @@ pub struct DetectedLauncher {
     pub title: String,
     pub directory: String,
     pub installation_type: String,
-    #[allow(dead_code)]
-    pub is_installed: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct SteamGame {
-    pub name: String,
-    pub appid: u32,
-    pub compatibility_tool: String,
 }
 
 #[derive(Debug)]
@@ -240,11 +212,6 @@ pub struct TweaksTab {
     show_installed_only: bool,
     show_used_only: bool,
     show_unused_only: bool,
-
-    steam_games: Vec<SteamGame>,
-    is_loading_steam_games: bool,
-    steam_games_error: Option<String>,
-    steam_directory: Option<String>,
 }
 
 impl TweaksTab {
@@ -283,10 +250,6 @@ impl TweaksTab {
             show_installed_only: false,
             show_used_only: false,
             show_unused_only: false,
-            steam_games: Vec::new(),
-            is_loading_steam_games: false,
-            steam_games_error: None,
-            steam_directory: None,
         };
 
         tab.is_checking_gaming_meta = true;
@@ -585,10 +548,6 @@ impl TweaksTab {
                 }
                 iced::Command::none()
             }
-            Message::DetectLaunchers => {
-                self.is_detecting_launchers = true;
-                iced::Command::perform(detect_launchers(), Message::LaunchersDetected)
-            }
             Message::LaunchersDetected(result) => {
                 self.is_detecting_launchers = false;
                 match result {
@@ -641,9 +600,6 @@ impl TweaksTab {
                 }
                 iced::Command::none()
             }
-            Message::CheckProtonUsage => {
-                iced::Command::perform(check_proton_usage(self.proton_runners.clone(), self.detected_launchers.clone()), Message::ProtonUsageChecked)
-            }
             Message::ProtonUsageChecked(result) => {
                 match result {
                     Ok(updated_runners) => {
@@ -686,23 +642,6 @@ impl TweaksTab {
                     },
                     |_| Message::GamingMetaComplete(Ok("Dialog opened".to_string())),
                 )
-            }
-            Message::DownloadProgress(_title, progress, message) => {
-                self.download_progress = progress;
-                self.progress_text = message;
-                iced::Command::none()
-            }
-            Message::InstallProgress(_title, progress, message) => {
-                self.install_progress = progress;
-                self.progress_text = message;
-                iced::Command::none()
-            }
-            Message::CloseProgressDialog => {
-                self.show_progress_dialog = false;
-                self.download_progress = 0.0;
-                self.install_progress = 0.0;
-                self.progress_text.clear();
-                iced::Command::none()
             }
             Message::CloseCompletionDialog => {
                 self.show_completion_dialog = false;
@@ -828,25 +767,6 @@ impl TweaksTab {
                     }
                 }
             }
-            Message::UpdateAllProtonBuilds => {
-                let mut update_commands = Vec::new();
-                for runner in &self.proton_runners {
-                    for build in &runner.builds {
-                        if build.is_installed && build.is_latest {
-                            if let Some(latest_release) = runner.builds.iter().find(|b| !b.is_latest) {
-                                update_commands.push((runner.title.clone(), build.title.clone(), latest_release.download_url.clone()));
-                            }
-                        }
-                    }
-                }
-                if !update_commands.is_empty() {
-                    let (runner_title, title, download_url) = update_commands[0].clone();
-                    self.downloading_build = Some(title.clone());
-                    iced::Command::perform(download_proton_build(runner_title, title, download_url), Message::ProtonBuildDownloaded)
-                } else {
-                    iced::Command::none()
-                }
-            }
             Message::OpenProtonBuildDirectory(runner_title, title) => {
                 let launcher = self.selected_launcher.clone();
                 let runners = self.proton_runners.clone();
@@ -897,41 +817,6 @@ impl TweaksTab {
                         iced::Command::none()
                     }
                     Err(_e) => {
-                        iced::Command::none()
-                    }
-                }
-            }
-            Message::LoadSteamGames => {
-                self.is_loading_steam_games = true;
-                iced::Command::perform(load_steam_games(), Message::SteamGamesLoaded)
-            }
-            Message::SteamGamesLoaded(result) => {
-                self.is_loading_steam_games = false;
-                match result {
-                    Ok(games) => {
-                        self.steam_games = games;
-                        self.steam_games_error = None;
-                    }
-                    Err(e) => {
-                        self.steam_games_error = Some(e);
-                    }
-                }
-                iced::Command::none()
-            }
-            Message::ChangeSteamGameCompatibilityTool(appid, compatibility_tool) => {
-                let steam_dir = self.steam_directory.clone();
-                iced::Command::perform(change_steam_game_compatibility_tool(appid, compatibility_tool, steam_dir), Message::SteamGameCompatibilityToolChanged)
-            }
-            Message::SteamGameCompatibilityToolChanged(result) => {
-                match result {
-                    Ok((appid, compatibility_tool)) => {
-                        if let Some(game) = self.steam_games.iter_mut().find(|g| g.appid == appid) {
-                            game.compatibility_tool = compatibility_tool;
-                        }
-                        iced::Command::none()
-                    }
-                    Err(e) => {
-                        self.steam_games_error = Some(e);
                         iced::Command::none()
                     }
                 }
@@ -2839,9 +2724,6 @@ impl TweaksTab {
                 .height(Length::Fill)
                 .into()
             }
-            TweaksView::SteamGames => {
-                self.view_steam_games(theme, settings)
-            }
         };
 
         let main_content = container(
@@ -3048,241 +2930,6 @@ impl TweaksTab {
         })));
 
         overlay.into()
-    }
-
-    fn view_steam_games(&self, theme: &crate::gui::Theme, settings: &crate::gui::settings::AppSettings) -> Element<'_, Message> {
-        let _material_font = crate::gui::fonts::get_material_symbols_font();
-        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
-        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
-        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
-        let _icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
-
-        if self.is_loading_steam_games {
-            container(
-                column![
-                    text("Loading Steam Games...")
-                        .size(title_font_size * 0.8)
-                        .style(iced::theme::Text::Color(theme.primary())),
-                    Space::with_height(Length::Fixed(20.0)),
-                    text("Reading Steam configuration...")
-                        .size(body_font_size)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
-                ]
-                .spacing(0)
-                .align_items(Alignment::Center)
-            )
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
-            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                radius: settings.border_radius,
-                theme: *theme,
-            })))
-            .into()
-        } else if let Some(ref error) = self.steam_games_error {
-            container(
-                column![
-                    text("Error")
-                        .size(title_font_size * 0.8)
-                        .style(iced::theme::Text::Color(iced::Color::from_rgb(0.9, 0.2, 0.2))),
-                    Space::with_height(Length::Fixed(12.0)),
-                    text(error)
-                        .size(body_font_size)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
-                    Space::with_height(Length::Fixed(20.0)),
-                    button(
-                        text("Retry")
-                            .size(button_font_size)
-                    )
-                    .on_press(Message::LoadSteamGames)
-                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                        is_primary: true,
-                        radius: settings.border_radius,
-                    })))
-                    .padding(Padding::from([14.0, 20.0, 14.0, 20.0])),
-                ]
-                .spacing(0)
-                .align_items(Alignment::Center)
-            )
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
-            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                radius: settings.border_radius,
-                theme: *theme,
-            })))
-            .into()
-        } else if self.steam_games.is_empty() {
-            container(
-                column![
-                    text("No Steam Games Found")
-                        .size(title_font_size * 0.8)
-                        .style(iced::theme::Text::Color(theme.primary())),
-                    Space::with_height(Length::Fixed(12.0)),
-                    text("Make sure Steam is installed and you have games in your library.")
-                        .size(body_font_size)
-                        .style(iced::theme::Text::Color(theme.secondary_text())),
-                    Space::with_height(Length::Fixed(20.0)),
-                    button(
-                        text("Refresh")
-                            .size(button_font_size)
-                    )
-                    .on_press(Message::LoadSteamGames)
-                    .style(iced::theme::Button::Custom(Box::new(RoundedButtonStyle {
-                        is_primary: true,
-                        radius: settings.border_radius,
-                    })))
-                    .padding(Padding::from([14.0, 20.0, 14.0, 20.0])),
-                ]
-                .spacing(0)
-                .align_items(Alignment::Center)
-            )
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
-            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                radius: settings.border_radius,
-                theme: *theme,
-            })))
-            .into()
-        } else {
-            // Get all available Proton builds for dropdown
-            let mut available_tools = vec!["Undefined".to_string()];
-            for runner in &self.proton_runners {
-                for build in &runner.builds {
-                    if build.is_installed {
-                        // Format the tool name as it appears in Steam config
-                        let tool_name = if build.is_latest {
-                            // For "Latest" builds, use the actual release name
-                            if let Some(actual_release) = runner.builds.iter().find(|b| !b.is_latest) {
-                                format_directory_name_for_steam(&runner.title, &actual_release.title, &runner.directory_name_formats)
-                            } else {
-                                continue;
-                            }
-                        } else {
-                            format_directory_name_for_steam(&runner.title, &build.title, &runner.directory_name_formats)
-                        };
-                        if !available_tools.contains(&tool_name) {
-                            available_tools.push(tool_name);
-                        }
-                    }
-                }
-            }
-
-            // Warning message
-            let warning = container(
-                text("Close the Steam client beforehand so that the changes can be applied.")
-                    .size(body_font_size * 0.9)
-                    .style(iced::theme::Text::Color(iced::Color::from_rgb(1.0, 0.65, 0.0)))
-            )
-            .width(Length::Fill)
-            .padding(Padding::from([12.0, 16.0, 12.0, 16.0]))
-            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
-                radius: settings.border_radius,
-            })));
-
-            // Table header
-            let header = container(
-                row![
-                    text("Name")
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.primary()))
-                        .width(Length::FillPortion(3)),
-                    text("App ID")
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.primary()))
-                        .width(Length::FillPortion(1)),
-                    text("Compatibility Tool")
-                        .size(body_font_size * 0.95)
-                        .style(iced::theme::Text::Color(theme.primary()))
-                        .width(Length::FillPortion(2)),
-                ]
-                .spacing(16)
-                .align_items(Alignment::Center)
-            )
-            .width(Length::Fill)
-            .padding(Padding::from([16.0, 20.0, 16.0, 20.0]))
-            .style(iced::theme::Container::Custom(Box::new(StatusSectionStyle {
-                radius: settings.border_radius,
-                theme: *theme,
-            })));
-
-            // Game rows
-            let available_tools_clone = available_tools.clone();
-            let game_rows: Vec<Element<Message>> = self.steam_games.iter().map(|game| {
-                let current_tool = if game.compatibility_tool == "Undefined" {
-                    "Undefined".to_string()
-                } else {
-                    game.compatibility_tool.clone()
-                };
-
-                let selected_option = if available_tools_clone.contains(&current_tool) {
-                    Some(current_tool.clone())
-                } else {
-                    Some("Undefined".to_string())
-                };
-
-                let appid = game.appid;
-                let game_name = game.name.clone();
-                let compat_tool = game.compatibility_tool.clone();
-
-                container(
-                    row![
-                        text(&game_name)
-                            .size(body_font_size)
-                            .style(iced::theme::Text::Color(theme.text()))
-                            .width(Length::FillPortion(3)),
-                        text(&appid.to_string())
-                            .size(body_font_size * 0.9)
-                            .style(iced::theme::Text::Color(theme.secondary_text()))
-                            .width(Length::FillPortion(1)),
-                        pick_list(
-                            available_tools_clone.clone(),
-                            selected_option,
-                            move |tool| Message::ChangeSteamGameCompatibilityTool(appid, tool)
-                        )
-                        .width(Length::FillPortion(2))
-                        .text_size(body_font_size * 0.9)
-                        .padding(Padding::from([8.0, 12.0, 8.0, 12.0])),
-                    ]
-                    .spacing(16)
-                    .align_items(Alignment::Center)
-                )
-                .width(Length::Fill)
-                .padding(Padding::from([12.0, 20.0, 12.0, 20.0]))
-                .style(iced::theme::Container::Custom(Box::new(StatusItemStyle {
-                    is_installed: compat_tool != "Undefined",
-                    radius: settings.border_radius * 0.5,
-                })))
-                .into()
-            }).collect();
-
-            container(
-                column![
-                    warning,
-                    Space::with_height(Length::Fixed(16.0)),
-                    header,
-                    scrollable(
-                        column(game_rows)
-                            .spacing(8)
-                    )
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .style(iced::theme::Scrollable::Custom(Box::new(CustomScrollableStyle::new(
-                        Color::from(settings.background_color.clone()),
-                        settings.border_radius,
-                    )))),
-                ]
-                .spacing(0)
-            )
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(Padding::from([24.0, 28.0, 24.0, 28.0]))
-            .style(iced::theme::Container::Custom(Box::new(RoundedMessageStyle {
-                radius: settings.border_radius,
-            })))
-            .into()
-        }
     }
 }
 
@@ -4414,7 +4061,6 @@ async fn detect_launchers() -> Result<Vec<DetectedLauncher>, String> {
                     title: "Steam".to_string(),
                     directory: full_path,
                     installation_type: install_type.to_string(),
-                    is_installed: true,
                 });
                 break; // Only add one Steam installation
             }
@@ -4433,7 +4079,6 @@ async fn detect_launchers() -> Result<Vec<DetectedLauncher>, String> {
                 title: "Lutris".to_string(),
                 directory: path,
                 installation_type: install_type.to_string(),
-                is_installed: true,
             });
             break;
         }
@@ -4451,7 +4096,6 @@ async fn detect_launchers() -> Result<Vec<DetectedLauncher>, String> {
                 title: "Heroic Games Launcher".to_string(),
                 directory: path,
                 installation_type: install_type.to_string(),
-                is_installed: true,
             });
             break;
         }
@@ -4588,30 +4232,6 @@ fn format_directory_name(format: &str, runner_title: &str, release_name: &str) -
     result
 }
 
-#[allow(dead_code)]
-fn get_launcher_compat_directory(launcher_title: &str, launcher_dir: &str) -> String {
-    // This function is called with the compat_layer type (Proton/Wine) determined by the runner
-    // For now, we'll use a generic approach that works for both
-    match launcher_title {
-        "Steam" => {
-            // Try multiple Steam compatibilitytools.d locations
-            let paths = vec![
-                format!("{}/compatibilitytools.d", launcher_dir),
-                format!("{}/steamapps/common", launcher_dir), // Fallback
-            ];
-            for path in paths {
-                if std::path::Path::new(&path).parent().map(|p| p.exists()).unwrap_or(false) {
-                    return path;
-                }
-            }
-            format!("{}/compatibilitytools.d", launcher_dir)
-        }
-        "Lutris" => format!("{}/runners/proton", launcher_dir), // Will be overridden for Wine
-        "Heroic Games Launcher" => format!("{}/tools/proton", launcher_dir), // Will be overridden for Wine
-        _ => format!("{}/compatibilitytools.d", launcher_dir),
-    }
-}
-
 fn get_launcher_compat_directory_for_type(launcher_title: &str, launcher_dir: &str, compat_layer_type: &str) -> String {
     match (launcher_title, compat_layer_type) {
         ("Steam", _) => {
@@ -4683,139 +4303,6 @@ async fn download_proton_build(runner_title: String, title: String, download_url
     let _ = std::fs::metadata(&tar_path);
 
     Ok((runner_title, title, tar_path.to_string_lossy().into_owned()))
-}
-
-#[allow(dead_code)]
-async fn install_proton_build(runner_title: String, title: String, tar_path: String) -> Result<(String, String), String> {
-    use std::fs::File;
-    use flate2::read::GzDecoder;
-    use tar::Archive;
-
-    // Determine Steam compatibilitytools.d directory
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home".to_string());
-    let steam_paths = vec![
-        format!("{}/.steam/root/compatibilitytools.d", home),
-        format!("{}/.local/share/Steam/compatibilitytools.d", home),
-        format!("{}/.steam/steam/compatibilitytools.d", home),
-    ];
-
-    let compat_dir = steam_paths.iter()
-        .find(|p| {
-            let exists = std::path::Path::new(p).exists();
-            exists
-        })
-        .ok_or_else(|| {
-            // Try to create the first one
-            let first = &steam_paths[1]; // Use .local/share/Steam/compatibilitytools.d
-            if let Some(parent) = std::path::Path::new(first).parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            first.clone()
-        })?;
-
-
-    // Extract archive (detect format)
-    let mut file = File::open(&tar_path)
-        .map_err(|e| {
-            format!("Failed to open archive: {}", e)
-        })?;
-
-    // Read first 6 bytes to detect compression format (xz needs 6 bytes)
-    use std::io::{Read, Seek, SeekFrom};
-    let mut magic_buf = [0u8; 6];
-    if file.read_exact(&mut magic_buf).is_err() {
-        return Err("Archive file appears to be corrupted or incomplete".to_string());
-    }
-
-    // Reset file position for actual extraction
-    file.seek(SeekFrom::Start(0))
-        .map_err(|e| format!("Failed to seek file: {}", e))?;
-
-    // Detect compression format
-    let is_gzip = magic_buf[0] == 0x1f && magic_buf[1] == 0x8b;
-    let is_zstd = magic_buf[0] == 0x28 && magic_buf[1] == 0xb5 && magic_buf[2] == 0x2f && magic_buf[3] == 0xfd;
-    let is_xz = magic_buf[0] == 0xfd && magic_buf[1] == 0x37 && magic_buf[2] == 0x7a && magic_buf[3] == 0x58 && magic_buf[4] == 0x5a && magic_buf[5] == 0x00;
-
-
-    if !is_gzip && !is_zstd && !is_xz {
-        return Err(format!("Unsupported archive format (magic bytes: {:02x} {:02x} {:02x} {:02x}). Expected gzip (.tar.gz), zstd (.tar.zst), or xz (.tar.xz).",
-            magic_buf[0], magic_buf[1], magic_buf[2], magic_buf[3]));
-    }
-
-    // Extract to temp directory first
-    let temp_extract = std::env::temp_dir().join(format!("proton_extract_{}", title));
-
-    // Create appropriate decoder and extract based on format
-    if is_gzip {
-        let gz = GzDecoder::new(file);
-        let mut archive = Archive::new(gz);
-    archive.unpack(&temp_extract)
-            .map_err(|e| format!("Failed to extract gzip archive: {}", e))?;
-    } else if is_zstd {
-        // zstd
-        use zstd::stream::Decoder;
-        let decoder = Decoder::new(file)
-            .map_err(|e| format!("Failed to create zstd decoder: {}", e))?;
-        let mut archive = Archive::new(decoder);
-        archive.unpack(&temp_extract)
-            .map_err(|e| format!("Failed to extract zstd archive: {}", e))?;
-    } else {
-        // xz
-        use xz2::read::XzDecoder;
-        let xz = XzDecoder::new(file);
-        let mut archive = Archive::new(xz);
-        archive.unpack(&temp_extract)
-            .map_err(|e| format!("Failed to extract xz archive: {}", e))?;
-    }
-
-    // Find the extracted directory (usually the first directory in the archive)
-    let entries: Vec<_> = std::fs::read_dir(&temp_extract)
-        .map_err(|e| {
-            format!("Failed to read extract dir: {}", e)
-        })?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| {
-            format!("Failed to read entry: {}", e)
-        })?;
-
-    let extracted_dir = entries
-        .iter()
-        .find(|entry| {
-            if let Ok(metadata) = entry.metadata() {
-                metadata.is_dir()
-            } else {
-                false
-            }
-        })
-        .ok_or_else(|| {
-            "No directory found in archive"
-        })?
-        .path();
-
-    if !extracted_dir.is_dir() {
-        return Err("Archive does not contain a directory".to_string());
-    }
-
-    // Move to compatibilitytools.d
-    // Use the release name as directory name (will be updated to use directory_name_format)
-    let dest_path = std::path::Path::new(&compat_dir).join(&title);
-    if dest_path.exists() {
-        std::fs::remove_dir_all(&dest_path)
-            .map_err(|e| {
-                format!("Failed to remove existing installation: {}", e)
-            })?;
-    }
-
-    std::fs::rename(&extracted_dir, &dest_path)
-        .map_err(|e| {
-            format!("Failed to move to compatibilitytools.d: {}. You may need to run with sudo.", e)
-        })?;
-
-    // Clean up
-    let _ = std::fs::remove_file(&tar_path);
-    let _ = std::fs::remove_dir_all(&temp_extract);
-
-    Ok((runner_title, title))
 }
 
 async fn install_proton_build_with_launcher(
@@ -5328,6 +4815,7 @@ async fn load_more_proton_builds(
     Ok((runner_title, new_builds))
 }
 
+#[allow(dead_code)]
 fn format_directory_name_for_steam(runner_title: &str, release_name: &str, formats: &[DirectoryNameFormat]) -> String {
     // Find Steam-specific format or use default
     let format = formats.iter()
@@ -5341,245 +4829,3 @@ fn format_directory_name_for_steam(runner_title: &str, release_name: &str, forma
     }
 }
 
-async fn load_steam_games() -> Result<Vec<SteamGame>, String> {
-
-    // Detect Steam installation
-    let home = std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
-    let steam_paths = vec![
-        format!("{}/.local/share/Steam", home),
-        format!("{}/.steam/steam", home),
-        format!("{}/.steam/root", home),
-        format!("{}/.steam/debian-installation", home),
-        format!("{}/.var/app/com.valvesoftware.Steam/data/Steam", home),
-        format!("/snap/steam/common/.steam/root"),
-    ];
-
-    let steam_dir = steam_paths.iter()
-        .find(|p| std::path::Path::new(p).exists())
-        .ok_or_else(|| "Steam installation not found".to_string())?;
-
-
-    let config_path = format!("{}/config/config.vdf", steam_dir);
-
-    let config_content = std::fs::read_to_string(&config_path)
-        .map_err(|e| format!("Failed to read Steam config: {}", e))?;
-
-    // Parse games from config.vdf
-    // We need to find the CompatToolMapping section and also get game names from libraryfolders.vdf
-    let mut games = Vec::new();
-
-    // First, get game names from libraryfolders.vdf
-    let libraryfolders_path = format!("{}/steamapps/libraryfolders.vdf", steam_dir);
-    let mut game_names: std::collections::HashMap<u32, String> = std::collections::HashMap::new();
-
-    if let Ok(libraryfolders_content) = std::fs::read_to_string(&libraryfolders_path) {
-        // Parse libraryfolders.vdf to get game names
-        // Format: "apps"\n\t\t\t{\n\t\t\t\t"<appid>"\t\t"<name>"\n...
-        let apps_start = "\"apps\"\n\t\t\t{";
-        if let Some(start_pos) = libraryfolders_content.find(apps_start) {
-            let start = start_pos + apps_start.len();
-            let apps_end = "\n\t\t\t}";
-            if let Some(end_pos) = libraryfolders_content[start..].find(apps_end) {
-                let apps_content = &libraryfolders_content[start..start + end_pos];
-                // Parse appid and name pairs
-                let mut pos = 0;
-                while pos < apps_content.len() {
-                    // Find appid
-                    if let Some(appid_start) = apps_content[pos..].find('"') {
-                        let appid_start = pos + appid_start + 1;
-                        if let Some(appid_end) = apps_content[appid_start..].find('"') {
-                            let appid_str = &apps_content[appid_start..appid_start + appid_end];
-                            if let Ok(appid) = appid_str.parse::<u32>() {
-                                // Find name after appid
-                                if let Some(name_start) = apps_content[appid_start + appid_end..].find('"') {
-                                    let name_start = appid_start + appid_end + name_start + 1;
-                                    if let Some(name_end) = apps_content[name_start..].find('"') {
-                                        let name = apps_content[name_start..name_start + name_end].to_string();
-                                        game_names.insert(appid, name);
-                                        pos = name_start + name_end;
-                                        continue;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    pos += 1;
-                }
-            }
-        }
-    }
-
-    // Parse CompatToolMapping from config.vdf
-    let compat_tool_mapping_start = "\"CompatToolMapping\"\n\t\t\t\t{";
-    let compat_tool_mapping_end = "\n\t\t\t\t}";
-
-    if let Some(start_pos) = config_content.find(compat_tool_mapping_start) {
-        let start = start_pos + compat_tool_mapping_start.len();
-        if let Some(end_pos) = config_content[start..].find(&compat_tool_mapping_end) {
-            let mapping_content = &config_content[start..start + end_pos];
-
-            // Parse each game entry
-            // Format: "\n\t\t\t\t\t\"<appid>\"\n\t\t\t\t\t{\n\t\t\t\t\t\t\"name\"\t\t\"<tool_name>\"\n...
-            let mut pos = 0;
-            while pos < mapping_content.len() {
-                // Find appid
-                if let Some(appid_start) = mapping_content[pos..].find("\n\t\t\t\t\t\"") {
-                    let appid_start = pos + appid_start + "\n\t\t\t\t\t\"".len();
-                    if let Some(appid_end) = mapping_content[appid_start..].find('"') {
-                        let appid_str = &mapping_content[appid_start..appid_start + appid_end];
-                        if let Ok(appid) = appid_str.parse::<u32>() {
-                            // Find name field
-                            if let Some(name_start) = mapping_content[appid_start + appid_end..].find("\"name\"\t\t\"") {
-                                let name_start = appid_start + appid_end + name_start + "\"name\"\t\t\"".len();
-                                if let Some(name_end) = mapping_content[name_start..].find('"') {
-                                    let tool_name = mapping_content[name_start..name_start + name_end].to_string();
-                                    let game_name = game_names.get(&appid)
-                                        .cloned()
-                                        .unwrap_or_else(|| format!("App {}", appid));
-
-                                    games.push(SteamGame {
-                                        name: game_name,
-                                        appid,
-                                        compatibility_tool: tool_name,
-                                    });
-
-                                    pos = name_start + name_end;
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-                }
-                pos += 1;
-            }
-        }
-    }
-
-    // Also add games that don't have compatibility tools set (from libraryfolders)
-    for (appid, name) in game_names {
-        if !games.iter().any(|g| g.appid == appid) {
-            games.push(SteamGame {
-                name,
-                appid,
-                compatibility_tool: "Undefined".to_string(),
-            });
-        }
-    }
-
-    // Sort by name
-    games.sort_by(|a, b| a.name.cmp(&b.name));
-
-    Ok(games)
-}
-
-async fn change_steam_game_compatibility_tool(
-    appid: u32,
-    compatibility_tool: String,
-    steam_directory: Option<String>,
-) -> Result<(u32, String), String> {
-
-    // Detect Steam installation
-    let home = std::env::var("HOME").map_err(|_| "HOME environment variable not set".to_string())?;
-    let steam_paths = vec![
-        format!("{}/.local/share/Steam", home),
-        format!("{}/.steam/steam", home),
-        format!("{}/.steam/root", home),
-        format!("{}/.steam/debian-installation", home),
-        format!("{}/.var/app/com.valvesoftware.Steam/data/Steam", home),
-        format!("/snap/steam/common/.steam/root"),
-    ];
-
-    let steam_dir = steam_directory
-        .or_else(|| steam_paths.iter().find(|p| std::path::Path::new(p).exists()).cloned())
-        .ok_or_else(|| "Steam installation not found".to_string())?;
-
-    let config_path = format!("{}/config/config.vdf", steam_dir);
-
-    let mut config_content = std::fs::read_to_string(&config_path)
-        .map_err(|e| format!("Failed to read Steam config: {}", e))?;
-
-    // Ensure CompatToolMapping section exists
-    let compat_tool_mapping_start = "\"CompatToolMapping\"\n\t\t\t\t{";
-    let _compat_tool_mapping_end = "\n\t\t\t\t}";
-
-    if !config_content.contains(compat_tool_mapping_start) {
-        // Add CompatToolMapping section
-        let steam_start = "\"Steam\"\n\t\t\t{";
-        if let Some(start_pos) = config_content.find(&steam_start) {
-            let insert_pos = start_pos + steam_start.len();
-            config_content.insert_str(insert_pos, "\n\t\t\t\t\"CompatToolMapping\"\n\t\t\t\t{\n\t\t\t\t}");
-        } else {
-            return Err("Could not find Steam section in config.vdf".to_string());
-        }
-    }
-
-    // Find and modify the entry
-    let start_text = "\"CompatToolMapping\"\n\t\t\t\t{";
-    let end_text = "\n\t\t\t\t}";
-
-    let start_pos = config_content.find(start_text)
-        .ok_or_else(|| "CompatToolMapping section not found".to_string())?;
-    let mapping_start = start_pos + start_text.len();
-    let end_pos = config_content[mapping_start..].find(end_text)
-        .ok_or_else(|| "CompatToolMapping section end not found".to_string())? + mapping_start;
-
-    let mapping_content = &config_content[mapping_start..end_pos];
-
-    let appid_str = appid.to_string();
-    let appid_entry_start = format!("\n\t\t\t\t\t\"{}\"", appid_str);
-
-    if mapping_content.contains(&appid_entry_start) {
-        // Update existing entry
-        if compatibility_tool == "Undefined" {
-            // Remove the entry
-            let entry_start = mapping_content.find(&appid_entry_start)
-                .ok_or_else(|| "Game entry not found".to_string())?;
-            let entry_end = mapping_content[entry_start + appid_entry_start.len()..].find("\n\t\t\t\t}")
-                .ok_or_else(|| "Game entry end not found".to_string())? + entry_start + appid_entry_start.len() + "\n\t\t\t\t}".len();
-
-            let full_entry = &mapping_content[entry_start..entry_end];
-            config_content = config_content.replace(full_entry, "");
-        } else {
-            // Update the tool name
-            let entry_start = mapping_content.find(&appid_entry_start)
-                .ok_or_else(|| "Game entry not found".to_string())?;
-            let entry_content = &mapping_content[entry_start..];
-
-            let name_pattern = "\"name\"\t\t\"";
-            if let Some(name_start) = entry_content.find(name_pattern) {
-                let name_start = entry_start + name_start + name_pattern.len();
-                if let Some(name_end) = config_content[name_start..].find('"') {
-                    let old_tool = &config_content[name_start..name_start + name_end];
-                    config_content = config_content.replace(
-                        &format!("\"name\"\t\t\"{}\"", old_tool),
-                        &format!("\"name\"\t\t\"{}\"", compatibility_tool)
-                    );
-                } else {
-                    return Err("Invalid game entry format".to_string());
-                }
-            } else {
-                return Err("Game entry missing name field".to_string());
-            }
-        }
-    } else {
-        // Add new entry
-        if compatibility_tool == "Undefined" {
-            return Ok((appid, "Undefined".to_string()));
-        }
-
-        let new_entry = format!(
-            "\n\t\t\t\t\t\"{}\"\n\t\t\t\t\t{{\n\t\t\t\t\t\t\"name\"\t\t\"{}\"\n\t\t\t\t\t\t\"config\"\t\t\"\"\n\t\t\t\t\t\t\"priority\"\t\t\"250\"\n\t\t\t\t\t}}",
-            appid_str, compatibility_tool
-        );
-
-        // Insert before the closing brace
-        let insert_pos = end_pos - "\n\t\t\t\t}".len();
-        config_content.insert_str(insert_pos, &new_entry);
-    }
-
-    // Write back to file
-    std::fs::write(&config_path, config_content)
-        .map_err(|e| format!("Failed to write Steam config: {}. You may need to close Steam first.", e))?;
-
-    Ok((appid, compatibility_tool))
-}

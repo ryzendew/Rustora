@@ -173,79 +173,11 @@ fn load_material_symbols_font() -> Result<iced::Font, String> {
 // Helper function to get glyph characters
 // Using Material Symbols Unicode codepoints (Iced doesn't support ligatures like Qt)
 pub mod glyphs {
-    use iced::widget::text;
-
     // Material Symbols Unicode codepoints (Private Use Area)
-    // These are the actual Unicode characters that Material Symbols uses
-    // Note: These constants are used indirectly via the string constants below
-    #[allow(dead_code)]
-    const SEARCH_CODEPOINT: char = '\u{E8B6}';      // Material Symbols: search
-    #[allow(dead_code)]
-    const APPS_CODEPOINT: char = '\u{E5C3}';        // Material Symbols: apps
-    #[allow(dead_code)]
-    const REFRESH_CODEPOINT: char = '\u{E5D5}';     // Material Symbols: refresh
-    #[allow(dead_code)]
-    const DOWNLOAD_CODEPOINT: char = '\u{E2C4}';    // Material Symbols: download
-    #[allow(dead_code)]
-    const SETTINGS_CODEPOINT: char = '\u{E8B8}';    // Material Symbols: settings
-    #[allow(dead_code)]
-    const LIGHT_MODE_CODEPOINT: char = '\u{E518}';  // Material Symbols: light_mode
-    #[allow(dead_code)]
-    const CLOSE_CODEPOINT: char = '\u{E5CD}';       // Material Symbols: close
-    #[allow(dead_code)]
-    const CANCEL_CODEPOINT: char = '\u{E5C9}';      // Material Symbols: cancel
-    #[allow(dead_code)]
-    const EXIT_CODEPOINT: char = '\u{E879}';       // Material Symbols: exit_to_app
-    #[allow(dead_code)]
-    const DELETE_CODEPOINT: char = '\u{E872}';      // Material Symbols: delete
-
     // Get cached Material Symbols font (optimized - no reload on every call)
     pub fn material_font() -> iced::Font {
         super::get_material_symbols_font()
     }
-
-    // Helper function to create text with Material Symbols font applied
-    // Optimized: uses string constants instead of char.to_string() to avoid allocation
-    #[allow(dead_code)]
-    pub fn icon_text(icon_char: char) -> iced::widget::Text<'static> {
-        let icon_str = match icon_char {
-            SEARCH_CODEPOINT => SEARCH_SYMBOL,
-            APPS_CODEPOINT => INSTALLED_SYMBOL,
-            REFRESH_CODEPOINT => REFRESH_SYMBOL,
-            DOWNLOAD_CODEPOINT => DOWNLOAD_SYMBOL,
-            SETTINGS_CODEPOINT => SETTINGS_SYMBOL,
-            LIGHT_MODE_CODEPOINT => THEME_SYMBOL,
-            CLOSE_CODEPOINT => CLOSE_SYMBOL,
-            CANCEL_CODEPOINT => CANCEL_SYMBOL,
-            EXIT_CODEPOINT => EXIT_SYMBOL,
-            DELETE_CODEPOINT => DELETE_SYMBOL,
-            _ => SEARCH_SYMBOL, // fallback
-        };
-        text(icon_str).font(material_font())
-    }
-
-    // Convenience functions for each icon
-    // Note: These are kept for potential future use, but currently we use string constants directly
-    #[allow(dead_code)]
-    pub fn search() -> iced::widget::Text<'static> { icon_text(SEARCH_CODEPOINT) }
-    #[allow(dead_code)]
-    pub fn installed() -> iced::widget::Text<'static> { icon_text(APPS_CODEPOINT) }
-    #[allow(dead_code)]
-    pub fn refresh() -> iced::widget::Text<'static> { icon_text(REFRESH_CODEPOINT) }
-    #[allow(dead_code)]
-    pub fn download() -> iced::widget::Text<'static> { icon_text(DOWNLOAD_CODEPOINT) }
-    #[allow(dead_code)]
-    pub fn settings() -> iced::widget::Text<'static> { icon_text(SETTINGS_CODEPOINT) }
-    #[allow(dead_code)]
-    pub fn theme() -> iced::widget::Text<'static> { icon_text(LIGHT_MODE_CODEPOINT) }
-    #[allow(dead_code)]
-    pub fn close() -> iced::widget::Text<'static> { icon_text(CLOSE_CODEPOINT) }
-    #[allow(dead_code)]
-    pub fn cancel() -> iced::widget::Text<'static> { icon_text(CANCEL_CODEPOINT) }
-    #[allow(dead_code)]
-    pub fn exit() -> iced::widget::Text<'static> { icon_text(EXIT_CODEPOINT) }
-    #[allow(dead_code)]
-    pub fn delete() -> iced::widget::Text<'static> { icon_text(DELETE_CODEPOINT) }
 
     // String constants for use in format strings (using Unicode characters)
     pub const SEARCH_SYMBOL: &str = "\u{E8B6}";

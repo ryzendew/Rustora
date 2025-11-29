@@ -51,10 +51,6 @@ pub struct RepositoryInfo {
     pub metalink: Option<String>,
     pub enabled: bool,
     pub file_path: String,
-    #[allow(dead_code)]
-    pub gpgcheck: Option<bool>,
-    #[allow(dead_code)]
-    pub repo_gpgcheck: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -68,13 +64,9 @@ pub struct RepositoryDetails {
     pub gpgcheck: Option<bool>,
     pub repo_gpgcheck: Option<bool>,
     pub gpgkey: Option<String>,
-    #[allow(dead_code)]
     pub _metadata_expire: Option<String>,
-    #[allow(dead_code)]
     pub _skip_if_unavailable: Option<bool>,
-    #[allow(dead_code)]
     pub _countme: Option<String>,
-    #[allow(dead_code)]
     pub _repo_type: Option<String>,
 }
 
@@ -1742,12 +1734,6 @@ fn build_repository_info(section_id: &str, data: &HashMap<String, String>, file_
         .map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true"))
         .unwrap_or(true);
 
-    let gpgcheck = data.get("gpgcheck")
-        .map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true"));
-
-    let repo_gpgcheck = data.get("repo_gpgcheck")
-        .map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true"));
-
     Some(RepositoryInfo {
         id: section_id.to_string(),
         name,
@@ -1755,8 +1741,6 @@ fn build_repository_info(section_id: &str, data: &HashMap<String, String>, file_
         metalink,
         enabled,
         file_path: file_path.to_string(),
-        gpgcheck,
-        repo_gpgcheck,
     })
 }
 
@@ -1838,9 +1822,9 @@ fn parse_repo_details(content: &str, repo_id: &str, file_path: &str) -> Option<R
         baseurl,
         metalink,
         enabled,
-        file_path: file_path.to_string(),
         gpgcheck: data.get("gpgcheck").map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true")),
         repo_gpgcheck: data.get("repo_gpgcheck").map(|v| v.trim() == "1" || v.trim().eq_ignore_ascii_case("true")),
+        file_path: file_path.to_string(),
         gpgkey: data.get("gpgkey").cloned(),
         _metadata_expire: data.get("metadata_expire").cloned(),
         _skip_if_unavailable: data.get("skip_if_unavailable").map(|v| v.trim().eq_ignore_ascii_case("true")),

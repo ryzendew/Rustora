@@ -1,5 +1,5 @@
 use iced::widget::{button, column, container, progress_bar, row, scrollable, text, Space};
-use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme};
+use iced::{Alignment, Application, Command, Element, Length, Border, Theme as IcedTheme};
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
 use iced::widget::button::StyleSheet as ButtonStyleSheet;
@@ -32,8 +32,6 @@ pub struct FlatpakInfo {
     pub description: String,
     pub size: String,
     pub runtime: String,
-    #[allow(dead_code)]
-    pub remote: Option<String>,
     pub dependencies: Vec<String>,
 }
 
@@ -94,15 +92,6 @@ impl FlatpakDialog {
         }
 
         let settings = crate::gui::settings::AppSettings::load();
-        let title_font_size = (settings.font_size_titles * settings.scale_titles * 1.2).round();
-        let _body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
-        let _button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
-        let _icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
-
-        let body_font_size = (settings.font_size_body * settings.scale_body * 1.15).round();
-        let button_font_size = (settings.font_size_buttons * settings.scale_buttons * 1.2).round();
-        let icon_size = (settings.font_size_icons * settings.scale_icons * 1.3).round();
-
         let title_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_size = (settings.font_size_body * settings.scale_body).round();
         let button_size = (settings.font_size_buttons * settings.scale_buttons).round();
@@ -643,7 +632,6 @@ async fn load_flatpak_info(app_id: String, remote: Option<String>) -> Result<Fla
         description: if description.is_empty() { "No description available".to_string() } else { description },
         size: if size.is_empty() { "Unknown".to_string() } else { size },
         runtime: if runtime.is_empty() { "N/A".to_string() } else { runtime },
-        remote: remote.clone(),
         dependencies,
     })
 }
@@ -823,57 +811,6 @@ impl ButtonStyleSheet for CleanButtonStyle {
             appearance.background = Some(iced::Background::Color(Color::from_rgba(0.4, 0.4, 0.4, 0.3)));
         }
         appearance
-    }
-}
-
-struct CloseButtonStyle;
-
-impl ButtonStyleSheet for CloseButtonStyle {
-    type Style = iced::Theme;
-
-    fn active(&self, style: &Self::Style) -> ButtonAppearance {
-        let palette = style.palette();
-        ButtonAppearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1))),
-            border: Border {
-                radius: 8.0.into(),
-                width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
-            },
-            text_color: palette.text,
-            ..Default::default()
-        }
-    }
-
-    fn hovered(&self, _style: &Self::Style) -> ButtonAppearance {
-        let mut appearance = self.active(_style);
-        appearance.background = Some(iced::Background::Color(iced::Color::from_rgb(0.9, 0.2, 0.2)));
-        appearance.text_color = iced::Color::WHITE;
-        appearance
-    }
-}
-
-struct ButtonBarStyle;
-
-impl iced::widget::container::StyleSheet for ButtonBarStyle {
-    type Style = iced::Theme;
-
-    fn appearance(&self, style: &Self::Style) -> Appearance {
-        let palette = style.palette();
-        Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(
-                palette.background.r * 0.98,
-                palette.background.g * 0.98,
-                palette.background.b * 0.98,
-                1.0,
-            ))),
-            border: Border {
-                radius: 0.0.into(),
-                width: 0.0,
-                color: iced::Color::TRANSPARENT,
-            },
-            ..Default::default()
-        }
     }
 }
 

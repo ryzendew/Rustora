@@ -1,5 +1,5 @@
 use iced::widget::{button, column, container, progress_bar, row, scrollable, text, Space};
-use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme, Color};
+use iced::{Alignment, Application, Command, Element, Length, Border, Theme as IcedTheme, Color};
 use crate::gui::dialog_design::DialogDesign;
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;
@@ -737,57 +737,6 @@ impl ButtonStyleSheet for CleanButtonStyle {
             appearance.background = Some(iced::Background::Color(Color::from_rgba(0.4, 0.4, 0.4, 0.3)));
         }
         appearance
-    }
-}
-
-struct CloseButtonStyle;
-
-impl ButtonStyleSheet for CloseButtonStyle {
-    type Style = iced::Theme;
-
-    fn active(&self, style: &Self::Style) -> ButtonAppearance {
-        let palette = style.palette();
-        ButtonAppearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(0.5, 0.5, 0.5, 0.1))),
-            border: Border {
-                radius: 8.0.into(),
-                width: 1.0,
-                color: iced::Color::from_rgba(0.5, 0.5, 0.5, 0.3),
-            },
-            text_color: palette.text,
-            ..Default::default()
-        }
-    }
-
-    fn hovered(&self, style: &Self::Style) -> ButtonAppearance {
-        let mut appearance = self.active(style);
-        appearance.background = Some(iced::Background::Color(iced::Color::from_rgb(0.9, 0.2, 0.2)));
-        appearance.text_color = iced::Color::WHITE;
-        appearance
-    }
-}
-
-struct ButtonBarStyle;
-
-impl iced::widget::container::StyleSheet for ButtonBarStyle {
-    type Style = iced::Theme;
-
-    fn appearance(&self, style: &Self::Style) -> Appearance {
-        let palette = style.palette();
-        Appearance {
-            background: Some(iced::Background::Color(iced::Color::from_rgba(
-                palette.background.r * 0.98,
-                palette.background.g * 0.98,
-                palette.background.b * 0.98,
-                1.0,
-            ))),
-            border: Border {
-                radius: 0.0.into(),
-                width: 0.0,
-                color: iced::Color::TRANSPARENT,
-            },
-            ..Default::default()
-        }
     }
 }
 

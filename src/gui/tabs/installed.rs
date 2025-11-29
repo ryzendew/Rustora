@@ -713,23 +713,6 @@ fn format_size(bytes: u64) -> String {
     format!("{:.2} {}", size, UNITS[unit_index])
 }
 
-#[allow(dead_code)]
-async fn remove_packages(packages: Vec<String>) -> Result<(), String> {
-    let status = TokioCommand::new("sudo")
-        .arg("dnf")
-        .arg("remove")
-        .arg("-y")
-        .args(&packages)
-        .status()
-        .await
-        .map_err(|e| format!("Failed to execute dnf remove: {}", e))?;
-
-    if !status.success() {
-        return Err("Package removal failed".to_string());
-    }
-    Ok(())
-}
-
 struct PackageItemStyle {
     is_selected: bool,
     radius: f32,

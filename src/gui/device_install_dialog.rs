@@ -11,7 +11,6 @@ use tokio::process::Command as TokioCommand;
 pub enum Message {
     StartInstallation,
     InstallationProgress(String),
-    #[allow(dead_code)]
     InstallationComplete,
     InstallationError(String),
     PostInstallProgress(String),

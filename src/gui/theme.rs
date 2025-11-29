@@ -41,7 +41,6 @@ impl Theme {
         }
     }
 
-    #[allow(dead_code)]
     pub fn surface(&self) -> Color {
         match self {
             Theme::Light => Color::from_rgb(0.97, 0.97, 0.98),
@@ -114,15 +113,7 @@ impl Theme {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn accent(&self) -> Color {
-        match self {
-            Theme::Light => Color::from_rgb(0.0, 0.6, 0.4),
-            Theme::Dark => Color::from_rgb(0.3, 0.8, 0.6),
-        }
-    }
 
-    #[allow(dead_code)]
     pub fn danger(&self) -> Color {
         match self {
             Theme::Light => Color::from_rgb(0.9, 0.2, 0.2),
