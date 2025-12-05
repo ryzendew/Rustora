@@ -2138,7 +2138,7 @@ impl TweaksTab {
                                 .style(iced::theme::Text::Color(theme.secondary_text())),
                                         Space::with_height(Length::Fixed(20.0)),
                             row![
-                                create_status_item("lions/hyprland", status.repo_hyprland),
+                                create_status_item("sdegler/hyprland", status.repo_hyprland),
                             ]
                             .spacing(0)
                             .width(Length::Fill),
@@ -2252,7 +2252,7 @@ impl TweaksTab {
                                         row![
                                             text("-").size(body_font_size * 0.9).style(iced::theme::Text::Color(theme.primary())),
                                             Space::with_width(Length::Fixed(8.0)),
-                                            text("Enables COPR repository (lions/hyprland)")
+                                            text("Enables COPR repository (sdegler/hyprland)")
                                 .size(body_font_size * 0.95)
                                 .style(iced::theme::Text::Color(theme.text())),
                                         ]
@@ -3446,8 +3446,8 @@ async fn check_hyprland_status() -> Result<HyprlandStatus, String> {
     .map(|o| o.status.success())
     .unwrap_or(false);
     
-    let repo_hyprland = check_copr_repo_enabled("lions/hyprland").await 
-        || check_copr_repo_enabled("lionheartp/Hyprland").await;
+    let repo_hyprland = check_copr_repo_enabled("sdegler/hyprland").await 
+        && check_copr_repo_enabled("errornointernet/quickshell").await;
 
     Ok(HyprlandStatus {
         hyprland,

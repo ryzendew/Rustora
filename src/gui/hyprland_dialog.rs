@@ -529,7 +529,8 @@ async fn check_copr_repo_enabled(repo: &str) -> bool {
 async fn enable_copr_repos() -> Result<String, String> {
     let mut output = String::new();
     
-    let repo = "lions/hyprland";
+    // Enable sdegler/hyprland repository
+    let repo = "sdegler/hyprland";
     if check_copr_repo_enabled(repo).await {
         output.push_str(&format!("$ Repository {} is already enabled\n", repo));
         output.push_str("-------------------------------------------------------------\n");
@@ -545,18 +546,55 @@ async fn enable_copr_repos() -> Result<String, String> {
         cmd.arg("-y");
         cmd.arg(repo);
 
-        match execute_command_with_output(&mut cmd, "COPR repository lions/hyprland").await {
+        match execute_command_with_output(&mut cmd, "COPR repository sdegler/hyprland").await {
             Ok(cmd_output) => {
                 output.push_str(&cmd_output);
             }
             Err(e) => {
                 let error_lower = e.to_lowercase();
                 if error_lower.contains("chroot not found") || error_lower.contains("404") {
-                    output.push_str("[WARN] Repository lions/hyprland not available for this Fedora version\n");
+                    output.push_str("[WARN] Repository sdegler/hyprland not available for this Fedora version\n");
                     output.push_str("[INFO] This may mean the repository doesn't have a chroot for your Fedora release\n");
                     output.push_str("[INFO] Continuing anyway - quickshell-git may need to be installed manually if needed\n");
                 } else {
                     output.push_str(&format!("[WARN] Failed to enable {}: {}\n", repo, e));
+                    output.push_str("[INFO] Continuing anyway - packages may be available from other sources\n");
+                }
+            }
+        }
+    }
+
+    output.push_str("\n");
+
+    // Enable errornointernet/quickshell repository
+    let repo2 = "errornointernet/quickshell";
+    if check_copr_repo_enabled(repo2).await {
+        output.push_str(&format!("$ Repository {} is already enabled\n", repo2));
+        output.push_str("-------------------------------------------------------------\n");
+        output.push_str("[INFO] Skipping - repository already enabled\n");
+    } else {
+        output.push_str(&format!("$ pkexec dnf copr enable -y {}\n", repo2));
+        output.push_str("-------------------------------------------------------------\n");
+
+        let mut cmd = TokioCommand::new("pkexec");
+        cmd.arg("dnf");
+        cmd.arg("copr");
+        cmd.arg("enable");
+        cmd.arg("-y");
+        cmd.arg(repo2);
+
+        match execute_command_with_output(&mut cmd, "COPR repository errornointernet/quickshell").await {
+            Ok(cmd_output) => {
+                output.push_str(&cmd_output);
+            }
+            Err(e) => {
+                let error_lower = e.to_lowercase();
+                if error_lower.contains("chroot not found") || error_lower.contains("404") {
+                    output.push_str(&format!("[WARN] Repository {} not available for this Fedora version\n", repo2));
+                    output.push_str("[INFO] This may mean the repository doesn't have a chroot for your Fedora release\n");
+                    output.push_str("[INFO] Continuing anyway - quickshell-git may need to be installed manually if needed\n");
+                } else {
+                    output.push_str(&format!("[WARN] Failed to enable {}: {}\n", repo2, e));
                     output.push_str("[INFO] Continuing anyway - packages may be available from other sources\n");
                 }
             }
@@ -793,6 +831,7 @@ async fn install_applications() -> Result<String, String> {
         "firefox",
         "obs-studio",
         "steam", "lutris", "mangohud", "gamescope",
+        "khal",
     ];
 
     let to_install = filter_installed_packages(&packages).await;
