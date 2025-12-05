@@ -1,6 +1,6 @@
 # Rustora
 
-A modern, user-friendly package manager for Fedora and Nobara that makes system management actually enjoyable.
+A modern, user-friendly package manager for Fedora that makes system management actually enjoyable.
 
 ![Rustora Logo](https://raw.githubusercontent.com/ryzendew/Fedora-Forge/main/src/assets/rustora.svg)
 
@@ -87,9 +87,8 @@ And much more! See the [Usage Guide](docs/USAGE.md) for complete details.
 <details>
 <summary><strong>System Requirements</strong></summary>
 
-- **OS**: Fedora 38+ or Nobara (Fedora-based)
+- **OS**: Fedora 43
 - **Architecture**: x86_64
-- **Display**: 720p minimum (higher is better)
 
 For full dependency list, see the [Installation Guide](docs/INSTALLATION.md).
 
