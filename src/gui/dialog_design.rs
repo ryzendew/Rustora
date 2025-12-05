@@ -1,4 +1,4 @@
-use iced::{Length, Padding, Color};
+use iced::{Length, Padding};
 
 pub struct DialogDesign;
 
@@ -7,7 +7,6 @@ impl DialogDesign {
     pub const SPACE_TINY: f32 = 4.0;
     pub const SPACE_SMALL: f32 = 8.0;
     pub const SPACE_MEDIUM: f32 = 12.0;
-    pub const SPACE_LARGE: f32 = 16.0;
     
     // Padding constants
     pub const PAD_SMALL: f32 = 8.0;
@@ -25,10 +24,6 @@ impl DialogDesign {
     
     pub fn space_medium() -> Length {
         Length::Fixed(Self::SPACE_MEDIUM)
-    }
-    
-    pub fn space_large() -> Length {
-        Length::Fixed(Self::SPACE_LARGE)
     }
     
     pub fn pad_small() -> Padding {

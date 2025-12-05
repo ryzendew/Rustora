@@ -51,10 +51,6 @@ pub struct UpdateDialog {
 }
 
 impl UpdateDialog {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self::new_with_packages(Vec::new())
-    }
 
     pub fn new_with_packages(packages: Vec<String>) -> Self {
         Self {
@@ -116,7 +112,6 @@ impl UpdateDialog {
         let settings = crate::gui::settings::AppSettings::load();
         let title_size = (settings.font_size_titles * settings.scale_titles).round();
         let body_size = (settings.font_size_body * settings.scale_body).round();
-        let button_size = (settings.font_size_buttons * settings.scale_buttons).round();
         let material_font = crate::gui::fonts::get_material_symbols_font();
 
         let content = if self.is_loading_info {

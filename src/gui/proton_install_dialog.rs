@@ -11,16 +11,10 @@ use tokio::time::sleep;
 #[derive(Debug, Clone)]
 pub enum Message {
     StartDownload,
-    #[allow(dead_code)]
-    DownloadProgress(f32, String),
     DownloadComplete(Result<String, String>),
     StartExtraction,
-    #[allow(dead_code)]
-    ExtractionProgress(f32, String),
     ExtractionComplete(Result<String, String>),
     StartInstallation,
-    #[allow(dead_code)]
-    InstallationProgress(f32, String),
     InstallationComplete(Result<(), String>),
     Close,
 }
@@ -153,13 +147,6 @@ impl Application for ProtonInstallDialog {
                     |result| Message::DownloadComplete(result),
                 )
             }
-            Message::DownloadProgress(progress, message) => {
-                if let Ok(mut state) = self.progress_state.lock() {
-                    state.download_progress = progress;
-                    state.download_message = message;
-                }
-                Command::none()
-            }
             Message::DownloadComplete(result) => {
                 self.is_downloading = false;
                 match result {
@@ -187,13 +174,6 @@ impl Application for ProtonInstallDialog {
                     extract_with_progress(tar_path.to_string_lossy().to_string(), build_title, progress_state),
                     |result| Message::ExtractionComplete(result),
                 )
-            }
-            Message::ExtractionProgress(progress, message) => {
-                if let Ok(mut state) = self.progress_state.lock() {
-                    state.extraction_progress = progress;
-                    state.extraction_message = message;
-                }
-                Command::none()
             }
             Message::ExtractionComplete(result) => {
                 self.is_extracting = false;
@@ -232,13 +212,6 @@ impl Application for ProtonInstallDialog {
                     ),
                     |result| Message::InstallationComplete(result),
                 )
-            }
-            Message::InstallationProgress(progress, message) => {
-                if let Ok(mut state) = self.progress_state.lock() {
-                    state.installation_progress = progress;
-                    state.installation_message = message;
-                }
-                Command::none()
             }
             Message::InstallationComplete(result) => {
                 self.is_installing = false;

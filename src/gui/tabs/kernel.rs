@@ -34,8 +34,6 @@ pub enum Message {
     RunningKernelInfoLoaded(RunningKernelInfo, Option<String>, u32),
     StoreBranchDbAndLoadKernels(String, String, Vec<EnhancedKernelInfo>),
     SwitchView(KernelView),
-    #[allow(dead_code)]
-    OpenSchedulerConfig,
     SchedulersLoaded(Vec<ScxScheduler>, String),
     SchedulerSelected(String),
     SchedulerModeSelected(String),
@@ -125,7 +123,6 @@ pub struct EnhancedKernelInfo {
     pub version: String,
     pub description: String,
     pub installed: bool,
-    #[allow(dead_code)]
     pub branch: String,
     pub min_x86_march: u32,
 }
@@ -134,28 +131,12 @@ pub struct EnhancedKernelInfo {
 pub struct KernelDetails {
     pub name: String,
     pub version: String,
-    #[allow(dead_code)]
-    pub release: String,
-    #[allow(dead_code)]
-    pub arch: String,
-    #[allow(dead_code)]
-    pub repository: String,
-    #[allow(dead_code)]
-    pub installed: bool,
     pub summary: String,
     pub description: String,
-    #[allow(dead_code)]
-    pub size: String,
-    #[allow(dead_code)]
-    pub build_date: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct RunningKernelInfo {
-    #[allow(dead_code)]
-    pub kernel: String,
-    #[allow(dead_code)]
-    pub version: String,
     pub scheduler: String,
 }
 
@@ -548,24 +529,6 @@ impl KernelTab {
                 } else {
                     iced::Command::none()
                 }
-            }
-            Message::OpenSchedulerConfig => {
-                self.current_view = KernelView::Scheduler;
-                iced::Command::perform(
-                    async {
-                        let (schedulers, current_info) = tokio::join!(
-                            load_scx_schedulers(),
-                            get_running_kernel_info()
-                        );
-                        (schedulers, current_info.scheduler)
-                    },
-                    |result| match result {
-                        (Ok(schedulers), current) => {
-                            Message::SchedulersLoaded(schedulers, current)
-                        }
-                        _ => Message::Error(()),
-                    }
-                )
             }
             Message::SchedulersLoaded(schedulers, current) => {
                 self.scx_schedulers = schedulers;
@@ -1582,24 +1545,6 @@ impl KernelTab {
     }
 }
 
-#[allow(dead_code)]
-fn create_info_badge<'a>(label: &'a str, value: &'a str, theme: &'a crate::gui::Theme, settings: &'a crate::gui::settings::AppSettings) -> Element<'a, Message> {
-    container(
-        column![
-            text(label)
-                .size(12)
-                .style(iced::theme::Text::Color(iced::Color::from_rgba(0.7, 0.7, 0.7, 1.0))),
-            text(value)
-                .size(16)
-                .style(iced::theme::Text::Color(theme.primary_with_settings(Some(settings)))),
-        ]
-        .spacing(4)
-    )
-    .padding(Padding::from([10.0, 16.0, 10.0, 16.0]))
-    .style(iced::theme::Container::Custom(Box::new(InfoBadgeStyle)))
-    .into()
-}
-
 // Load kernel branches from JSON files (same way as fedora-kernel-manager)
 async fn load_kernel_branches() -> Result<Vec<KernelBranch>, String> {
     // Try system directory first (same as original)
@@ -1974,8 +1919,6 @@ async fn get_running_kernel_info() -> RunningKernelInfo {
     let scheduler = get_current_scheduler(&version).await;
 
     RunningKernelInfo {
-        kernel,
-        version,
         scheduler,
     }
 }
@@ -2056,107 +1999,6 @@ async fn get_current_scheduler(version: &str) -> String {
 }
 
 // Removed get_installed_packages - we now use rpm -q directly for each package (same as original)
-
-#[allow(dead_code)]
-async fn search_repo_kernels(
-    existing_packages: &std::collections::HashSet<String>,
-    cpu_feature_level: u32,
-    branch_name: &str,
-) -> Vec<EnhancedKernelInfo> {
-    // Search repositories for kernel packages
-    let output = match TokioCommand::new("dnf")
-        .args(["search", "--quiet", "--showduplicates", "kernel"])
-        .output()
-        .await
-    {
-        Ok(o) if o.status.success() => o,
-        _ => return Vec::new(),
-    };
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut kernel_packages = Vec::new();
-
-    for line in stdout.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with("Matched fields:") || line.starts_with("Importing") {
-            continue;
-        }
-
-        // Parse dnf search output: "package.arch : description" or "package.arch<TAB>description"
-        let pkg_name = if let Some(colon_pos) = line.find(" : ") {
-            line[..colon_pos].trim()
-        } else if let Some(tab_pos) = line.find('\t') {
-            line[..tab_pos].trim()
-        } else {
-            continue;
-        };
-
-        // Extract package name (remove .arch suffix)
-        let pkg_name = pkg_name.split('.').next().unwrap_or(pkg_name).trim();
-
-        // Skip if already in branch database
-        if existing_packages.contains(pkg_name) {
-            continue;
-        }
-
-        // Skip headers packages
-        if pkg_name.contains("kernel-headers") ||
-           pkg_name.contains("headers") ||
-           pkg_name.contains("kernel-devel") ||
-           pkg_name.contains("kernel-debug") ||
-           pkg_name.contains("kernel-core") ||
-           pkg_name.contains("kernel-modules") ||
-           pkg_name.contains("kernel-modules-extra") {
-            continue;
-        }
-
-        // Only include packages that start with "kernel-" (main kernel packages)
-        if !pkg_name.starts_with("kernel-") {
-            continue;
-        }
-
-        // Check if installed
-        let installed = {
-            let check_output = TokioCommand::new("rpm")
-                .args(["-q", pkg_name])
-                .output()
-                .await;
-            check_output.map(|o| o.status.success()).unwrap_or(false)
-        };
-
-        // Get version and description
-        let version = get_package_version(pkg_name).await.unwrap_or_else(|_| "Unknown".to_string());
-        let description = get_package_description(pkg_name).await.unwrap_or_else(|_| "No description".to_string());
-
-        // Extract kernel name from package (e.g., "kernel-6.8.0" -> "6.8.0")
-        let kernel_name = if let Some(stripped) = pkg_name.strip_prefix("kernel-") {
-            format!("kernel-{}", stripped)
-        } else {
-            pkg_name.to_string()
-        };
-
-        kernel_packages.push(EnhancedKernelInfo {
-            name: kernel_name.clone(),
-            main_package: pkg_name.to_string(),
-            packages: format!("{} kernel-headers-{}", pkg_name,
-                if let Some(ver) = pkg_name.strip_prefix("kernel-") {
-                    ver
-                } else {
-                    ""
-                }),
-            version,
-            description,
-            installed,
-            branch: format!("{} (from repos)", branch_name),
-            min_x86_march: 1, // Default to v1, will be filtered if needed
-        });
-    }
-
-    // Filter by CPU feature level
-    kernel_packages.retain(|k| k.min_x86_march <= cpu_feature_level);
-
-    kernel_packages
-}
 
 async fn get_package_version(package: &str) -> Result<String, String> {
     let script_path = PathBuf::from("/usr/lib/fedora-kernel-manager/scripts/generate_package_info.sh");
@@ -2253,14 +2095,8 @@ async fn load_kernel_details(kernel_name: String) -> KernelDetails {
 
     let mut name = kernel_name.clone();
     let mut version = String::new();
-    let mut release = String::new();
-    let mut arch = String::new();
-    let mut repository = String::new();
     let mut summary = String::new();
     let mut description = String::new();
-    let mut size = String::new();
-    let mut build_date = None;
-    let mut installed = false;
 
     if let Ok(output) = output {
         if output.status.success() {
@@ -2270,19 +2106,8 @@ async fn load_kernel_details(kernel_name: String) -> KernelDetails {
                     name = line.split(':').nth(1).unwrap_or("").trim().to_string();
                 } else if line.starts_with("Version     :") {
                     version = line.split(':').nth(1).unwrap_or("").trim().to_string();
-                } else if line.starts_with("Release     :") {
-                    release = line.split(':').nth(1).unwrap_or("").trim().to_string();
-                } else if line.starts_with("Architecture:") {
-                    arch = line.split(':').nth(1).unwrap_or("").trim().to_string();
-                } else if line.starts_with("Repository  :") {
-                    repository = line.split(':').nth(1).unwrap_or("").trim().to_string();
-                    installed = repository == "@System";
                 } else if line.starts_with("Summary     :") {
                     summary = line.split(':').nth(1).unwrap_or("").trim().to_string();
-                } else if line.starts_with("Size        :") {
-                    size = line.split(':').nth(1).unwrap_or("").trim().to_string();
-                } else if line.starts_with("Build Date  :") {
-                    build_date = Some(line.split(':').nth(1).unwrap_or("").trim().to_string());
                 } else if line.starts_with("Description :") {
                     description = line.split(':').nth(1).unwrap_or("").trim().to_string();
                 } else if line.starts_with("            ") && !description.is_empty() {
@@ -2296,14 +2121,8 @@ async fn load_kernel_details(kernel_name: String) -> KernelDetails {
     KernelDetails {
         name,
         version,
-        release,
-        arch,
-        repository,
-        installed,
         summary: if summary.is_empty() { "No summary available".to_string() } else { summary },
         description: if description.is_empty() { "No description available".to_string() } else { description },
-        size: if size.is_empty() { "Unknown".to_string() } else { size },
-        build_date,
     }
 }
 
@@ -2533,26 +2352,6 @@ impl iced::widget::container::StyleSheet for CpuBadgeStyle {
         Appearance {
             background: Some(iced::Color::from_rgba(0.9, 0.6, 0.2, 0.2).into()),
             border: Border::with_radius(self.radius * 0.25),
-            ..Default::default()
-        }
-    }
-}
-
-#[allow(dead_code)]
-struct InfoBadgeStyle;
-impl iced::widget::container::StyleSheet for InfoBadgeStyle {
-    type Style = iced::Theme;
-
-    fn appearance(&self, style: &Self::Style) -> Appearance {
-        let palette = style.palette();
-        let is_dark = palette.background.r < 0.5;
-        Appearance {
-            background: Some(if is_dark {
-                iced::Color::from_rgba(0.15, 0.15, 0.15, 1.0).into()
-            } else {
-                iced::Color::from_rgba(0.97, 0.97, 0.98, 1.0).into() // Softer container
-            }),
-            border: Border::with_radius(6.0),
             ..Default::default()
         }
     }

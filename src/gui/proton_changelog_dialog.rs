@@ -1,5 +1,5 @@
 use iced::widget::{button, column, container, row, scrollable, text, Space};
-use iced::{Alignment, Application, Command, Element, Length, Padding, Border, Theme as IcedTheme, Color};
+use iced::{Alignment, Application, Command, Element, Length, Border, Theme as IcedTheme, Color};
 use crate::gui::dialog_design::DialogDesign;
 use iced::widget::container::Appearance;
 use iced::widget::button::Appearance as ButtonAppearance;

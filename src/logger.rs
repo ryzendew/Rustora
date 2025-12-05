@@ -1,6 +1,6 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use chrono::Local;
 
@@ -8,7 +8,6 @@ static LOGGER: Mutex<Option<Logger>> = Mutex::new(None);
 
 pub struct Logger {
     log_file: File,
-    log_path: PathBuf,
 }
 
 impl Logger {
@@ -55,7 +54,6 @@ impl Logger {
         // Write initial log entry
         let mut logger = Logger {
             log_file,
-            log_path: log_path.clone(),
         };
         
         logger.write_log(&format!(

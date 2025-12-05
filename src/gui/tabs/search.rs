@@ -524,103 +524,6 @@ async fn search_packages(query: String) -> Result<Vec<PackageInfo>, String> {
     Ok(packages)
 }
 
-#[allow(dead_code)]
-async fn load_package_details(package_name: String) -> Result<PackageInfo, String> {
-    let output = tokio::process::Command::new("dnf")
-        .args(["info", &package_name])
-        .output()
-        .await
-        .map_err(|e| format!("Failed to execute dnf: {}", e))?;
-
-    if !output.status.success() {
-        return Err(format!("Failed to read package info: {}", String::from_utf8_lossy(&output.stderr)));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut info = PackageInfo {
-        name: package_name.clone(),
-        description: String::new(),
-        version: String::new(),
-        release: String::new(),
-        arch: String::new(),
-        summary: String::new(),
-        size: String::new(),
-    };
-
-    let mut description_lines = Vec::new();
-    let mut in_description = false;
-
-    for line in stdout.lines() {
-        let line = line.trim();
-        if line.starts_with("Name") && line.contains(':') {
-            let name = line.splitn(2, ':').nth(1).unwrap_or("").trim();
-            if !name.is_empty() {
-                info.name = name.to_string();
-            }
-            in_description = false;
-        } else if line.starts_with("Version") && line.contains(':') {
-            info.version = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
-            in_description = false;
-        } else if line.starts_with("Release") && line.contains(':') {
-            info.release = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
-            in_description = false;
-        } else if line.starts_with("Architecture") && line.contains(':') {
-            info.arch = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
-            in_description = false;
-        } else if line.starts_with("Summary") && line.contains(':') {
-            info.summary = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
-            in_description = false;
-        } else if (line.starts_with("Installed size") || line.starts_with("Download size") || line.starts_with("Size")) && line.contains(':') {
-            let size_str = line.splitn(2, ':').nth(1).unwrap_or("").trim();
-            if line.starts_with("Installed size") || info.size.is_empty() {
-                if let Ok(size_bytes) = parse_size(size_str) {
-                    info.size = format_size(size_bytes);
-                } else {
-                    info.size = size_str.to_string();
-                }
-            }
-            in_description = false;
-        } else if line.starts_with("Description") && line.contains(':') {
-            in_description = true;
-            let desc = line.splitn(2, ':').nth(1).unwrap_or("").trim();
-            if !desc.is_empty() {
-                description_lines.push(desc.to_string());
-            }
-        } else if in_description {
-            if line.starts_with("               :") {
-                let desc_cont = line.trim_start_matches("               :").trim();
-                if !desc_cont.is_empty() {
-                    description_lines.push(desc_cont.to_string());
-                }
-            } else if line.contains(':') {
-                let field_name = line.split(':').next().unwrap_or("").trim();
-                let known_fields = ["URL", "License", "Vendor", "Source", "Repository", "Epoch"];
-                if known_fields.iter().any(|&f| field_name.starts_with(f)) ||
-                   (field_name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) &&
-                    field_name.len() < 20 &&
-                    !field_name.eq_ignore_ascii_case("description")) {
-                    in_description = false;
-                } else {
-                    description_lines.push(line.to_string());
-                }
-            } else {
-                description_lines.push(line.to_string());
-            }
-        }
-    }
-
-    info.description = description_lines.join(" ").trim().to_string();
-    if info.description.is_empty() {
-        info.description = info.summary.clone();
-    }
-    if info.summary.is_empty() && !info.description.is_empty() {
-        let summary_len = info.description.len().min(100);
-        info.summary = info.description[..summary_len].to_string();
-    }
-
-    Ok(info)
-}
-
 fn parse_size(size_str: &str) -> Result<u64, ()> {
     let size_str = size_str.trim();
     let parts: Vec<&str> = size_str.split_whitespace().collect();
@@ -753,25 +656,6 @@ impl TextInputStyleSheet for RoundedTextInputStyle {
 
     fn selection_color(&self, style: &Self::Style) -> iced::Color {
         style.palette().primary
-    }
-}
-
-#[allow(dead_code)]
-struct ButtonContainerStyle;
-
-#[allow(dead_code)]
-impl iced::widget::container::StyleSheet for ButtonContainerStyle {
-    type Style = iced::Theme;
-
-    fn appearance(&self, _style: &Self::Style) -> Appearance {
-        Appearance {
-            border: Border {
-                radius: 16.0.into(),
-                width: 0.0,
-                color: iced::Color::TRANSPARENT,
-            },
-            ..Default::default()
-        }
     }
 }
 
