@@ -4,9 +4,8 @@ Complete installation instructions for Rustora on Fedora and Nobara systems.
 
 ## Prerequisites
 
-- **OS**: Fedora 38+ or Nobara (Fedora-based)
+- **OS**: Fedora 43
 - **Architecture**: x86_64
-- **Display**: 720p minimum (higher is better)
 
 ## Install Dependencies
 
