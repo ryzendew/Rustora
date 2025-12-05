@@ -16,8 +16,8 @@ Think of it as your system's control center - you can search and install package
 
 ```bash
 # Clone the repo
-git clone https://github.com/ryzendew/Fedora-Forge.git
-cd Fedora-Forge
+git clone https://github.com/ryzendew/Rustora.git
+cd Rustora
 
 # Run the install script
 ./build-and-install.sh
